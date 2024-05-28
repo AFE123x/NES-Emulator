@@ -1,3 +1,0 @@
-﻿  AFE6502.cpp
-main.obj : error LNK2005: main already defined in binmaker.obj
-C:\Users\AFE123x\source\repos\NES Emulator\x64\Debug\NES Emulator.exe : fatal error LNK1169: one or more multiply defined symbols found
