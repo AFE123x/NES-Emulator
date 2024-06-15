@@ -1,55 +1,63 @@
-#ifndef CPU_H
-#define CPU_H
-#include "./mainbus.h"
-// defining some condition flag macros;
+#pragma once
+#include <cstdint>
+
 /*
-+---------- N: NEGATIVE
-|+--------- V: Overflow
-||+-------- B: Unused
-|||+------- B: The B flag
+condition flags
++-- N: Negative
+|+-- V: Overflow
+||+-- U: Unused
+|||+-- B: The B Flag
 ||||
 00000000
     ||||
-    |||+--- C: Carry flag
-    ||+---- Z: Zero flag
-    |+----- I: Interrupt Disable
-    +------ D: Decimal (Not used in NES)
-
+    |||+-- C: Carry
+    ||+-- Z: Zero
+    |+-- I: Interrupt Disable
+    +-- D: Decimal
 */
-#define NEGATIVE 0b10000000
-#define OVERFLOW 0b01000000
-#define BFLAG 0b00010000
-#define DECIMAL 0b00001000
-#define INTERRUPT_DISABLE 0b00000100
-#define ZERO 0b00000010
-#define CARRY 0b00000001
+#define NEGATIVE_FLAG 0b10000000
+#define OVERFLOW_FLAG 0b01000000
+#define BREAK_FLAG 0b00010000
+#define DECIMAL_FLAG 0b00001000
+#define INTERRUPT_FLAG 0b00000100
+#define ZERO_FLAG 0b00000010
+#define CARRY_FLAG 0b00000001
 
-class CPU
-{
+class BUS;
+class CPU {
 public:
-    CPU(mainbus bus);
-    ~CPU();
+  CPU(BUS *bus);
+  ~CPU();
+  void execute();
+
 private:
-    uint8_t fetch();
-    uint8_t get_flag(char flag);
-    void set_flag(char flag, bool enable);
-    mainbus* bus;
-    // registers
-    uint16_t PC;            // program counter
-    uint8_t SP;             // stack pointer
-    uint8_t A;              // accumulator register
-    uint8_t X;              // X register
-    uint8_t Y;              // Y register
-    uint8_t Register_flags; // register flags
+  // our lovely registers
+  uint16_t PC;    // program counter
+  uint8_t SP;     // stack pointer
+  uint8_t A;      // accumulator
+  uint8_t X;      // X register
+  uint8_t STATUS; // status register
+  BUS *bus;
 
-    // our instruction
-    typedef struct
-    {
-        uint8_t (*addressing_mode)();
-        void (*instruction)(uint8_t data);
-        uint8_t bytes;
-        uint8_t cycles;
+  // helper variables
+  uint8_t cycles;
+  uint8_t opcode;
+  uint16_t addrmode;
 
-    } instruction_t;
+  // status flag functions
+  uint8_t get_flag(char flag);
+  void set_flag(char flag, bool set);
+  // instruction struct
+  typedef struct instructions {
+    uint8_t (*addressing_mode)(void);
+    void (*instruction)(void);
+    uint8_t clock_cycles;
+    uint8_t bytes;
+  };
+
+  //interrupt stuff
+  void interrupt();
+  //clock stuff
+  void tick();
+
 };
-#endif
