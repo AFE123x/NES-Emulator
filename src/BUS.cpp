@@ -10,5 +10,9 @@ BUS::~BUS() {
   delete[] ram;
   std::cout << "BUS deleted" << std::endl;
 }
-void BUS::read(uint16_t address, bool readonly) {}
-void BUS::write(uint16_t address, uint8_t byte) {}
+uint8_t BUS::read(uint16_t address, bool readonly) {
+
+}
+void BUS::write(uint16_t address, uint8_t byte) {
+
+}

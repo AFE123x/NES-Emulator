@@ -5,7 +5,7 @@ class BUS {
 public:
   BUS();
   ~BUS();
-  void read(uint16_t address, bool readonly = 1);
+  uint8_t read(uint16_t address, bool readonly = true);
   void write(uint16_t address, uint8_t byte);
 
 private:

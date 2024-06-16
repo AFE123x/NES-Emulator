@@ -4,10 +4,10 @@
 #include <thread>
 CPU::CPU(BUS *bus) {
   this->bus = bus;
-  SP = 0xFF;
+  RESET();
 }
-CPU::~CPU() {}
-void CPU::execute() {}
+CPU::~CPU() { std::cout << "It's joever" << std::endl; }
+void CPU::execute() { tick(); }
 
 //===================clock cycle track thing====================
 /**
@@ -129,68 +129,266 @@ void CPU::set_flag(char flag, bool set) {
 }
 
 //========================== interrupt mode ======================
-void CPU::interrupt(){
-    if(get_flag('I')){
-        return;
-    }
-    uint8_t hi = (uint8_t)(PC >> 8);
-    uint8_t lo = (uint8_t)PC;
 
-    //stored in order to respect endianness
-    this->bus->write(0x0100 + SP--,hi);
-    this->bus->write(0x1000 + SP--,lo);
-    this->bus->write(0x1000 + SP--,STATUS);
+/**
+ * @brief Implementation of Maskable interrupt.
+ *
+ * - interrupt will be ignored if interrupt disable is set.
+ * - pushes PC and status register to stack, and store
+ *   address of interrupt handling routine from address
+ *   FFFE and FFFF into PC
+ *
+ * @note Interrupt disable flag is set here, unless it's already set
+ *
+ * @todo figure out the "triggering of a NMI can be prevented if bit
+ * 7 of PPU Control Register 1 ($2000) is clear."
+ **/
+void CPU::IRQ() {
+  if (get_flag('I')) {
+    return;
+  }
+  uint8_t hi = (uint8_t)(PC >> 8);
+  uint8_t lo = (uint8_t)PC;
+
+  // stored in order to respect endianness
+  this->bus->write(0x0100 + SP--, hi);
+  this->bus->write(0x0100 + SP--, lo);
+  this->bus->write(0x0100 + SP--, STATUS);
+  set_flag('I', true);
+  lo = this->bus->read(0xFFFE);
+  hi = this->bus->read(0xFFFF);
+  PC = (hi << 8) | lo;
+  cycles = 7;
 }
-/*
-?!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!^::^!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!?
-7~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~....~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!!!!!:...~!!!!!!!!~~~~~~~~~~~~~~:::^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~:.:~~~~~~~~!7???7!~^^^^:..:^^^~!7?JYY??77!!!!~~~^....:~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~:..:~!!!7JY55P5!^::...::....::^~~~7PY~:::::^~~!~....:~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~:...~~~!!!!JP555557~~~~^...^~~!7JY5555YJ7~::::::..:~!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!^...:::!?Y5PPP55J7~~~~!^..^~~~~~~~!!!!!!!!~~^.....:!!77!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!~::..:~~~!7?????7!~~~~~~~~^~~~~~~~~~~~~~~~~~~^...:^~^...!YJ7!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~~~~~~~~~~!?!~~~:.:~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^~~~~~~7^.~PP5?!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~!~~~~~~~!J55Y7~~^.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!!~~~~~~75YYY!7YY!!~~!~~~~~~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~^^~~~!~~^7P5J!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!J55^ .~!!!~^:::~~~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~:...:^~:^?7!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!~~~~~!7?~:..::....^~~~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~^.....^!~~~!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!~~~~~~~~~~~!~~~~~~~!~:....:~~~~~~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~!~:..:~~~!!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!~~~~~~~~~~~!!~~~~~:....:.^!!~~~~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~^:~~~~~!!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!!~~~~~~!!~~!~~~~~:::^~!^:.^!~~~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~^~~~~~!!~~~~~~~~~~~~~~~~~~~~~!!~~~~~~~~~~~~~~~:~~~~~~~~!!~~!!!!~~~~!~~~~~!!!!!!!^.~!~~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~!!~~~~!!~~~~~~~~~~~~~~~~~~~~~!!~~~~~~~~~~~~~~!^.:!!!!!!!!!!!!!!!!~~~!!~~~~!!~~~!!!~!!~~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~!~~~~~!~~~~~~~~~~~~~~~~~~~~~~!!~~~~~~~~~~~~~~!:::^!~~~!!!!!!!!!!!!!~~!!~~~~!!~~~!!~~!!~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~!!~~~~!!~~~~~~~~~~~~~~~~~~~~~!!~~~~~~~~~~~~~~!~::::^!~~!!!!!!~~~~~~~~~~!~~~~~!!~~!!~!!!!~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~!~~~~~!~~~~~~~~~~~~~~~~~~~~~~!!~~~~~~~~~~~~~~!::::::^!!!!~~~!!~~~~~~~~~!!!!!!!!!~!!!!~~!!~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~!!~~~~!!~~~~~~~~~~!~~~~~~~~~~!!~~~~~~~~~~~~~~!~:::::::^!!~~~~~!!~~~~~~~~!!!!~!!!!!!!~~~~!!~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~!~~~~~!!~~~~~~~~~~!~~~~~~~~~~!!~~~~~~~~~~~~~~!^:::::::::~!~~~~!!~~~~~~~~~!!!~~~~!!!!~~~!!!~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~!!~~~~~!!~~~~~~~~~!!~~~~~~~~~~!!~~~~~~~~~~~~~~!:::::::::::~!!~~~!!~~~~~~~~!!!!!!!!!!!!!!!!!~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~!!~~~~~!~~~~~~~~~~!~~~~~~~~~~~!~~~~~~~~~~~~~~!~:::::::::::::~!~~!!~~~~~~~~!!!!!!!~!!~~!!!!!~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~!!~~~~~!~~~~~~~~~~!~~~~~~~~~~~!~~~~~~~~~~!~~~!~:^::::::::::::^~!!!~~~~~~~~!!~~!!!~!!!~~~!!!~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~!!~~~~~!!~~~~~~~~!!~~~~~~~~~~~!~~~~~~~~~~!~~~!^::::::::::::::::^~!~~~~~~~~!!~!!!~~!!!!~~~!!~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~!!~~~~~!!~!~~~~~~!!~~~~~~~~~~~!~~~~~~~~~!!~~~!::::::::::::::::::.~!~~~~~~~!!~!!!~~!!!!!~~!!~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~!~~~~~!!!!~~~~~~~!~~~~~~~~~~~!~~~~~~~~~!!~~!~:::::::::::::::::::~!~~~~~~~!!~!!!!!!!~!!!!!~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~!~~~~~!!!!~~~~~~~!~~~~~~~~~~~!~~~~~~~~~!!~~!^:::::..::::::::::::~!~~~~~~~!~~~~!~~!!~!!~!!~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~!!~~~~~!!!~~~~~~~!!~~~~~~~~~~!~~~~~~~~~!!~~!^::^~7!~^^:::..:::::~!~~~!!~!~::::^!~!!~~!!!!~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~!~~~~~!!!!~~~~~~!!~~~~~~~~~~!!~~~~~~~~!!~~!^!YJYY5555YJ??!:::::~!~~~!!~!^:::::^~!!!~!!!~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~!!~~~~~!~!~~~~~~~!~~~~~~~~~~!!~~~~~~~~!!~~!^^:^??JJJJY?^~7!::::~~~~~!~~~:::::::~~!!~~!!~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~!~~~~~!!!!~~~~~~!!~~~~~~~~~!!~~~~~~~~!!~~!:::^Y??YY7?J^::^^:::!~~~~!~!^::::::^!~!!~!!!~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~!!~~~~~!!!!~~~~~~!!~~~~~~~~~!~~~~~~~~~!~~~::::7?!!!!~7:::::::^!~~~!!~~:::::::~!~!!~!!!~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~!!~~~~~!~!~~~~~~~!!~~~~~~~~!!~~~~~~~~!~~~:::::~!!!!^::::::::~!~~~!~~^:::::^~!!~!!!~~!!~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~~!!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^:::::.:::::::::::::~~~~!!!^:::::^~~!~!!!~~~!!~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~~~!!~~~!~~~~~~:::::::::::::::::::::::::::::::::::::::::::::^~~~~~~^::::^~~~!!~!!~~~~!!~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~~~~!!~~!!~~~~~^::::::::::::::::::::::::::::::::::::::::::::::::::^^^^~~~~~~!!!!!~~~~!!!~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~~~~~~!!~!!~~~~~:::::::::::::::::::::::::::::::::::::::::::::::::~~~~~~~~!~!!!!!!~~~~~!!~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~~~~~~~!!!~!!~~~~::::::::::::::::::::::::::::::::::::::::::::::^~~~~~~~~!!!!~~!!!~~~~~!!~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~~~~~~~~~!!!!!!~~~^:::::::::::::::::::::::::::::::::::::::::::^~~~~~!!~~!~~~~~!!~~~~~~!!~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!!!!!!~~^:::::::::::::::::::::::::::::::::::::::^~!~~~!!~!!!!~~~~!!!~~~~~~!!~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!!!!!~~::::::::::::::::::::::::::::::::::^^~!!!!!!~~~~~!!~~~~!!~~~~~~~!!~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!!!!~~^:::::::::::::::::::::::::::^~~!!!!!!~~~~~~~~~~~~~!!!~~~~~~!!!~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!!!!~^::::::::::::::::::::::^!~~^^^^~~~~~~~~~~~~~~~~!!~~~~~~~!!~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~~!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^...::::::::::::::::::::^^:.....^~~~~~~~~~~~~~~!!!~~~~~~~!!~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~~^^^~~!~~~~~~~~~~~~~~~~~~~~~:........::::::::::::::::::.........^~~~~~~~~~~~~~~!!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~:....:^^:..:^~~~~~~~~~~~~~~~:.......:...:::::::::::::..........^~~~~~~~~~~~~~~!!~~~~~~~!~~~~^~~~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~~.............^~~~~~~~~~~~~~~~:............:::::....:..........^~~~~~~~~~~~~~~~~~~^:...^^::....^~~~~~~~~~~~~~~~7
-7~~~~~~~~~~~~^..............:~~~~~~~~~~~~~~^.............::................:~~~~~~~~~~~~~~~~~~:.............:~~~~~~~~~~~~~~~7
-?!!!!!!!!!!!!~:::::::::::::::::^^~!!!!!!!!~^:::::::::::::::::::::::::::::::::^~!!!!!!!!!!~~~~:::::::::::::::^!!!!!!!!!!!!!!!?
-*/
+
+/**
+ * @brief Non-Maskable interrupts.
+ *
+ * -This is similar to maskable interrupts, but will
+ *  still execute, even if the interrupt disable flag
+ *  is still enabled.
+ *
+ **/
+void CPU::NMI() {
+  uint8_t hi = (uint8_t)(PC >> 8);
+  uint8_t lo = (uint8_t)PC;
+
+  // stored in order to respect endianness
+  this->bus->write(0x0100 + SP--, hi);
+  this->bus->write(0x0100 + SP--, lo);
+  this->bus->write(0x0100 + SP--, STATUS);
+  set_flag('I', true);
+  lo = this->bus->read(0xFFFA);
+  hi = this->bus->read(0xFFFB);
+  PC = (hi << 8) | lo;
+  cycles = 7;
+}
+
+void CPU::RESET() {
+  A = X = STATUS = Y = opcode = 0;
+  SP = 0xFD;
+  set_flag('I', true);
+  uint8_t lo = this->bus->read(0xFFFC);
+  uint8_t hi = this->bus->read(0xFFFD);
+  PC = (hi << 8) | lo;
+  cycles = 7;
+}
+
+//====================addressing modes=======================
+
+/**
+ * @brief - Zero Page Addressing mode.
+ *
+ * This addressing mode will read one byte from the
+ * program and go to the address specified. possible
+ * range: 0x0000-0x00FF
+ * @return 0, for number of additional clock cycles.
+ *
+ */
+uint8_t CPU::ZP() {
+  addr_abs = bus->read(PC++);
+  addr_abs &= 0x00FF;
+  return 0;
+}
+
+/**
+ * @brief - Zero Page Addressing with X offset
+ *
+ * This will read address from program, but will
+ * add the value from the X register to it.
+ * @return additional clock cycles
+ *
+ **/
+uint8_t CPU::ZPX() {
+  addr_abs = bus->read(PC++);
+  addr_abs += X;
+  addr_abs &= 0x00FF;
+  return 0;
+}
+
+/**
+ * @brief The Zero Page addressing with Y offset
+ * This will read address from program, and add
+ * the value stored in the Y register.
+ * @return 0, which indicates how many additional clock cycles.
+ *
+ **/
+uint8_t CPU::ZPY() {
+  addr_abs = bus->read(PC++);
+  addr_abs += Y;
+  addr_abs &= 0x00FF;
+  return 0;
+}
+
+/**
+ * @brief Absolute addressing mode
+ * This will read two bytes from your program.
+ * and read from that address.
+ * @return additional clock cycles, always 0.
+ *
+ **/
+uint8_t CPU::ABS() {
+  uint8_t lo = bus->read(PC++);
+  uint8_t hi = bus->read(PC++);
+  addr_abs = (hi << 8) | lo;
+  return 0;
+}
+
+/**
+ * @brief Absolute addressing with X offset
+ *
+ * This will read two bytes from your program,
+ * then add X to the absolute address.
+ * @return additional clock cycles, if page's
+ * crossed.
+ *
+ **/
+uint8_t CPU::ABX() {
+  uint8_t lo = bus->read(PC++);
+  uint8_t hi = bus->read(PC++);
+  addr_abs = (hi << 8) | lo;
+  addr_abs += X;
+  if ((addr_abs & 0xFF00) != (hi << 8)) {
+    return 1;
+  }
+  return 0;
+}
+
+/**
+ * @brief Absolute Adressing with Y offset
+ *
+ * This will read two bytes from your program,
+ * then add Y to the absolute address
+ *
+ * @return additional clock cycles, 1 if page
+ * crossed.
+ *
+ **/
+uint8_t CPU::ABY() {
+  uint8_t lo = bus->read(PC++);
+  uint8_t hi = bus->read(PC++);
+  addr_abs = (hi << 8) | lo;
+  addr_abs += Y;
+  if ((addr_abs & 0xFF00) != (hi << 8)) {
+    return 1;
+  }
+  return 0;
+}
+
+/**
+ * @brief Indirect addressing mode
+ *
+ * This will read the address, temp, from the program.
+ * It will then read the address, addr_abs, from temp
+ * address.
+ * @return additional clock cycles, always 0.
+ *
+ **/
+uint8_t CPU::IND() {
+  uint8_t lo = bus->read(PC++);
+  uint8_t hi = bus->read(PC++);
+  uint16_t tmp_adr = (hi << 8) | lo;
+  lo = bus->read(tmp_adr);
+  hi = bus->read(tmp_adr + 1);
+  addr_abs = (hi << 8) | lo;
+  return 0;
+}
+
+/**
+ * @brief implied addressing mode
+ *
+ * Nothing has to be done here, no need for addressing
+ * @return additional clock cycles, 0.
+ *
+ **/
+uint8_t CPU::IMP() { return 0; }
+
+/**
+ * @brief Accumulator addressing mode
+ * will simply act directly on the accumulator
+ * @todo something, maybe?
+ * @return additional clock cycles, 0.
+ *
+ **/
+uint8_t CPU::ACC() { return 0; }
+/**
+ * @brief immediate addressing mode
+ * We'll just read the byte from the program.
+ * @return additional clock cycles, 0.
+ *
+ */
+uint8_t CPU::IMM() {
+  addr_abs = PC++;
+  return 0;
+}
+
+/**
+ * @brief Relative addressing mode
+ * Provide a relative address, mainly
+ * for jmp instructions.
+ * @return additional clockcycles, which will always be 0.
+ *
+ **/
+uint8_t CPU::REL() {
+  addr_rel = bus->read(PC++);
+  if (addr_rel & 0x80) {
+    addr_rel |= 0xFF00;
+  }
+  return 0;
+}
+
+/**
+ * @brief Indirect addressing mode with X offset
+ * Will get the address from Program, add X to this
+ * address, then get the address from program + x.
+ * @return addional clock cycles, which will be 0
+ *
+ */
+uint8_t CPU::IDX() {
+  uint8_t temp_address = bus->read(PC++);
+  temp_address += X;
+  uint8_t lo = bus->read(temp_address) && 0xFF;
+  uint8_t hi = bus->read(temp_address + 1) && 0xFF;
+  addr_abs = (hi << 8) | lo;
+  return 0;
+}
+
+/**
+ * @brief Indirect Addressing Mode with Y offset.
+ *
+ * Will get the address from Program, add Y, get
+ * address from newly computated address.
+ * @return additional clock cycles, 1 if page cross.
+ *
+ **/
+uint8_t CPU::IDY() {
+  uint8_t temp_address = bus->read(PC++);
+  uint8_t lo = bus->read(temp_address) && 0xFF;
+  uint8_t hi = bus->read(temp_address + 1) && 0xFF;
+  addr_abs = (hi << 8) | lo;
+  addr_abs += Y;
+  if ((addr_abs & 0xFF00) != (hi << 8)) {
+    return 1;
+  }
+  return 0;
+}
