@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
-
+#include <vector>
+#include <string>
 /*
 condition flags
 +-- N: Negative
@@ -45,17 +46,24 @@ private:
   uint8_t opcode;
   uint16_t addr_abs;
   uint16_t addr_rel;
+
+  // helper functions
+  uint8_t BCD(uint8_t data);
+  void initialize();
+  bool debug();
   // status flag functions
   uint8_t get_flag(char flag);
   void set_flag(char flag, bool set);
   // instruction struct
-  typedef struct instructions {
-    uint8_t (*addressing_mode)(void);
-    void (*instruction)(void);
+  struct instructions_t {
+    std::string name;
+    uint8_t (CPU::*addressing_mode)(void) = nullptr;
+    void (CPU::*instruction)(void) = nullptr;
     uint8_t clock_cycles;
-    uint8_t bytes;
   };
 
+  std::vector<instructions_t> lookup;
+  // instruction table
   // interrupt stuff
   void RESET();
   void NMI();
@@ -134,5 +142,6 @@ private:
   void TSX();
   void TXA();
   void TXS();
-  void TYA();
+  void TYA(); 
+  void XXX(); //for all illegal opcodes;
 };

@@ -2,12 +2,52 @@
 #include "../lib/BUS.h"
 #include <iostream>
 #include <thread>
+
 CPU::CPU(BUS *bus) {
   this->bus = bus;
   RESET();
+  lookup = {{"BRK", &CPU::IMP, &CPU::BRK, 7}, {"ORA", &CPU::IDX, &CPU::ORA, 6},
+            {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
+            {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"ORA", &CPU::ZP, &CPU::ORA, 3},
+            {"ASL", &CPU::ZP, &CPU::ASL, 5},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+            {"PHP", &CPU::IMP, &CPU::PHP, 3}, {"ORA", &CPU::IMM, &CPU::ORA, 2},
+            {"ASL", &CPU::ACC, &CPU::ASL, 2}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
+            {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"ORA", &CPU::ABS, CPU::ORA, 4},
+            {"ASL", &CPU::ABS, &CPU::ASL, 6}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
+            {"BPL", &CPU::REL, &CPU::BPL, 2}, {"ORA", &CPU::IDY, &CPU:ORA, 5},
+            {"XXX",&CPU::IMP,&CPU::XXX,0}, {"XXX",&CPU::IMP,&CPU::XXX,0}, 
+            {"XXX",&CPU::IMP,&CPU::XXX,0}, {"ORA",&CPU::ZPX,&CPU::ORA,4},
+            {"ASL",&CPU::ZPX,&CPU::ASL,6}, {"XXX",&CPU::IMP,&CPU::XXX,0}, 
+            {"CLC",&CPU::IMP, &CPU::ABY,4}, {"XXX",&CPU::IMP,&CPU::XXX,0},
+            {"XXX",&CPU::IMP,&CPU::XXX,0}, {"XXX",&CPU::IMP,&CPU::XXX,0},
+            {"ORA",&CPU::ABX,&CPU:ORA,4}, {"ASL",&CPU::ABX,&CPU::ASL,7},
+            {"XXX",&CPU::IMP,&CPU::XXX,0}, };
 }
 CPU::~CPU() { std::cout << "It's joever" << std::endl; }
-void CPU::execute() { tick(); }
+void CPU::execute() {
+
+  // opcode = bus->read(PC++);
+  // debug();
+  // cycles += (this->*lookup[opcode].addressing_mode)();
+  // (this->*lookup[opcode].instruction)();
+
+  // tick();
+  // opcode = bus->read(PC++);
+  // debug();
+  // cycles += (this->*lookup[opcode].addressing_mode)();
+  // (this->*lookup[opcode].instruction)();
+  // debug();
+  while (1) {
+    opcode = bus->read(PC++);
+    bool decision = debug();
+    if (!decision)
+      return;
+    // instructions_t aoeu = fetch();
+    cycles += (this->*lookup[opcode].addressing_mode)();
+    (this->*lookup[opcode].instruction)();
+    tick();
+  }
+}
 
 //===================clock cycle track thing====================
 /**
@@ -159,6 +199,7 @@ void CPU::IRQ() {
   hi = this->bus->read(0xFFFF);
   PC = (hi << 8) | lo;
   cycles = 7;
+  tick();
 }
 
 /**
@@ -182,6 +223,7 @@ void CPU::NMI() {
   hi = this->bus->read(0xFFFB);
   PC = (hi << 8) | lo;
   cycles = 7;
+  tick();
 }
 
 void CPU::RESET() {
@@ -192,6 +234,7 @@ void CPU::RESET() {
   uint8_t hi = this->bus->read(0xFFFD);
   PC = (hi << 8) | lo;
   cycles = 7;
+  tick();
 }
 
 //====================addressing modes=======================
@@ -367,8 +410,8 @@ uint8_t CPU::REL() {
 uint8_t CPU::IDX() {
   uint8_t temp_address = bus->read(PC++);
   temp_address += X;
-  uint8_t lo = bus->read(temp_address) && 0xFF;
-  uint8_t hi = bus->read(temp_address + 1) && 0xFF;
+  uint8_t lo = bus->read(temp_address) & 0xFF;
+  uint8_t hi = bus->read(temp_address + 1) & 0xFF;
   addr_abs = (hi << 8) | lo;
   return 0;
 }
@@ -383,12 +426,671 @@ uint8_t CPU::IDX() {
  **/
 uint8_t CPU::IDY() {
   uint8_t temp_address = bus->read(PC++);
-  uint8_t lo = bus->read(temp_address) && 0xFF;
-  uint8_t hi = bus->read(temp_address + 1) && 0xFF;
+  uint8_t lo = bus->read(temp_address) & 0xFF;
+  uint8_t hi = bus->read(temp_address + 1) & 0xFF;
   addr_abs = (hi << 8) | lo;
   addr_abs += Y;
   if ((addr_abs & 0xFF00) != (hi << 8)) {
     return 1;
   }
   return 0;
+}
+
+//================instructions===================
+
+void CPU::ADC() {
+  uint8_t temp_byte = bus->read(addr_abs);
+  uint8_t carry_val = get_flag('C') ? 1 : 0;
+  uint16_t temp = A + temp_byte + carry_val;
+  // set overflow flag
+  set_flag('V', ((A & 0x80) != (temp & 0x80)));
+  // set negative flag
+  set_flag('N', (A & 0x80));
+  // set zero flag
+  set_flag('Z', (temp == 0));
+
+  // set carry flag
+  if (get_flag('D')) {
+    temp = BCD(A) + BCD(temp_byte) + carry_val;
+    set_flag('C', (temp > 99));
+  } else {
+    set_flag('C', (temp > 255));
+  }
+  A = temp & 0xFF;
+  cycles += lookup[opcode].clock_cycles;
+}
+void CPU::AND() {
+  uint8_t byte = bus->read(addr_abs);
+  A = A & byte;
+  if (A & 0x80) {
+    set_flag('N', true);
+  } else {
+    set_flag('N', false);
+  }
+  if (A == 0) {
+    set_flag('Z', true);
+  } else {
+    set_flag('Z', false);
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::ASL() {
+  if (addr_abs & 0x80) {
+    set_flag('C', true);
+  } else {
+    set_flag('C', false);
+  }
+  uint8_t temp = (addr_abs << 1) & 0xFE;
+  if (temp & 0x80) {
+    set_flag('N', true);
+  } else {
+    set_flag('N', false);
+  }
+  if (temp == 0) {
+    set_flag('Z', true);
+  } else {
+    set_flag('Z', false);
+  }
+  cycles += lookup[opcode].clock_cycles;
+  bus->write(addr_abs, temp);
+}
+
+void CPU::BCC() {
+  uint16_t temp = PC + (int8_t)addr_rel;
+  if (!get_flag('C')) {
+    cycles++;
+    if ((temp & 0xFF00) != (PC & 0xFF00)) {
+      cycles++;
+    }
+    PC = temp;
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::BCS() {
+  uint16_t temp = PC + (int8_t)addr_rel;
+
+  if (get_flag('C')) {
+    cycles++;
+    if ((temp & 0xFF00) != (PC & 0xFF00)) {
+      cycles++;
+    }
+    PC = temp;
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::BEQ() {
+
+  uint16_t temp = PC + (int8_t)addr_rel;
+  if (get_flag('Z')) {
+    cycles++;
+    if ((temp & 0xFF00) != (PC & 0xFF00)) {
+      cycles++;
+    }
+    PC = temp;
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::BIT() {
+  uint8_t M = bus->read(addr_abs);
+  uint8_t temp = A & M;
+  if (temp & 0x80) {
+    set_flag('N', true);
+  } else {
+    set_flag('N', false);
+  }
+  if (temp & 0x40) {
+    set_flag('V', true);
+  } else {
+    set_flag('V', true);
+  }
+  if (temp == 0) {
+    set_flag('Z', true);
+  } else {
+    set_flag('Z', false);
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::BMI() {
+  uint16_t temp = PC + (int8_t)addr_rel;
+  if (get_flag('N')) {
+    cycles++;
+    if ((temp & 0xFF00) != (PC & 0xFF00)) {
+      cycles++;
+    }
+    PC = temp;
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::BNE() {
+  uint16_t temp = PC + (int8_t)addr_rel;
+  if (!get_flag('Z')) {
+    cycles++;
+    if ((temp & 0xFF00) != (PC & 0xFF00)) {
+      cycles++;
+    }
+    PC = temp;
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::BPL() {
+  uint16_t temp = PC + (int8_t)addr_rel;
+  if (!get_flag('N')) {
+    cycles++;
+    if ((temp & 0xFF00) != (PC & 0xFF00)) {
+      cycles++;
+    }
+    PC = temp;
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::BRK() {
+  uint8_t hi = PC >> 8;
+  uint8_t lo = PC & 0xFF;
+  // push current PC and STATUS register on stack.
+  bus->write(0x0100 + SP--, hi);
+  bus->write(0x0100 + SP--, lo);
+  bus->write(0x0100 + SP--, STATUS);
+
+  // get new address.
+  lo = bus->read(0xFFFE);
+  hi = bus->read(0xFFFF);
+  PC = (hi << 8) | lo;
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::BVC() {
+  uint16_t temp = PC + (int8_t)addr_rel;
+  if (!get_flag('V')) {
+    cycles++;
+    if ((temp & 0xFF00) != (PC & 0xFF00)) {
+      cycles++;
+    }
+    PC = temp;
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::BVS() {
+  uint16_t temp = PC + (int8_t)addr_rel;
+  if (get_flag('V')) {
+    cycles++;
+    if ((temp & 0xFF00) != (PC & 0xFF00)) {
+      cycles++;
+    }
+    PC = temp;
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::CLC() { set_flag('C', false); }
+
+void CPU::CLD() { set_flag('D', false); }
+
+void CPU::CLI() { set_flag('I', false); }
+
+void CPU::CLV() { set_flag('C', false); }
+
+void CPU::CMP() {
+  uint8_t byte = bus->read(addr_abs);
+  uint8_t temp = A - byte;
+  if (temp & 0x80) {
+    set_flag('N', true);
+  } else {
+    set_flag('N', false);
+  }
+  if (A >= byte) {
+    set_flag('C', true);
+  } else {
+    set_flag('C', false);
+  }
+
+  if (temp == 0) {
+    set_flag('Z', true);
+  } else {
+    set_flag('Z', false);
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::CPX() {
+  uint8_t byte = bus->read(addr_abs);
+  uint8_t temp = X - byte;
+  if (temp & 0x80) {
+    set_flag('N', true);
+  } else {
+    set_flag('N', false);
+  }
+  if (X >= byte) {
+    set_flag('C', true);
+  } else {
+    set_flag('C', false);
+  }
+
+  if (temp == 0) {
+    set_flag('Z', true);
+  } else {
+    set_flag('Z', false);
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::CPY() {
+  uint8_t byte = bus->read(addr_abs);
+  uint8_t temp = Y - byte;
+  if (temp & 0x80) {
+    set_flag('N', true);
+  } else {
+    set_flag('N', false);
+  }
+  if (Y >= byte) {
+    set_flag('C', true);
+  } else {
+    set_flag('C', false);
+  }
+
+  if (temp == 0) {
+    set_flag('Z', true);
+  } else {
+    set_flag('Z', false);
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::DEC() {
+  uint8_t temp = bus->read(addr_abs) & 0xFF;
+  temp--;
+  if (temp & 0x80) {
+    set_flag('N', true);
+  } else {
+    set_flag('N', false);
+  }
+  if (temp == 0) {
+    set_flag('Z', true);
+  } else {
+    set_flag('Z', false);
+  }
+  bus->write(addr_abs, (temp & 0xFF));
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::DEX() {
+  X--;
+  if (X & 0x80) {
+    set_flag('N', true);
+  } else {
+    set_flag('N', false);
+  }
+  if (X == 0) {
+    set_flag('Z', true);
+  } else {
+    set_flag('Z', false);
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::DEY() {
+  Y--;
+  if (Y & 0x80) {
+    set_flag('N', true);
+  } else {
+    set_flag('N', false);
+  }
+  if (Y == 0) {
+    set_flag('Z', true);
+  } else {
+    set_flag('Z', false);
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::EOR() {
+  uint8_t byte = bus->read(addr_abs) & 0xFF;
+  A = A ^ byte;
+  if (A & 0x80) {
+    set_flag('N', true);
+  } else {
+    set_flag('N', false);
+  }
+  if (A == 0) {
+    set_flag('Z', true);
+  } else {
+    set_flag('Z', false);
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::INC() {
+  uint8_t byte = bus->read(addr_abs) & 0xFF;
+  byte++;
+  if (byte & 0x80) {
+    set_flag('N', true);
+  } else {
+    set_flag('N', false);
+  }
+  if (byte == 0) {
+    set_flag('Z', true);
+  } else {
+    set_flag('Z', false);
+  }
+  bus->write(addr_abs, byte & 0xFF);
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::INX() {
+  X++;
+  if (X & 0x80) {
+    set_flag('N', true);
+  } else {
+    set_flag('N', false);
+  }
+  if (X == 0) {
+    set_flag('Z', true);
+  } else {
+    set_flag('Z', false);
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::INY() {
+  Y++;
+  if (Y & 0x80) {
+    set_flag('N', true);
+  } else {
+    set_flag('N', false);
+  }
+  if (Y == 0) {
+    set_flag('Z', true);
+  } else {
+    set_flag('Z', false);
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::JMP() {
+  PC = addr_abs;
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::JSR() {
+  PC--;
+  bus->write(0x0100 + SP--, (PC >> 8) & 0xFF);
+  bus->write(0x1000 + SP--, PC & 0xFF);
+  PC = addr_abs;
+  cycles += lookup[opcode].clock_cycles;
+}
+void CPU::LDA() {
+  uint8_t byte = bus->read(addr_abs);
+  A = byte;
+  if (A & 0x80) {
+    set_flag('N', true);
+  } else {
+    set_flag('N', false);
+  }
+
+  if (A == 0) {
+    set_flag('Z', true);
+  } else {
+    set_flag('Z', false);
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::LDX() {
+  uint8_t byte = bus->read(addr_abs);
+  X = byte;
+  if (X & 0x80) {
+    set_flag('N', true);
+  } else {
+    set_flag('N', false);
+  }
+
+  if (X == 0) {
+    set_flag('Z', true);
+  } else {
+    set_flag('Z', false);
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::LDY() {
+  uint8_t byte = bus->read(addr_abs);
+  Y = byte;
+  if (Y & 0x80) {
+    set_flag('N', true);
+  } else {
+    set_flag('N', false);
+  }
+
+  if (Y == 0) {
+    set_flag('Z', true);
+  } else {
+    set_flag('Z', false);
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::LSR() {
+  set_flag('N', false);
+  uint8_t byte;
+  if (opcode == 0x4A) {
+    byte = A;
+  } else {
+    byte = bus->read(addr_abs) & 0xFF;
+  }
+  if (byte & 0x1) {
+    set_flag('C', true);
+  } else {
+    set_flag('C', false);
+  }
+  byte = (byte >> 1) & 0xFF;
+  if (byte == 0) {
+    set_flag('Z', true);
+  } else {
+    set_flag('Z', false);
+  }
+  if (opcode == 0x4A) {
+    A = byte;
+  } else {
+    bus->write(addr_abs, byte & 0xFF);
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+void CPU::NOP() { cycles += lookup[opcode].clock_cycles; }
+
+void CPU::ORA() {
+  uint8_t byte = bus->read(addr_abs);
+  A = A | byte;
+  if (A & 0x80) {
+    set_flag('N', true);
+  } else {
+    set_flag('N', false);
+  }
+  if (A == 0) {
+    set_flag('Z', true);
+  } else {
+    set_flag('Z', false);
+  }
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::PHA() {
+  bus->write(0x0100 + SP--, A);
+  cycles += lookup[opcode].clock_cycles;
+}
+void CPU::PHP() {
+  bus->write(0x0100 + SP--, STATUS);
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::PLA() {
+  SP++;
+  A = bus->read(0x0100 + SP);
+  set_flag('N', (A & 0x80) ? true : false);
+  set_flag('Z', (A == 0) ? true : false);
+  cycles += lookup[opcode].clock_cycles;
+}
+void CPU::PLP() {
+  SP++;
+  STATUS = bus->read(0x0100 + SP);
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::ROL() {
+  uint8_t byte = bus->read(addr_abs) & 0xFF;
+  uint8_t temp = byte & 0x80;
+  byte = (byte << 1) & 0xFE;
+  byte = byte | (get_flag('C')) ? 1 : 0;
+  set_flag('C', (temp != 0));
+  set_flag('Z', (byte == 0));
+  set_flag('N', (byte & 0x80) ? true : false);
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::ROR() {
+  uint8_t byte = bus->read(addr_abs);
+  uint8_t temp = byte & 0x1;
+  byte = (byte >> 1) & 0x3F;
+  byte = byte | (get_flag('C')) ? 0x80 : 0;
+  set_flag('C', (temp != 0));
+  set_flag('Z', (byte == 0));
+  set_flag('N', (byte & 0x80) ? true : false);
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::RTI() {
+  SP++;
+  STATUS = bus->read(0x0100 + SP) & 0xFF;
+  SP++;
+  uint8_t lo = bus->read(0x0100 + SP) & 0xFF;
+  SP++;
+  uint16_t hi = bus->read(0x1000 + SP) & 0xFF;
+  PC = (hi << 8) | lo;
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::RTS() {
+  SP++;
+  uint8_t lo = bus->read(0x0100 + SP) & 0xFF;
+  SP++;
+  uint16_t hi = bus->read(0x0100 + SP) & 0xFF;
+  PC = (hi << 8) | lo;
+  PC++;
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::SBC() {
+  uint16_t temp;
+  uint8_t byte = bus->read(addr_abs) & 0xFF;
+  uint8_t flag = (get_flag('C')) ? 0 : 1;
+  if (get_flag('D')) {
+    temp = (uint16_t)BCD(A) - (uint16_t)BCD(byte) - flag;
+    set_flag('V', (temp > 99 || temp < 0) ? true : false);
+  } else {
+    temp = (uint16_t)A - (uint16_t)byte - flag;
+    set_flag('V', (temp > 127 || temp < -128) ? true : false);
+  }
+  set_flag('C', (temp >= 0));
+  set_flag('N', (temp & 0x80) ? true : false);
+  set_flag('Z', (temp == 0));
+  A = temp & 0xFF;
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::SEC() {
+  set_flag('C', true);
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::SED() {
+  set_flag('D', true);
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::SEI() {
+  set_flag('I', true);
+  cycles += lookup[opcode].clock_cycles;
+}
+void CPU::STA() {
+  bus->write(addr_abs, A);
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::STX() {
+  bus->write(addr_abs, X);
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::STY() {
+  bus->write(addr_abs, Y);
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::TAX() {
+  X = A;
+  set_flag('N', (X & 0x80) ? true : false);
+  set_flag('Z', (X == 0));
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::TAY() {
+  Y = A;
+  set_flag('N', (Y & 0x80) ? true : false);
+  set_flag('Z', (Y == 0));
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::TSX() {
+  X = SP;
+  set_flag('N', (Y & 0x80) ? true : false);
+  set_flag('Z', (Y == 0));
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::TXA() {
+  A = X;
+  set_flag('N', (A & 0x80) ? true : false);
+  set_flag('Z', (A == 0));
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::TXS() {
+  SP = X;
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::TYA() {
+  A = A;
+  set_flag('N', (A & 0x80) ? true : false);
+  set_flag('Z', (A == 0));
+  cycles += lookup[opcode].clock_cycles;
+}
+
+void CPU::XXX() { std::cout << "illegal opcode" << std::endl; }
+//====================misc helper functions========================
+uint8_t CPU::BCD(uint8_t data) {
+  uint8_t lo = data % 10;
+  data = data / 10;
+  uint8_t hi = data << 4;
+  return hi | lo;
+}
+
+bool CPU::debug() {
+  std::cout << "===========debug info===========" << std::endl;
+  std::cout << "opcode: " << static_cast<int>(opcode) << std::endl;
+  std::cout << "PC = " << static_cast<int>(PC)
+            << ", A = " << static_cast<int>(A)
+            << ", X = " << static_cast<int>(X)
+            << ", Y = " << static_cast<int>(Y)
+            << ", SP = " << static_cast<int>(SP) << std::endl;
+  char decision;
+  std::cin >> decision;
+  return decision != 'q';
 }
