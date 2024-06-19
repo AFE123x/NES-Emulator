@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
-#include <vector>
 #include <string>
+#include <vector>
 /*
 condition flags
 +-- N: Negative
@@ -61,8 +61,8 @@ private:
     void (CPU::*instruction)(void) = nullptr;
     uint8_t clock_cycles;
   };
-
   std::vector<instructions_t> lookup;
+
   // instruction table
   // interrupt stuff
   void RESET();
@@ -142,6 +142,6 @@ private:
   void TSX();
   void TXA();
   void TXS();
-  void TYA(); 
-  void XXX(); //for all illegal opcodes;
+  void TYA();
+  void XXX(); // for all illegal opcodes;
 };

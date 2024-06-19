@@ -3,7 +3,7 @@
 #include <iostream>
 
 BUS::BUS() {
-  ram = new uint8_t[65535];
+  ram = new uint8_t[65536];
   std::cout << "BUS initialized" << std::endl;
 }
 BUS::~BUS() {

@@ -5,7 +5,7 @@
 #include <unistd.h>
 int main(int argc, char *argv[]) {
   BUS *mybus = new BUS();
-  mybus->write(0xFFFC,0x80); 
+  mybus->write(0xFFFC,0x10); 
   mybus->write(0xFFFD,0x00);
   int rom = open(argv[1],O_RDONLY);
   if(rom == -1){

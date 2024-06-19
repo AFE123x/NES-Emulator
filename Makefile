@@ -7,7 +7,7 @@
 CXX = g++
 
 # define any compile-time flags
-CXXFLAGS	:= -std=c++17 -Wall -Wextra -g -fsanitize=address,undefined -Og
+CXXFLAGS	:= -std=c++17 -Wall -Wextra -g -fsanitize=address,undefined -Og -DDEBUG
 
 # define library paths in addition to /usr/lib
 #   if I wanted to include libraries not in /usr/lib I'd specify
@@ -69,6 +69,8 @@ OUTPUTMAIN	:= $(call FIXPATH,$(OUTPUT)/$(MAIN))
 
 all: $(OUTPUT) $(MAIN)
 	@echo Executing 'all' complete!
+	$(RM) $(call FIXPATH,$(OBJECTS))
+	$(RM) $(call FIXPATH,$(DEPS))
 
 $(OUTPUT):
 	$(MD) $(OUTPUT)
