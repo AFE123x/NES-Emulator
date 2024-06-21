@@ -2,6 +2,16 @@
 .segment "CODE"
 
 .proc Main
+
+
+  lda #0
+  ldx #0
+  MUL3:
+    ADC #10
+    INX
+    CPX #3
+    BNE MUL3
+  RTS
   ; Initialize each monster's HP
   lda #100
   ldx #7
@@ -32,4 +42,8 @@ store_hp:
 
   ; Loop compete, return from subroutine
   rts
+
+FUNCTION:
+
+
 .endproc

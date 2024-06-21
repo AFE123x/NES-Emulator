@@ -29,9 +29,9 @@ class CPU {
 public:
   CPU(BUS *bus);
   ~CPU();
-  void execute();
-
+  void tick();
 private:
+  std::string get_addressing_mode();
   // our lovely registers
   uint16_t PC;    // program counter
   uint8_t SP;     // stack pointer
@@ -43,6 +43,7 @@ private:
 
   // helper variables
   uint8_t cycles;
+  uint32_t total_cycles;
   uint8_t opcode;
   uint16_t addr_abs;
   uint16_t addr_rel;
@@ -69,7 +70,7 @@ private:
   void NMI();
   void IRQ();
   // clock stuff
-  void tick();
+
 
   // Addressing modes - will return the number of clock cycles
   uint8_t ZP();  // Zero Page addressing

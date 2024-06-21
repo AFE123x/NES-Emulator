@@ -1,25 +1,18 @@
 #include "../lib/BUS.h"
-#include "../lib/CPU.h"
 #include <iostream>
 #include <fcntl.h>
 #include <unistd.h>
+
 int main(int argc, char *argv[]) {
-  BUS *mybus = new BUS();
-  mybus->write(0xFFFC,0x10); 
-  mybus->write(0xFFFD,0x00);
-  int rom = open(argv[1],O_RDONLY);
-  if(rom == -1){
-    perror("file opening");
-    delete mybus;
-    return -1;
-  }
-  int i = 0;
-  char buf;
-  while(read(rom,&buf,1) != 0){
-    mybus->write(i++,buf);
-  }
-  CPU myCPU(mybus);
-  myCPU.execute();
-  delete mybus;
-  close(rom);
+    int fd = open("../tests/assembly/6502_functional_test.bin",O_RDONLY);
+    BUS bus;
+    char buf = 0;
+    read(fd,&buf,1);
+    for(int i = 0; i <= 0xFFFF; i++){
+        std::cout<<"address: "<<i<<std::endl;
+        bus.cpuwrite(i,buf);
+        read(fd,&buf,1);
+    }
+    bus.execute();
+    return 0;
 }

@@ -7,180 +7,150 @@ CPU::CPU(BUS *bus) {
   this->bus = bus;
   RESET();
   lookup = {
-      {"BRK", &CPU::IMP, &CPU::BRK, 7}, {"ORA", &CPU::IDX, &CPU::ORA, 6},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"ORA", &CPU::ZP, &CPU::ORA, 3},
-      {"ASL", &CPU::ZP, &CPU::ASL, 5},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"PHP", &CPU::IMP, &CPU::PHP, 3}, {"ORA", &CPU::IMM, &CPU::ORA, 2},
-      {"ASL", &CPU::ACC, &CPU::ASL, 2}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"ORA", &CPU::ABS, &CPU::ORA, 4},
-      {"ASL", &CPU::ABS, &CPU::ASL, 6}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"BPL", &CPU::REL, &CPU::BPL, 2}, {"ORA", &CPU::IDY, &CPU::ORA, 5},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"ORA", &CPU::ZPX, &CPU::ORA, 4},
-      {"ASL", &CPU::ZPX, &CPU::ASL, 6}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"CLC", &CPU::IMP, &CPU::CLC, 4}, {"ORA", &CPU::ABY, &CPU::ORA, 4},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"ORA", &CPU::ABX, &CPU::ORA, 4},
-      {"ASL", &CPU::ABX, &CPU::ASL, 7}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"JSR", &CPU::ABS, &CPU::JSR, 6}, {"AND", &CPU::IDX, &CPU::AND, 6},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"BIT", &CPU::ZP, &CPU::BIT, 3},  {"AND", &CPU::ZP, &CPU::AND, 2},
-      {"ROL", &CPU::ZP, &CPU::ROL, 5},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"PLP", &CPU::IMP, &CPU::PLP, 4}, {"AND", &CPU::IMM, &CPU::AND, 2},
-      {"ROL", &CPU::ACC, &CPU::ROL, 2}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"BIT", &CPU::ABS, &CPU::BIT, 4}, {"AND", &CPU::ABS, &CPU::AND, 4},
-      {"ROL", &CPU::ABS, &CPU::ROL, 6}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"BMI", &CPU::REL, &CPU::BMI, 2}, {"AND", &CPU::IDY, &CPU::AND, 5},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"AND", &CPU::ZPX, &CPU::AND, 3},
-      {"ROL", &CPU::ZPX, &CPU::ROL, 6}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"SEC", &CPU::IMP, &CPU::SEC, 2}, {"AND", &CPU::ABY, &CPU::AND, 4},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"AND", &CPU::ABX, &CPU::AND, 4},
-      {"ROL", &CPU::ABX, &CPU::ROL, 7}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"RTI", &CPU::IMP, &CPU::RTI, 6}, {"EOR", &CPU::IDX, &CPU::EOR, 6},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"EOR", &CPU::ZP, &CPU::EOR, 3},
-      {"LSR", &CPU::ZP, &CPU::LSR, 5},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"PHA", &CPU::IMP, &CPU::PHA, 3}, {"EOR", &CPU::IMM, &CPU::EOR, 2},
-      {"LSR", &CPU::ACC, &CPU::LSR, 2}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"JMP", &CPU::ABS, &CPU::JMP, 3}, {"EOR", &CPU::ABS, &CPU::EOR, 4},
-      {"LSR", &CPU::ABS, &CPU::LSR, 6}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"BVC", &CPU::REL, &CPU::BVC, 2}, {"EOR", &CPU::IDY, &CPU::EOR, 5},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"EOR", &CPU::ZPX, &CPU::EOR, 4},
-      {"LSR", &CPU::ZPX, &CPU::LSR, 6}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"CLI", &CPU::IMP, &CPU::CLI, 2}, {"EOR", &CPU::ABY, &CPU::EOR, 4},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"EOR", &CPU::ABX, &CPU::EOR, 4},
-      {"LSR", &CPU::ABX, &CPU::LSR, 7}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"RTS", &CPU::IMP, &CPU::RTS, 6}, {"ADC", &CPU::IDX, &CPU::ADC, 6},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"ADC", &CPU::ZP, &CPU::ADC, 3},
-      {"ROR", &CPU::ZP, &CPU::ROR, 5},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"PLA", &CPU::IMP, &CPU::PLA, 4}, {"ADC", &CPU::IMM, &CPU::ADC, 2},
-      {"ROR", &CPU::ACC, &CPU::ROR, 2}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"JMP", &CPU::IND, &CPU::JMP, 5}, {"ADC", &CPU::ABS, &CPU::ADC, 4},
-      {"ROR", &CPU::ABS, &CPU::ROR, 6}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"BVS", &CPU::REL, &CPU::BVS, 2}, {"ADC", &CPU::IDY, &CPU::ADC, 5},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"ADC", &CPU::ZPX, &CPU::ADC, 4},
-      {"ROR", &CPU::ZPX, &CPU::ROR, 6}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"SEI", &CPU::IMP, &CPU::SEI, 2}, {"ADC", &CPU::ABY, &CPU::ADC, 4},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"ADC", &CPU::ABX, &CPU::ADC, 4},
-      {"ROR", &CPU::ABX, &CPU::ROR, 7}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"STA - IDX", &CPU::IDX, &CPU::STA, 6},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"STY", &CPU::ZP, &CPU::STY, 3},  {"STA - ZP", &CPU::ZP, &CPU::STA, 3},
-      {"STX", &CPU::ZP, &CPU::STX, 3},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"DEY", &CPU::IMP, &CPU::DEY, 2}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"TXA", &CPU::IMP, &CPU::TXA, 2}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"STY", &CPU::ABS, &CPU::STY, 4}, {"STA - ABS", &CPU::ABS, &CPU::STA, 4},
-      {"STX", &CPU::ABS, &CPU::STX, 4}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"BCC", &CPU::REL, &CPU::BCC, 2}, {"STA - IDY", &CPU::IDY, &CPU::STA, 6},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"STY", &CPU::ZPX, &CPU::STY, 4}, {"STA - ZPX", &CPU::ZPX, &CPU::STA, 4},
-      {"STX", &CPU::ZPY, &CPU::STX, 4}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"TYA", &CPU::IMP, &CPU::TYA, 2}, {"STA - ABY", &CPU::ABY, &CPU::STA, 5},
-      {"TXS", &CPU::IMP, &CPU::TXS, 2}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"STA - ABX", &CPU::ABX, &CPU::STA, 5},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"LDY", &CPU::IMM, &CPU::LDY, 2}, {"LDA - IDX", &CPU::IDX, &CPU::LDA, 6},
-      {"LDX", &CPU::IMM, &CPU::LDX, 2}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"LDY", &CPU::ZP, &CPU::LDY, 3},  {"LDA - ZP", &CPU::ZP, &CPU::LDA, 3},
-      {"LDX", &CPU::ZP, &CPU::LDX, 3},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"TAY", &CPU::IMP, &CPU::TAY, 2}, {"LDA - IMM", &CPU::IMM, &CPU::LDA, 2},
-      {"TAX", &CPU::IMP, &CPU::TAX, 2}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"LDY", &CPU::ABS, &CPU::LDY, 4}, {"LDA - ABS", &CPU::ABS, &CPU::LDA, 4},
-      {"LDX", &CPU::ABS, &CPU::LDX, 4}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"BCS", &CPU::REL, &CPU::BCS, 2}, {"LDA - IDY", &CPU::IDY, &CPU::LDA, 5},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"LDY", &CPU::ZPX, &CPU::LDY, 4}, {"LDA - ZPX", &CPU::ZPX, &CPU::LDA, 4},
-      {"LDX", &CPU::ZPY, &CPU::LDX, 4}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"CLV", &CPU::IMP, &CPU::CLV, 2}, {"LDA - ABY", &CPU::ABY, &CPU::LDA, 4},
-      {"TSX", &CPU::IMP, &CPU::TSX, 2}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"LDY", &CPU::ABX, &CPU::LDY, 4}, {"LDA - ABX", &CPU::ABX, &CPU::LDA, 4},
-      {"LDX", &CPU::ABY, &CPU::LDX, 4}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"CPY", &CPU::IMM, &CPU::CPY, 2}, {"CMP", &CPU::IDX, &CPU::CMP, 6},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"CPY", &CPU::ZP, &CPU::CPY, 3},  {"CMP", &CPU::ZP, &CPU::CMP, 3},
-      {"DEC", &CPU::ZP, &CPU::DEC, 5},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"INY", &CPU::IMP, &CPU::INY, 2}, {"CMP", &CPU::IMM, &CPU::CMP, 2},
-      {"DEX", &CPU::IMP, &CPU::DEX, 2}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"CPY", &CPU::ABS, &CPU::CPY, 4}, {"CMP", &CPU::ABS, &CPU::CMP, 4},
-      {"DEC", &CPU::ABS, &CPU::DEC, 6}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"BNE", &CPU::REL, &CPU::BNE, 2}, {"CMP", &CPU::IDY, &CPU::CMP, 5},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"CMP", &CPU::ZPX, &CPU::CMP, 4},
-      {"DEC", &CPU::ZPX, &CPU::DEC, 6}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"CLD", &CPU::IMP, &CPU::CLD, 2}, {"CMP", &CPU::ABY, &CPU::CMP, 4},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"CMP", &CPU::ABX, &CPU::CMP, 4},
-      {"DEC", &CPU::ABX, &CPU::DEC, 7}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"CPX", &CPU::IMM, &CPU::CPX, 2}, {"SBC", &CPU::IDX, &CPU::SBC, 6},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"CPX", &CPU::ZP, &CPU::CPX, 3},  {"SBC", &CPU::ZP, &CPU::SBC, 3},
-      {"INC", &CPU::ZP, &CPU::INC, 5},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"INX", &CPU::IMP, &CPU::INX, 2}, {"SBC", &CPU::IMM, &CPU::SBC, 2},
-      {"NOP", &CPU::IMP, &CPU::NOP, 2}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"CPX", &CPU::ABS, &CPU::CPX, 4}, {"SBC", &CPU::ABS, &CPU::SBC, 4},
-      {"INC", &CPU::ABS, &CPU::INC, 6}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"BEQ", &CPU::REL, &CPU::BEQ, 2}, {"SBC", &CPU::IDY, &CPU::SBC, 5},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"SBC", &CPU::ZPX, &CPU::SBC, 4},
-      {"INC", &CPU::ZPX, &CPU::INC, 6}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"SED", &CPU::IMP, &CPU::SED, 2}, {"SBC", &CPU::ABY, &CPU::SBC, 4},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
-      {"XXX", &CPU::IMP, &CPU::XXX, 0}, {"SBC", &CPU::ABX, &CPU::SBC, 4},
-      {"INC", &CPU::ABX, &CPU::INC, 7}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"BRK", &CPU::IMP, &CPU::BRK, 7},  {"ORA", &CPU::IDX, &CPU::ORA, 6},
+      {"XXX ", &CPU::IMP, &CPU::XXX, 0}, {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"ORA", &CPU::ZP, &CPU::ORA, 3},
+      {"ASL", &CPU::ZP, &CPU::ASL, 5},   {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"PHP", &CPU::IMP, &CPU::PHP, 3},  {"ORA", &CPU::IMM, &CPU::ORA, 2},
+      {"ASL", &CPU::ACC, &CPU::ASL, 2},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"ORA", &CPU::ABS, &CPU::ORA, 4},
+      {"ASL", &CPU::ABS, &CPU::ASL, 6},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"BPL", &CPU::REL, &CPU::BPL, 2},  {"ORA", &CPU::IDY, &CPU::ORA, 5},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"ORA", &CPU::ZPX, &CPU::ORA, 4},
+      {"ASL", &CPU::ZPX, &CPU::ASL, 6},  {"XXX ", &CPU::IMP, &CPU::XXX, 0},
+      {"CLC", &CPU::IMP, &CPU::CLC, 4},  {"ORA", &CPU::ABY, &CPU::ORA, 4},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"ORA", &CPU::ABX, &CPU::ORA, 4},
+      {"ASL", &CPU::ABX, &CPU::ASL, 7},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"JSR", &CPU::ABS, &CPU::JSR, 6},  {"AND", &CPU::IDX, &CPU::AND, 6},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"BIT", &CPU::ZP, &CPU::BIT, 3},   {"AND", &CPU::ZP, &CPU::AND, 2},
+      {"ROL", &CPU::ZP, &CPU::ROL, 5},   {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"PLP", &CPU::IMP, &CPU::PLP, 4},  {"AND", &CPU::IMM, &CPU::AND, 2},
+      {"ROL", &CPU::ACC, &CPU::ROL, 2},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"BIT", &CPU::ABS, &CPU::BIT, 4},  {"AND", &CPU::ABS, &CPU::AND, 4},
+      {"ROL", &CPU::ABS, &CPU::ROL, 6},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"BMI", &CPU::REL, &CPU::BMI, 2},  {"AND", &CPU::IDY, &CPU::AND, 5},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"AND", &CPU::ZPX, &CPU::AND, 3},
+      {"ROL", &CPU::ZPX, &CPU::ROL, 6},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"SEC", &CPU::IMP, &CPU::SEC, 2},  {"AND", &CPU::ABY, &CPU::AND, 4},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"AND", &CPU::ABX, &CPU::AND, 4},
+      {"ROL", &CPU::ABX, &CPU::ROL, 7},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"RTI", &CPU::IMP, &CPU::RTI, 6},  {"EOR", &CPU::IDX, &CPU::EOR, 6},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"EOR", &CPU::ZP, &CPU::EOR, 3},
+      {"LSR", &CPU::ZP, &CPU::LSR, 5},   {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"PHA", &CPU::IMP, &CPU::PHA, 3},  {"EOR", &CPU::IMM, &CPU::EOR, 2},
+      {"LSR", &CPU::ACC, &CPU::LSR, 2},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"JMP", &CPU::ABS, &CPU::JMP, 3},  {"EOR", &CPU::ABS, &CPU::EOR, 4},
+      {"LSR", &CPU::ABS, &CPU::LSR, 6},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"BVC", &CPU::REL, &CPU::BVC, 2},  {"EOR", &CPU::IDY, &CPU::EOR, 5},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"EOR", &CPU::ZPX, &CPU::EOR, 4},
+      {"LSR", &CPU::ZPX, &CPU::LSR, 6},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"CLI", &CPU::IMP, &CPU::CLI, 2},  {"EOR", &CPU::ABY, &CPU::EOR, 4},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"EOR", &CPU::ABX, &CPU::EOR, 4},
+      {"LSR", &CPU::ABX, &CPU::LSR, 7},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"RTS", &CPU::IMP, &CPU::RTS, 6},  {"ADC", &CPU::IDX, &CPU::ADC, 6},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"ADC", &CPU::ZP, &CPU::ADC, 3},
+      {"ROR", &CPU::ZP, &CPU::ROR, 5},   {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"PLA", &CPU::IMP, &CPU::PLA, 4},  {"ADC", &CPU::IMM, &CPU::ADC, 2},
+      {"ROR", &CPU::ACC, &CPU::ROR, 2},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"JMP", &CPU::IND, &CPU::JMP, 5},  {"ADC", &CPU::ABS, &CPU::ADC, 4},
+      {"ROR", &CPU::ABS, &CPU::ROR, 6},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"BVS", &CPU::REL, &CPU::BVS, 2},  {"ADC", &CPU::IDY, &CPU::ADC, 5},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"ADC", &CPU::ZPX, &CPU::ADC, 4},
+      {"ROR", &CPU::ZPX, &CPU::ROR, 6},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"SEI", &CPU::IMP, &CPU::SEI, 2},  {"ADC", &CPU::ABY, &CPU::ADC, 4},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"ADC", &CPU::ABX, &CPU::ADC, 4},
+      {"ROR", &CPU::ABX, &CPU::ROR, 7},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"STA", &CPU::IDX, &CPU::STA, 6},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"STY", &CPU::ZP, &CPU::STY, 3},   {"STA", &CPU::ZP, &CPU::STA, 3},
+      {"STX", &CPU::ZP, &CPU::STX, 3},   {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"DEY", &CPU::IMP, &CPU::DEY, 2},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"TXA", &CPU::IMP, &CPU::TXA, 2},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"STY", &CPU::ABS, &CPU::STY, 4},  {"STA", &CPU::ABS, &CPU::STA, 4},
+      {"STX", &CPU::ABS, &CPU::STX, 4},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"BCC", &CPU::REL, &CPU::BCC, 2},  {"STA", &CPU::IDY, &CPU::STA, 6},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"STY", &CPU::ZPX, &CPU::STY, 4},  {"STAX", &CPU::ZPX, &CPU::STA, 4},
+      {"STX", &CPU::ZPY, &CPU::STX, 4},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"TYA", &CPU::IMP, &CPU::TYA, 2},  {"STA", &CPU::ABY, &CPU::STA, 5},
+      {"TXS", &CPU::IMP, &CPU::TXS, 2},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"STA", &CPU::ABX, &CPU::STA, 5},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"LDY", &CPU::IMM, &CPU::LDY, 2},  {"LDA", &CPU::IDX, &CPU::LDA, 6},
+      {"LDX", &CPU::IMM, &CPU::LDX, 2},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"LDY", &CPU::ZP, &CPU::LDY, 3},   {"LDA", &CPU::ZP, &CPU::LDA, 3},
+      {"LDX", &CPU::ZP, &CPU::LDX, 3},   {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"TAY", &CPU::IMP, &CPU::TAY, 2},  {"LDA", &CPU::IMM, &CPU::LDA, 2},
+      {"TAX", &CPU::IMP, &CPU::TAX, 2},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"LDY", &CPU::ABS, &CPU::LDY, 4},  {"LDA", &CPU::ABS, &CPU::LDA, 4},
+      {"LDX", &CPU::ABS, &CPU::LDX, 4},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"BCS", &CPU::REL, &CPU::BCS, 2},  {"LDA", &CPU::IDY, &CPU::LDA, 5},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"LDY", &CPU::ZPX, &CPU::LDY, 4},  {"LDAX", &CPU::ZPX, &CPU::LDA, 4},
+      {"LDX", &CPU::ZPY, &CPU::LDX, 4},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"CLV", &CPU::IMP, &CPU::CLV, 2},  {"LDA", &CPU::ABY, &CPU::LDA, 4},
+      {"TSX", &CPU::IMP, &CPU::TSX, 2},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"LDY", &CPU::ABX, &CPU::LDY, 4},  {"LDA", &CPU::ABX, &CPU::LDA, 4},
+      {"LDX", &CPU::ABY, &CPU::LDX, 4},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"CPY", &CPU::IMM, &CPU::CPY, 2},  {"CMP", &CPU::IDX, &CPU::CMP, 6},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"CPY", &CPU::ZP, &CPU::CPY, 3},   {"CMP", &CPU::ZP, &CPU::CMP, 3},
+      {"DEC", &CPU::ZP, &CPU::DEC, 5},   {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"INY", &CPU::IMP, &CPU::INY, 2},  {"CMP", &CPU::IMM, &CPU::CMP, 2},
+      {"DEX", &CPU::IMP, &CPU::DEX, 2},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"CPY", &CPU::ABS, &CPU::CPY, 4},  {"CMP", &CPU::ABS, &CPU::CMP, 4},
+      {"DEC", &CPU::ABS, &CPU::DEC, 6},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"BNE", &CPU::REL, &CPU::BNE, 2},  {"CMP", &CPU::IDY, &CPU::CMP, 5},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"CMP", &CPU::ZPX, &CPU::CMP, 4},
+      {"DEC", &CPU::ZPX, &CPU::DEC, 6},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"CLD", &CPU::IMP, &CPU::CLD, 2},  {"CMP", &CPU::ABY, &CPU::CMP, 4},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"CMP", &CPU::ABX, &CPU::CMP, 4},
+      {"DEC", &CPU::ABX, &CPU::DEC, 7},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"CPX", &CPU::IMM, &CPU::CPX, 2},  {"SBC", &CPU::IDX, &CPU::SBC, 6},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"CPX", &CPU::ZP, &CPU::CPX, 3},   {"SBC", &CPU::ZP, &CPU::SBC, 3},
+      {"INC", &CPU::ZP, &CPU::INC, 5},   {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"INX", &CPU::IMP, &CPU::INX, 2},  {"SBC", &CPU::IMM, &CPU::SBC, 2},
+      {"NOP", &CPU::IMP, &CPU::NOP, 2},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"CPX", &CPU::ABS, &CPU::CPX, 4},  {"SBC", &CPU::ABS, &CPU::SBC, 4},
+      {"INC", &CPU::ABS, &CPU::INC, 6},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"BEQ", &CPU::REL, &CPU::BEQ, 2},  {"SBC", &CPU::IDY, &CPU::SBC, 5},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"SBC", &CPU::ZPX, &CPU::SBC, 4},
+      {"INC", &CPU::ZPX, &CPU::INC, 6},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"SED", &CPU::IMP, &CPU::SED, 2},  {"SBC", &CPU::ABY, &CPU::SBC, 4},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
+      {"XXX", &CPU::IMP, &CPU::XXX, 0},  {"SBC", &CPU::ABX, &CPU::SBC, 4},
+      {"INC", &CPU::ABX, &CPU::INC, 7},  {"XXX", &CPU::IMP, &CPU::XXX, 0},
   };
 }
-CPU::~CPU() { std::cout << "It's joever" << std::endl; }
-void CPU::execute() {
-
-  // opcode = bus->read(PC++);
-  // debug();
-  // cycles += (this->*lookup[opcode].addressing_mode)();
-  // (this->*lookup[opcode].instruction)();
-
-  // tick();
-  // opcode = bus->read(PC++);
-  // debug();
-  // cycles += (this->*lookup[opcode].addressing_mode)();
-  // (this->*lookup[opcode].instruction)();
-  // debug();
-  while (1) {
-    opcode = bus->read(PC++);
-    bool decision = debug();
-#ifdef DEBUG
-    if (!decision)
-        return;
-#else
-    if (opcode == 0)
-        return;
-#endif
-
-    // instructions_t aoeu = fetch();
-    cycles += (this->*lookup[opcode].addressing_mode)();
-    (this->*lookup[opcode].instruction)();
-    tick();
+CPU::~CPU() { 
+  std::cout << "It's joever" << std::endl; 
   }
-}
-
-//===================clock cycle track thing====================
-/**
- * @brief will stay in loop until clock cycles is complete;
- * expected to be executed after executing instruction.
- *
- **/
 void CPU::tick() {
-  using namespace std::chrono;
-  while (cycles) {
-    cycles--;
-    std::this_thread::sleep_for(duration<double, std::nano>(558.65922));
-  }
+  bool result = debug();
+  if(result) exit(0);
+if(cycles == 0){
+  opcode = bus->cpuread(PC++);
+  cycles += (this->*lookup[opcode].addressing_mode)();
+  (this->*lookup[opcode].instruction)();
+  cycles+= lookup[opcode].clock_cycles;
+}
+total_cycles++;
+if(cycles != 0) cycles--;
 }
 //===================STATUS FLAG FUNCTIONS======================
 
@@ -311,15 +281,14 @@ void CPU::IRQ() {
   uint8_t lo = (uint8_t)PC;
 
   // stored in order to respect endianness
-  this->bus->write(0x0100 + SP--, hi);
-  this->bus->write(0x0100 + SP--, lo);
-  this->bus->write(0x0100 + SP--, STATUS);
+  this->bus->cpuwrite(0x0100 + SP--, hi);
+  this->bus->cpuwrite(0x0100 + SP--, lo);
+  this->bus->cpuwrite(0x0100 + SP--, STATUS);
   set_flag('I', true);
-  lo = this->bus->read(0xFFFE);
-  hi = this->bus->read(0xFFFF);
+  lo = this->bus->cpuread(0xFFFE);
+  hi = this->bus->cpuread(0xFFFF);
   PC = (hi << 8) | lo;
   cycles = 7;
-  tick();
 }
 
 /**
@@ -335,26 +304,25 @@ void CPU::NMI() {
   uint8_t lo = (uint8_t)PC;
 
   // stored in order to respect endianness
-  this->bus->write(0x0100 + SP--, hi);
-  this->bus->write(0x0100 + SP--, lo);
-  this->bus->write(0x0100 + SP--, STATUS);
+  this->bus->cpuwrite(0x0100 + SP--, hi);
+  this->bus->cpuwrite(0x0100 + SP--, lo);
+  this->bus->cpuwrite(0x0100 + SP--, STATUS);
   set_flag('I', true);
-  lo = this->bus->read(0xFFFA);
-  hi = this->bus->read(0xFFFB);
+  lo = this->bus->cpuread(0xFFFA);
+  hi = this->bus->cpuread(0xFFFB);
   PC = (hi << 8) | lo;
   cycles = 7;
-  tick();
 }
 
 void CPU::RESET() {
   A = X = STATUS = Y = opcode = 0;
+  total_cycles = 0;
   SP = 0xFD;
   set_flag('I', true);
-  uint8_t lo = this->bus->read(0xFFFC);
-  uint8_t hi = this->bus->read(0xFFFD);
+  uint8_t lo = this->bus->cpuread(0xFFFC);
+  uint8_t hi = this->bus->cpuread(0xFFFD);
   PC = (hi << 8) | lo;
   cycles = 7;
-  tick();
 }
 
 //====================addressing modes=======================
@@ -369,7 +337,7 @@ void CPU::RESET() {
  *
  */
 uint8_t CPU::ZP() {
-  addr_abs = bus->read(PC++);
+  addr_abs = bus->cpuread(PC++);
   addr_abs &= 0x00FF;
   return 0;
 }
@@ -383,7 +351,7 @@ uint8_t CPU::ZP() {
  *
  **/
 uint8_t CPU::ZPX() {
-  addr_abs = bus->read(PC++);
+  addr_abs = bus->cpuread(PC++);
   addr_abs += X;
   addr_abs &= 0x00FF;
   return 0;
@@ -397,7 +365,7 @@ uint8_t CPU::ZPX() {
  *
  **/
 uint8_t CPU::ZPY() {
-  addr_abs = bus->read(PC++);
+  addr_abs = bus->cpuread(PC++);
   addr_abs += Y;
   addr_abs &= 0x00FF;
   return 0;
@@ -411,8 +379,8 @@ uint8_t CPU::ZPY() {
  *
  **/
 uint8_t CPU::ABS() {
-  uint8_t lo = bus->read(PC++);
-  uint8_t hi = bus->read(PC++);
+  uint8_t lo = bus->cpuread(PC++);
+  uint8_t hi = bus->cpuread(PC++);
   addr_abs = (hi << 8) | lo;
   return 0;
 }
@@ -427,8 +395,8 @@ uint8_t CPU::ABS() {
  *
  **/
 uint8_t CPU::ABX() {
-  uint8_t lo = bus->read(PC++);
-  uint8_t hi = bus->read(PC++);
+  uint8_t lo = bus->cpuread(PC++);
+  uint8_t hi = bus->cpuread(PC++);
   addr_abs = (hi << 8) | lo;
   addr_abs += X;
   if ((addr_abs & 0xFF00) != (hi << 8)) {
@@ -448,8 +416,8 @@ uint8_t CPU::ABX() {
  *
  **/
 uint8_t CPU::ABY() {
-  uint8_t lo = bus->read(PC++);
-  uint8_t hi = bus->read(PC++);
+  uint8_t lo = bus->cpuread(PC++);
+  uint8_t hi = bus->cpuread(PC++);
   addr_abs = (hi << 8) | lo;
   addr_abs += Y;
   if ((addr_abs & 0xFF00) != (hi << 8)) {
@@ -468,11 +436,11 @@ uint8_t CPU::ABY() {
  *
  **/
 uint8_t CPU::IND() {
-  uint8_t lo = bus->read(PC++);
-  uint8_t hi = bus->read(PC++);
+  uint8_t lo = bus->cpuread(PC++);
+  uint8_t hi = bus->cpuread(PC++);
   uint16_t tmp_adr = (hi << 8) | lo;
-  lo = bus->read(tmp_adr);
-  hi = bus->read(tmp_adr + 1);
+  lo = bus->cpuread(tmp_adr);
+  hi = bus->cpuread(tmp_adr + 1);
   addr_abs = (hi << 8) | lo;
   return 0;
 }
@@ -513,7 +481,7 @@ uint8_t CPU::IMM() {
  *
  **/
 uint8_t CPU::REL() {
-  addr_rel = bus->read(PC++);
+  addr_rel = bus->cpuread(PC++);
   if (addr_rel & 0x80) {
     addr_rel |= 0xFF00;
   }
@@ -528,10 +496,10 @@ uint8_t CPU::REL() {
  *
  */
 uint8_t CPU::IDX() {
-  uint8_t temp_address = bus->read(PC++);
+  uint8_t temp_address = bus->cpuread(PC++);
   temp_address += X;
-  uint8_t lo = bus->read(temp_address) & 0xFF;
-  uint8_t hi = bus->read(temp_address + 1) & 0xFF;
+  uint8_t lo = bus->cpuread(temp_address) & 0xFF;
+  uint8_t hi = bus->cpuread(temp_address + 1) & 0xFF;
   addr_abs = (hi << 8) | lo;
   return 0;
 }
@@ -545,9 +513,9 @@ uint8_t CPU::IDX() {
  *
  **/
 uint8_t CPU::IDY() {
-  uint8_t temp_address = bus->read(PC++);
-  uint8_t lo = bus->read(temp_address) & 0xFF;
-  uint8_t hi = bus->read(temp_address + 1) & 0xFF;
+  uint8_t temp_address = bus->cpuread(PC++);
+  uint8_t lo = bus->cpuread(temp_address) & 0xFF;
+  uint8_t hi = bus->cpuread(temp_address + 1) & 0xFF;
   addr_abs = (hi << 8) | lo;
   addr_abs += Y;
   if ((addr_abs & 0xFF00) != (hi << 8)) {
@@ -556,10 +524,54 @@ uint8_t CPU::IDY() {
   return 0;
 }
 
+
+std::string CPU::get_addressing_mode(){
+  if(lookup[opcode].addressing_mode == &CPU::ZP){
+    return "IMM";
+  }
+  else if(lookup[opcode].addressing_mode == &CPU::ZPX){
+    return "ZPX";
+  }
+  else if(lookup[opcode].addressing_mode == &CPU::ZPY){
+    return "ZPY";
+  }
+  else if(lookup[opcode].addressing_mode == &CPU::ABS){
+    return "ABS";
+  }
+  else if(lookup[opcode].addressing_mode == &CPU::ABX){
+    return "ABX";
+  }
+  else if(lookup[opcode].addressing_mode == &CPU::ABY){
+    return "ABY";
+  }
+  else if(lookup[opcode].addressing_mode == &CPU::IND){
+    return "IND";
+  }
+  else if(lookup[opcode].addressing_mode == &CPU::IMP){
+    return "IMP";
+  }
+  else if(lookup[opcode].addressing_mode == &CPU::ACC){
+    return "ACC";
+  }
+  else if(lookup[opcode].addressing_mode == &CPU::IMM){
+    return "IMM";
+  }
+  else if(lookup[opcode].addressing_mode == &CPU::REL){
+    return "REL";
+  }
+  else if(lookup[opcode].addressing_mode == &CPU::IDX){
+    return "IDX";
+  }
+  else if(lookup[opcode].addressing_mode == &CPU::IDY){
+    return "IDY";
+  }
+    return "ERR";
+  
+}
 //================instructions===================
 
 void CPU::ADC() {
-  uint8_t temp_byte = bus->read(addr_abs);
+  uint8_t temp_byte = bus->cpuread(addr_abs);
   uint8_t carry_val = get_flag('C') ? 1 : 0;
   uint16_t temp = A + temp_byte + carry_val;
   // set overflow flag
@@ -580,7 +592,7 @@ void CPU::ADC() {
   cycles += lookup[opcode].clock_cycles;
 }
 void CPU::AND() {
-  uint8_t byte = bus->read(addr_abs);
+  uint8_t byte = bus->cpuread(addr_abs);
   A = A & byte;
   if (A & 0x80) {
     set_flag('N', true);
@@ -613,7 +625,7 @@ void CPU::ASL() {
     set_flag('Z', false);
   }
   cycles += lookup[opcode].clock_cycles;
-  bus->write(addr_abs, temp);
+  bus->cpuwrite(addr_abs, temp);
 }
 
 void CPU::BCC() {
@@ -655,7 +667,7 @@ void CPU::BEQ() {
 }
 
 void CPU::BIT() {
-  uint8_t M = bus->read(addr_abs);
+  uint8_t M = bus->cpuread(addr_abs);
   uint8_t temp = A & M;
   if (temp & 0x80) {
     set_flag('N', true);
@@ -715,13 +727,13 @@ void CPU::BRK() {
   uint8_t hi = PC >> 8;
   uint8_t lo = PC & 0xFF;
   // push current PC and STATUS register on stack.
-  bus->write(0x0100 + SP--, hi);
-  bus->write(0x0100 + SP--, lo);
-  bus->write(0x0100 + SP--, STATUS);
+  bus->cpuwrite(0x0100 + SP--, hi);
+  bus->cpuwrite(0x0100 + SP--, lo);
+  bus->cpuwrite(0x0100 + SP--, STATUS);
 
   // get new address.
-  lo = bus->read(0xFFFE);
-  hi = bus->read(0xFFFF);
+  lo = bus->cpuread(0xFFFE);
+  hi = bus->cpuread(0xFFFF);
   PC = (hi << 8) | lo;
   cycles += lookup[opcode].clock_cycles;
 }
@@ -759,7 +771,7 @@ void CPU::CLI() { set_flag('I', false); }
 void CPU::CLV() { set_flag('C', false); }
 
 void CPU::CMP() {
-  uint8_t byte = bus->read(addr_abs);
+  uint8_t byte = bus->cpuread(addr_abs);
   uint8_t temp = A - byte;
   if (temp & 0x80) {
     set_flag('N', true);
@@ -781,7 +793,7 @@ void CPU::CMP() {
 }
 
 void CPU::CPX() {
-  uint8_t byte = bus->read(addr_abs);
+  uint8_t byte = bus->cpuread(addr_abs);
   uint8_t temp = X - byte;
   if (temp & 0x80) {
     set_flag('N', true);
@@ -803,7 +815,7 @@ void CPU::CPX() {
 }
 
 void CPU::CPY() {
-  uint8_t byte = bus->read(addr_abs);
+  uint8_t byte = bus->cpuread(addr_abs);
   uint8_t temp = Y - byte;
   if (temp & 0x80) {
     set_flag('N', true);
@@ -825,7 +837,7 @@ void CPU::CPY() {
 }
 
 void CPU::DEC() {
-  uint8_t temp = bus->read(addr_abs) & 0xFF;
+  uint8_t temp = bus->cpuread(addr_abs) & 0xFF;
   temp--;
   if (temp & 0x80) {
     set_flag('N', true);
@@ -837,7 +849,7 @@ void CPU::DEC() {
   } else {
     set_flag('Z', false);
   }
-  bus->write(addr_abs, (temp & 0xFF));
+  bus->cpuwrite(addr_abs, (temp & 0xFF));
   cycles += lookup[opcode].clock_cycles;
 }
 
@@ -872,7 +884,7 @@ void CPU::DEY() {
 }
 
 void CPU::EOR() {
-  uint8_t byte = bus->read(addr_abs) & 0xFF;
+  uint8_t byte = bus->cpuread(addr_abs) & 0xFF;
   A = A ^ byte;
   if (A & 0x80) {
     set_flag('N', true);
@@ -888,7 +900,7 @@ void CPU::EOR() {
 }
 
 void CPU::INC() {
-  uint8_t byte = bus->read(addr_abs) & 0xFF;
+  uint8_t byte = bus->cpuread(addr_abs) & 0xFF;
   byte++;
   if (byte & 0x80) {
     set_flag('N', true);
@@ -900,7 +912,7 @@ void CPU::INC() {
   } else {
     set_flag('Z', false);
   }
-  bus->write(addr_abs, byte & 0xFF);
+  bus->cpuwrite(addr_abs, byte & 0xFF);
   cycles += lookup[opcode].clock_cycles;
 }
 
@@ -941,13 +953,13 @@ void CPU::JMP() {
 
 void CPU::JSR() {
   PC--;
-  bus->write(0x0100 + SP--, (PC >> 8) & 0xFF);
-  bus->write(0x1000 + SP--, PC & 0xFF);
+  bus->cpuwrite(0x0100 + SP--, (PC >> 8) & 0xFF);
+  bus->cpuwrite(0x1000 + SP--, PC & 0xFF);
   PC = addr_abs;
   cycles += lookup[opcode].clock_cycles;
 }
 void CPU::LDA() {
-  uint8_t byte = bus->read(addr_abs);
+  uint8_t byte = bus->cpuread(addr_abs);
   A = byte;
   if (A & 0x80) {
     set_flag('N', true);
@@ -964,7 +976,7 @@ void CPU::LDA() {
 }
 
 void CPU::LDX() {
-  uint8_t byte = bus->read(addr_abs);
+  uint8_t byte = bus->cpuread(addr_abs);
   X = byte;
   if (X & 0x80) {
     set_flag('N', true);
@@ -981,7 +993,7 @@ void CPU::LDX() {
 }
 
 void CPU::LDY() {
-  uint8_t byte = bus->read(addr_abs);
+  uint8_t byte = bus->cpuread(addr_abs);
   Y = byte;
   if (Y & 0x80) {
     set_flag('N', true);
@@ -1003,7 +1015,7 @@ void CPU::LSR() {
   if (opcode == 0x4A) {
     byte = A;
   } else {
-    byte = bus->read(addr_abs) & 0xFF;
+    byte = bus->cpuread(addr_abs) & 0xFF;
   }
   if (byte & 0x1) {
     set_flag('C', true);
@@ -1019,14 +1031,14 @@ void CPU::LSR() {
   if (opcode == 0x4A) {
     A = byte;
   } else {
-    bus->write(addr_abs, byte & 0xFF);
+    bus->cpuwrite(addr_abs, byte & 0xFF);
   }
   cycles += lookup[opcode].clock_cycles;
 }
 void CPU::NOP() { cycles += lookup[opcode].clock_cycles; }
 
 void CPU::ORA() {
-  uint8_t byte = bus->read(addr_abs);
+  uint8_t byte = bus->cpuread(addr_abs);
   A = A | byte;
   if (A & 0x80) {
     set_flag('N', true);
@@ -1042,24 +1054,24 @@ void CPU::ORA() {
 }
 
 void CPU::PHA() {
-  bus->write(0x0100 + SP--, A);
+  bus->cpuwrite(0x0100 + SP--, A);
   cycles += lookup[opcode].clock_cycles;
 }
 void CPU::PHP() {
-  bus->write(0x0100 + SP--, STATUS);
+  bus->cpuwrite(0x0100 + SP--, STATUS);
   cycles += lookup[opcode].clock_cycles;
 }
 
 void CPU::PLA() {
   SP++;
-  A = bus->read(0x0100 + SP);
+  A = bus->cpuread(0x0100 + SP);
   set_flag('N', (A & 0x80) ? true : false);
   set_flag('Z', (A == 0) ? true : false);
   cycles += lookup[opcode].clock_cycles;
 }
 void CPU::PLP() {
   SP++;
-  STATUS = bus->read(0x0100 + SP);
+  STATUS = bus->cpuread(0x0100 + SP);
   cycles += lookup[opcode].clock_cycles;
 }
 
@@ -1068,7 +1080,7 @@ void CPU::ROL() {
   if (opcode == 0x2A) {
     byte = A;
   } else {
-    byte = bus->read(addr_abs) & 0xFF;
+    byte = bus->cpuread(addr_abs) & 0xFF;
   }
   uint8_t temp = byte & 0x80;
   byte = (byte << 1) & 0xFE;
@@ -1080,7 +1092,7 @@ void CPU::ROL() {
 }
 
 void CPU::ROR() {
-  uint8_t byte = bus->read(addr_abs);
+  uint8_t byte = bus->cpuread(addr_abs);
   uint8_t temp = byte & 0x1;
   byte = (byte >> 1) & 0x3F;
   byte = byte | (get_flag('C')) ? 0x80 : 0;
@@ -1092,28 +1104,28 @@ void CPU::ROR() {
 
 void CPU::RTI() {
   SP++;
-  STATUS = bus->read(0x0100 + SP) & 0xFF;
+  STATUS = bus->cpuread(0x0100 + SP) & 0xFF;
   SP++;
-  uint8_t lo = bus->read(0x0100 + SP) & 0xFF;
+  uint8_t lo = bus->cpuread(0x0100 + SP) & 0xFF;
   SP++;
-  uint16_t hi = bus->read(0x1000 + SP) & 0xFF;
+  uint16_t hi = bus->cpuread(0x1000 + SP) & 0xFF;
   PC = (hi << 8) | lo;
   cycles += lookup[opcode].clock_cycles;
 }
 
 void CPU::RTS() {
   SP++;
-  uint8_t lo = bus->read(0x0100 + SP) & 0xFF;
+  uint8_t lo = bus->cpuread(0x0100 + SP) & 0xFF;
   SP++;
-  uint16_t hi = bus->read(0x0100 + SP) & 0xFF;
+  uint16_t hi = bus->cpuread(0x0100 + SP) & 0xFF;
   PC = (hi << 8) | lo;
   PC++;
   cycles += lookup[opcode].clock_cycles;
 }
 
 void CPU::SBC() {
-  uint16_t temp;
-  uint8_t byte = bus->read(addr_abs) & 0xFF;
+  int16_t temp;
+  uint8_t byte = bus->cpuread(addr_abs) & 0xFF;
   uint8_t flag = (get_flag('C')) ? 0 : 1;
   if (get_flag('D')) {
     temp = (uint16_t)BCD(A) - (uint16_t)BCD(byte) - flag;
@@ -1144,17 +1156,17 @@ void CPU::SEI() {
   cycles += lookup[opcode].clock_cycles;
 }
 void CPU::STA() {
-  bus->write(addr_abs, A);
+  bus->cpuwrite(addr_abs, A);
   cycles += lookup[opcode].clock_cycles;
 }
 
 void CPU::STX() {
-  bus->write(addr_abs, X);
+  bus->cpuwrite(addr_abs, X);
   cycles += lookup[opcode].clock_cycles;
 }
 
 void CPU::STY() {
-  bus->write(addr_abs, Y);
+  bus->cpuwrite(addr_abs, Y);
   cycles += lookup[opcode].clock_cycles;
 }
 
@@ -1208,10 +1220,10 @@ uint8_t CPU::BCD(uint8_t data) {
 }
 
 bool CPU::debug() {
-  std::cout << "========================DEBUG========================="
+  std::cout << "========================DEBUG=========================================="
             << std::endl;
-  std::cout << "instruction: " << lookup[opcode].name
-            << "                     FLAGS: " << (get_flag('N') ? "N" : "-")
+  std::cout << "instruction: " << lookup[opcode].name <<" - "<<get_addressing_mode()
+            << "      cycles: "<<static_cast<int>(total_cycles)<<"     Cycles left: "<<static_cast<int>(cycles)<<"       FLAGS: " << (get_flag('N') ? "N" : "-")
             << (get_flag('V') ? "V" : "-") << (get_flag('U') ? "U" : "-")
             << (get_flag('B') ? "B" : "-") << (get_flag('D') ? "D" : "-")
             << (get_flag('I') ? "I" : "-") << (get_flag('Z') ? "Z" : "-")
@@ -1228,7 +1240,7 @@ bool CPU::debug() {
 #ifdef DEBUG
   char decision;
   std::cin >> decision;
-  return decision != 'q';
+  return decision == 'q';
 #else
   return false;
 #endif
