@@ -1,8 +1,9 @@
 #include "./../lib/bus.h"
 #include "./../lib/cpu.h"
-
+#include<cstring>
   BUS::BUS(){
-    this.ram = new uint8_t[0x10000];
+    this->ram = new uint8_t[0x10000];
+    memset(ram,0,0x10000);
   }
   BUS::~BUS(){
     delete[] ram;

@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <iostream>
 class CPU;
 class BUS {
 public:
@@ -9,5 +10,5 @@ public:
   void cpuwrite(uint16_t addr, uint8_t byte);
 
 private:
-  uint8_t ram;
+  uint8_t* ram;
 };

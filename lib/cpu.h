@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <iostream>
 #include <string>
 #include <vector>
 class BUS;
@@ -8,14 +9,16 @@ public:
   CPU(BUS *bus);
   ~CPU();
   void tick();
+  bool debug_enable;
+  uint16_t jumptil;
 
 private:
+  bool debug();
   BUS *bus;
   // read function
   uint8_t read(uint16_t address);
   void write(uint16_t address, uint8_t byte);
-  bool get_flag(FLAGS flag);
-  bool set_flag(FLAGS flag);
+
   // registers
   uint16_t PC; // Program Counter
   uint8_t SP;  // Stack Pointer: Range 0x100 -> 0x1FF
@@ -27,10 +30,11 @@ private:
     std::string name;
     uint8_t (CPU::*addr_mode)(void) = nullptr;
     void (CPU::*instruction)(void) = nullptr;
+    uint8_t cycles;
   };
   std::vector<INSTRUCTIONS> lookup;
 
-  //status flags
+  // status flags
   uint8_t flag;
   enum FLAGS {
     Negative = 1 << 7,
@@ -43,11 +47,14 @@ private:
     Carry = 1 << 0
   };
 
+  bool get_flag(FLAGS tflag);
+  void set_flag(FLAGS tflag, bool state);
   // important variables
   uint32_t total_cycles;
   uint8_t cycles;
   uint16_t addr_abs;
   uint8_t addr_rel;
+  uint8_t opcode;
   // interrupts
   void IRQ();
   void NMI();
@@ -154,7 +161,10 @@ private:
   void BRK();
   void NOP();
   void RTI();
-
+  void XXX();
   // tools
-  std::vector<std::string> dissasemble(uint16_t start, uint16_t end);
+  uint16_t BCD(uint8_t number);
+
+public:
+  void dissasemble(uint16_t start, uint16_t end);
 };
