@@ -164,6 +164,7 @@ private:
   void XXX();
   // tools
   uint16_t BCD(uint8_t number);
+  void log();
 
 public:
   void dissasemble(uint16_t start, uint16_t end);

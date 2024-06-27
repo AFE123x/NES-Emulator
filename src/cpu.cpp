@@ -140,8 +140,12 @@ CPU::~CPU() { std::cout << "CPU deallocated" << std::endl; }
 void CPU::tick() {
   bool result = false;
   if (cycles == 0) {
-    if(jumptil <= PC){
-        result = debug();
+    if (debug_enable) {
+      result = debug();
+    } else {
+      log();
+      if (total_cycles >= 26000)
+        exit(0);
     }
     opcode = bus->cpuread(PC++);
     cycles += (this->*lookup[opcode].addr_mode)();
@@ -179,6 +183,7 @@ void CPU::set_flag(FLAGS tflag, bool state) {
  * costs 7 cycles
  */
 void CPU::IRQ() {
+  SP &= 0xFF;
   // checks if interrupt flag is already enabled.
   if (get_flag(Interrupt)) {
     return;
@@ -186,11 +191,11 @@ void CPU::IRQ() {
   // extract upper and lower byte of program counter.
   uint8_t lo = PC & 0xFF;
   uint8_t hi = PC >> 8;
-
+  std::cout<<static_cast<int>(SP)<<std::endl;
   // store Program Counter and flags to stack.
-  write(0x100 + SP--, hi);
-  write(0x100 + SP--, lo);
-  write(0x100 + SP--, flag);
+  write(0x100 + (uint8_t)SP--, hi);
+  write(0x100 + (uint8_t)SP--, lo);
+  write(0x100 + (uint8_t)SP--, flag);
   // set interrupt flag
   set_flag(Interrupt, true);
   // read new PC location
@@ -236,7 +241,7 @@ void CPU::NMI() {
  * costs 7 cycles
  */
 void CPU::RESET() {
-  SP = 0xFF;            // set stack to default
+  SP = 0xFD;            // set stack to default
   A = X = Y = flag = 0; // reset registers
   total_cycles = 0;
   cycles = 0;
@@ -519,9 +524,9 @@ void CPU::TAY() {
  * @details: Flags affected: Negative and Zero flag.
  */
 void CPU::TYA() {
-  Y = A;
-  set_flag(Negative, (Y & 0x80) ? true : false);
-  set_flag(Zero, (Y == 0));
+  A = Y;
+  set_flag(Negative, (A & 0x80) ? true : false);
+  set_flag(Zero, (A == 0));
   cycles += lookup[opcode].cycles;
 }
 
@@ -682,11 +687,12 @@ void CPU::ADC() {
  * @details affected flags: Overflow, Negative and Zero flag.
  * @todo Implement decimal mode.
  */
-void CPU::SBC() { // todo, implement decimal mode.
-  uint8_t carry_bit = get_flag(Carry) ? 0 : 1;
+void CPU::SBC() {
+  uint8_t carry_bit = get_flag(Carry) ? 1 : 0;
   uint8_t byte = read(addr_abs);
+  byte = ~byte;
   // uint16_t temp;
-  uint16_t temp = A - byte - carry_bit; // a + b  = c
+  uint16_t temp = A + byte + carry_bit; // a + b  = c
   set_flag(Overflow, ((((temp & 0x80) & ~(A & 0x80) & ~(byte & 0x80)) ||
                        (~(temp & 0x80)) & (A & 0x80) & (byte & 0x80))));
   set_flag(Negative, temp & 0x80);
@@ -703,9 +709,9 @@ void CPU::SBC() { // todo, implement decimal mode.
 void CPU::CMP() {
   uint8_t byte = read(addr_abs);
   uint16_t temp = A - byte;
-  set_flag(Negative, (temp & 0x80) != 0);
+  set_flag(Negative, ((temp & 0x80) != 0));
   set_flag(Zero, temp == 0);
-  set_flag(Carry, A >= byte);
+  set_flag(Carry, (A >= byte));
   cycles += lookup[opcode].cycles;
 }
 
@@ -717,7 +723,7 @@ void CPU::CMP() {
 void CPU::CPX() {
   uint8_t byte = read(addr_abs);
   uint16_t temp = X - byte;
-  set_flag(Negative, (temp & 0x80) != 0);
+  set_flag(Negative, ((temp & 0x80) != 0));
   set_flag(Zero, temp == 0);
   set_flag(Carry, X >= byte);
   cycles += lookup[opcode].cycles;
@@ -731,7 +737,7 @@ void CPU::CPX() {
 void CPU::CPY() {
   uint8_t byte = read(addr_abs);
   uint16_t temp = Y - byte;
-  set_flag(Negative, (temp & 0x80) != 0);
+  set_flag(Negative, ((temp & 0x80) != 0));
   set_flag(Zero, temp == 0);
   set_flag(Carry, Y >= byte);
   cycles += lookup[opcode].cycles;
@@ -1150,26 +1156,15 @@ void CPU::SEI() {
 //================system instructions==============
 
 void CPU::BRK() {
-  PC = PC + 1;
-  uint8_t hi = (PC >> 8) & 0xFF;
-  uint8_t lo = PC & 0xFF;
-  write(0x100 + SP--, hi);
-  write(0x100 + SP--, lo);
-  write(0x100 + SP--, flag | 0x10);
-  lo = read(0xFFFE);
-  hi = read(0xFFFF);
-  PC = ((uint16_t)hi << 8) | lo;
+  IRQ();
   cycles += lookup[opcode].cycles;
 }
 void CPU::NOP() { cycles += lookup[opcode].cycles; }
 void CPU::RTI() {
-  SP++;
-  flag = read(SP);
-  SP++;
-  uint8_t lo = read(SP);
-  SP++;
-  uint16_t hi = ((uint16_t)read(SP) << 8) & 0xFF00;
-  PC = hi | lo;
+  flag = read(0x100 + (++SP));
+  uint8_t lo = read(0x100 + (++SP));
+  uint8_t hi = read(0x100 + (++SP));
+  PC = (hi << 8) | lo;
   cycles += lookup[opcode].cycles;
 }
 
@@ -1198,36 +1193,36 @@ void CPU::dissasemble(uint16_t start, uint16_t end) {
       std::cout << std::hex << std::setw(2) << std::setfill('0')
                 << static_cast<int>(item1) << "\t\t" << lookup[opcode].name
                 << " #$" << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(item1) << std::endl;
+                << static_cast<int>(item1);
     } else if (lookup[opcode].addr_mode == &CPU::IMP) {
 
-      std::cout << "\t\t" << lookup[opcode].name << std::endl;
+      std::cout << "\t\t" << lookup[opcode].name;
     } else if (lookup[opcode].addr_mode == &CPU::ZP0) {
       item1 = read(start++);
       std::cout << std::hex << std::setw(2) << std::setfill('0')
                 << static_cast<int>(item1) << "\t\t" << lookup[opcode].name
                 << " $" << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(item1) << std::endl;
+                << static_cast<int>(item1);
     } else if (lookup[opcode].addr_mode == &CPU::ACC) {
       item1 = read(start++);
-      std::cout << "\t\t" << lookup[opcode].name << " A" << std::endl;
+      std::cout << "\t\t" << lookup[opcode].name << " A";
     } else if (lookup[opcode].addr_mode == &CPU::ZPX) {
       item1 = read(start++);
       std::cout << std::hex << std::setw(2) << std::setfill('0')
                 << static_cast<int>(item1) << "\t\t" << lookup[opcode].name
                 << " $" << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(item1) << ",X" << std::endl;
+                << static_cast<int>(item1) << ",X";
     } else if (lookup[opcode].addr_mode == &CPU::ZPY) {
       item1 = read(start++);
       std::cout << std::hex << std::setw(2) << std::setfill('0')
                 << static_cast<int>(item1) << "\t\t" << lookup[opcode].name
                 << " $" << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(item1) << ",Y" << std::endl;
+                << static_cast<int>(item1) << ",Y";
     } else if (lookup[opcode].addr_mode == &CPU::REL) {
       item1 = read(start++);
       std::cout << std::hex << std::setw(2) << std::setfill('0')
                 << static_cast<int>(item1) << "\t\t" << lookup[opcode].name
-                << " *" << static_cast<int>(item1) << std::endl;
+                << " *" << static_cast<int>(item1);
     } else if (lookup[opcode].addr_mode == &CPU::ABS) {
 
       uint8_t lo = read(start++);
@@ -1237,7 +1232,7 @@ void CPU::dissasemble(uint16_t start, uint16_t end) {
                 << static_cast<int>(lo) << "  " << std::hex << std::setw(2)
                 << std::setfill('0') << static_cast<int>(hi) << "\t"
                 << lookup[opcode].name << "  $" << std::hex << std::setw(4)
-                << std::setfill('0') << static_cast<int>(address) << std::endl;
+                << std::setfill('0') << static_cast<int>(address);
     } else if (lookup[opcode].addr_mode == &CPU::ABX) {
       uint8_t lo = read(start++);
       uint8_t hi = read(start++);
@@ -1246,8 +1241,7 @@ void CPU::dissasemble(uint16_t start, uint16_t end) {
                 << static_cast<int>(lo) << "  " << std::hex << std::setw(2)
                 << std::setfill('0') << static_cast<int>(hi) << "\t"
                 << lookup[opcode].name << "  $" << std::hex << std::setw(4)
-                << std::setfill('0') << static_cast<int>(address) << ",X"
-                << std::endl;
+                << std::setfill('0') << static_cast<int>(address) << ",X";
     } else if (lookup[opcode].addr_mode == &CPU::ABY) {
       uint8_t lo = read(start++);
       uint8_t hi = read(start++);
@@ -1256,8 +1250,7 @@ void CPU::dissasemble(uint16_t start, uint16_t end) {
                 << static_cast<int>(lo) << "  " << std::hex << std::setw(2)
                 << std::setfill('0') << static_cast<int>(hi) << "\t"
                 << lookup[opcode].name << "  $" << std::hex << std::setw(4)
-                << std::setfill('0') << static_cast<int>(address) << ",Y"
-                << std::endl;
+                << std::setfill('0') << static_cast<int>(address) << ",Y";
     } else if (lookup[opcode].addr_mode == &CPU::IND) {
       uint8_t lo = read(start++);
       uint8_t hi = read(start++);
@@ -1266,21 +1259,33 @@ void CPU::dissasemble(uint16_t start, uint16_t end) {
                 << static_cast<int>(lo) << "  " << std::hex << std::setw(2)
                 << std::setfill('0') << static_cast<int>(hi) << "\t\t"
                 << lookup[opcode].name << "  (" << std::hex << std::setw(4)
-                << std::setfill('0') << static_cast<int>(address) << ")"
-                << std::endl;
+                << std::setfill('0') << static_cast<int>(address) << ")";
     } else if (lookup[opcode].addr_mode == &CPU::IDX) {
       item1 = read(start++);
       std::cout << std::hex << std::setw(2) << std::setfill('0')
                 << static_cast<int>(item1) << "\t\t" << lookup[opcode].name
-                << " ($" << static_cast<int>(item1) << ",X)" << std::endl;
+                << " ($" << static_cast<int>(item1) << ",X)";
     } else if (lookup[opcode].addr_mode == &CPU::IDY) {
       item1 = read(start++);
       //($40),Y
       std::cout << std::hex << std::setw(2) << std::setfill('0')
                 << static_cast<int>(item1) << "\t\t" << lookup[opcode].name
-                << " ($" << static_cast<int>(item1) << "),Y" << std::endl;
+                << " ($" << static_cast<int>(item1) << "),Y";
+    }
+    if (debug_enable) {
+      std::cout << std::endl;
+    }
+    else{
+      std::cout<<std::endl;
     }
   }
+}
+
+void CPU::log() {
+  std::cout << "A:" << std::hex << std::setw(2) << std::setfill('0')
+            << static_cast<int>(A) << " X:" << static_cast<int>(X)
+            << " Y:" << static_cast<int>(Y) << " SP:" << static_cast<int>(SP)
+            << std::endl;
 }
 
 bool CPU::debug() {
@@ -1316,9 +1321,8 @@ bool CPU::debug() {
       uint16_t address = strtol(decision.c_str(), NULL, 16);
       std::cout << static_cast<int>(read(address)) << std::endl;
       goto decision;
-    }
-    else if(decision == "jtil"){
-      std::cin>>decision;
+    } else if (decision == "jtil") {
+      std::cin >> decision;
       jumptil = strtol(decision.c_str(), NULL, 16);
     }
     return decision == "q";

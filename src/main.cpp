@@ -4,9 +4,9 @@
 #include <unistd.h>
 
 int main(int argc, char **argv) {
-  char* mystuff[] = {"./NES","/home/afe123x/Documents/projects/NES-Emulator/tests/assembly/AllSuiteA.bin","0"};
-  argv = mystuff;
-  argc = 3;
+  // char* mystuff[] = {"./NES","/home/afe123x/Documents/projects/NES-Emulator/tests/assembly/LDA.nes","0"};
+  // argv = mystuff;
+  // argc = 3;
   if (argc < 3) {
     std::cerr << "./NES {program} {debugmode 1/0}" << std::endl;
     return -1;
@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
 
 
   char buf;
-  for (int i = 0x4000; i <= 0xFFFF; i++) {
+  for (int i = 0x0000; i <= 0xFFFF; i++) {
     long bytesread = read(fd, &buf, 1);
     if (bytesread) {
       mybus->cpuwrite(i, buf);
@@ -38,7 +38,8 @@ int main(int argc, char **argv) {
   if (condition == 1) {
     cpu->debug_enable = true;
   } else if (condition == 2) {
-    cpu->dissasemble(0x4000, 0x45c5);
+    cpu->debug_enable = true;
+    cpu->dissasemble(0x0000, 0xFFFE);
     delete mybus;
     delete cpu;
     close(fd);
