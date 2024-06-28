@@ -1,16 +1,53 @@
 #include "./../lib/bus.h"
+#include "./../lib/cartridge.h"
 #include "./../lib/cpu.h"
-#include<cstring>
-  BUS::BUS(){
-    this->ram = new uint8_t[0x10000];
-    memset(ram,0,0x10000);
+#include "./../lib/ppu.h"
+#include <cstring>
+BUS::BUS() {
+  this->ram = new uint8_t[0x0800];
+  memset(ram, 0, 0x0800);
+  game = new cartridge();
+  if(!game->insert("/home/afe123x/Downloads/games/NES/Super Mario Bros (E).nes")){
+    game->clean();
+    return;
   }
-  BUS::~BUS(){
-    delete[] ram;
+  ppu = new PPU();
+  ppu->connectcart(game);
+  cpu = new CPU(this);
+  cpu->debug_enable = true;
+}
+BUS::~BUS() {
+  delete[] ram;
+  game->clean();
+  delete game;
+  delete ppu;
+  // game->clean();
+  delete cpu;
+}
+uint8_t BUS::cpuread(uint16_t addr, bool readonly) {
+  uint8_t data = 0x00;
+  if (addr <= 0x1FFF) {
+    data = ram[addr & 0x07FF] & 0xFF;
+  } else if (addr >= 0x2000 && addr <= 0x3FFF) {
+    data = ppu->cpuread(addr, readonly);
+  } else if (addr >= 0x4000 && addr <= 0x4017) {
+    // NES APU and I/O registers
+  } else {
+    game->cpuread(addr, &data);
   }
-  uint8_t BUS::cpuread(uint16_t addr, bool readonly){
-    return ram[addr & 0xFFFF] & 0xFF;
+
+  return data;
+}
+void BUS::cpuwrite(uint16_t addr, uint8_t byte) {
+  if (addr <= 0x1FFF) {
+    ram[addr & 0x07FF] = byte & 0xFF;
+  } else if (addr >= 0x2000 && addr <= 0x3FFF) {
+    ppu->cpuwrite(addr, byte);
+  } else if (addr >= 0x4000 && addr <= 0x4017) {
+    // NES APU and I/O registers
+  } else {
+    game->cpuwrite(addr, byte);
   }
-  void BUS::cpuwrite(uint16_t addr, uint8_t byte){
-    ram[addr & 0xFFFF] = byte & 0xFF;
-  }
+}
+
+void BUS::clock() { cpu->tick(); }

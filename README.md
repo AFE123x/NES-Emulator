@@ -1,3 +1,5 @@
-# Part 1 - CPU
+# Part II - PPU
 
-- Here, I'm implementing the CPU. You can find the code, and I'll be sure to post Notes in the Notes directory, cheers.
+- This branch contains notes and my implementation of the picture processing unit.
+
+- You can find notes I take in the notes directory.

@@ -1187,7 +1187,6 @@ void CPU::dissasemble(uint16_t start, uint16_t end) {
               << static_cast<int>(start - 1) << ": " << std::hex << std::setw(2)
               << std::setfill('0') << static_cast<int>(opcode) << "  ";
     uint8_t item1;
-    uint16_t item2;
     if (lookup[opcode].addr_mode == &CPU::IMM) {
       item1 = read(start++);
       std::cout << std::hex << std::setw(2) << std::setfill('0')
