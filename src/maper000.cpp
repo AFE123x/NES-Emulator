@@ -31,11 +31,6 @@ bool mapper000::ppuread(uint16_t address, uint16_t *map_address) {
   return false;
 }
 bool mapper000::ppuwrite(uint16_t address, uint16_t *map_address) {
-  if (address <= 0x1FFF) {
-    if (chr_size == 0) {
-      *map_address = address;
-      return true;
-    }
-  }
+
   return false;
 }

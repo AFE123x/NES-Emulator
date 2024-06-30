@@ -7,7 +7,7 @@ BUS::BUS() {
   this->ram = new uint8_t[0x0800];
   memset(ram, 0, 0x0800);
   game = new cartridge();
-  if(!game->insert("/home/afe123x/Downloads/games/NES/Super Mario Bros (E).nes")){
+  if (!game->insert("/home/afe123x/Documents/projects/NES-Emulator/tests/nestest.nes")) {
     game->clean();
     return;
   }
@@ -50,4 +50,4 @@ void BUS::cpuwrite(uint16_t addr, uint8_t byte) {
   }
 }
 
-void BUS::clock() { cpu->tick(); }
+void BUS::clock() { ppu->patterntable1(); }

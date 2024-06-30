@@ -4,9 +4,9 @@
 #include <unistd.h>
 
 int main(int argc, char **argv) {
+//  argc = 2;
+//  argv = {"./NES", "./tests/nestest.nes"};
  BUS* bus = new BUS();
- while(1){
-    bus->clock();
- }
+ bus->clock();
  delete bus;
 }
