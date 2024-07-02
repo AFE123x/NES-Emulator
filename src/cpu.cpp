@@ -1179,106 +1179,96 @@ void CPU::XXX() {}
  * @param start, specifying the address where to start
  * @param end , specifying address where to end.
  */
-void CPU::dissasemble(uint16_t start, uint16_t end) {
-  uint8_t opcode;
-  while (start <= end) {
-    opcode = read(start++);
-    std::cout << std::hex << std::setw(4) << std::setfill('0')
-              << static_cast<int>(start - 1) << ": " << std::hex << std::setw(2)
-              << std::setfill('0') << static_cast<int>(opcode) << "  ";
-    uint8_t item1;
-    if (lookup[opcode].addr_mode == &CPU::IMM) {
-      item1 = read(start++);
-      std::cout << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(item1) << "\t\t" << lookup[opcode].name
-                << " #$" << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(item1);
-    } else if (lookup[opcode].addr_mode == &CPU::IMP) {
+// #include <sstream>
+// #include <iomanip>
+// #include <iostream>
 
-      std::cout << "\t\t" << lookup[opcode].name;
-    } else if (lookup[opcode].addr_mode == &CPU::ZP0) {
-      item1 = read(start++);
-      std::cout << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(item1) << "\t\t" << lookup[opcode].name
-                << " $" << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(item1);
-    } else if (lookup[opcode].addr_mode == &CPU::ACC) {
-      item1 = read(start++);
-      std::cout << "\t\t" << lookup[opcode].name << " A";
-    } else if (lookup[opcode].addr_mode == &CPU::ZPX) {
-      item1 = read(start++);
-      std::cout << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(item1) << "\t\t" << lookup[opcode].name
-                << " $" << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(item1) << ",X";
-    } else if (lookup[opcode].addr_mode == &CPU::ZPY) {
-      item1 = read(start++);
-      std::cout << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(item1) << "\t\t" << lookup[opcode].name
-                << " $" << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(item1) << ",Y";
-    } else if (lookup[opcode].addr_mode == &CPU::REL) {
-      item1 = read(start++);
-      std::cout << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(item1) << "\t\t" << lookup[opcode].name
-                << " *" << static_cast<int>(item1);
-    } else if (lookup[opcode].addr_mode == &CPU::ABS) {
+std::string CPU::disassemble(uint16_t start, uint16_t end) {
+    std::stringstream ss;
+    uint8_t opcode;
+    uint16_t inum = 0;
+    while (inum++ < 10) {
+        opcode = read(start++);
+        ss << std::hex << std::setw(4) << std::setfill('0') << static_cast<int>(start - 1) << ": " 
+           << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(opcode) << "  ";
+        uint8_t item1;
 
-      uint8_t lo = read(start++);
-      uint8_t hi = read(start++);
-      uint16_t address = ((uint16_t)hi << 8) | lo;
-      std::cout << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(lo) << "  " << std::hex << std::setw(2)
-                << std::setfill('0') << static_cast<int>(hi) << "\t"
-                << lookup[opcode].name << "  $" << std::hex << std::setw(4)
-                << std::setfill('0') << static_cast<int>(address);
-    } else if (lookup[opcode].addr_mode == &CPU::ABX) {
-      uint8_t lo = read(start++);
-      uint8_t hi = read(start++);
-      uint16_t address = ((uint16_t)hi << 8) | lo;
-      std::cout << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(lo) << "  " << std::hex << std::setw(2)
-                << std::setfill('0') << static_cast<int>(hi) << "\t"
-                << lookup[opcode].name << "  $" << std::hex << std::setw(4)
-                << std::setfill('0') << static_cast<int>(address) << ",X";
-    } else if (lookup[opcode].addr_mode == &CPU::ABY) {
-      uint8_t lo = read(start++);
-      uint8_t hi = read(start++);
-      uint16_t address = ((uint16_t)hi << 8) | lo;
-      std::cout << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(lo) << "  " << std::hex << std::setw(2)
-                << std::setfill('0') << static_cast<int>(hi) << "\t"
-                << lookup[opcode].name << "  $" << std::hex << std::setw(4)
-                << std::setfill('0') << static_cast<int>(address) << ",Y";
-    } else if (lookup[opcode].addr_mode == &CPU::IND) {
-      uint8_t lo = read(start++);
-      uint8_t hi = read(start++);
-      uint16_t address = ((uint16_t)hi << 8) | lo;
-      std::cout << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(lo) << "  " << std::hex << std::setw(2)
-                << std::setfill('0') << static_cast<int>(hi) << "\t\t"
-                << lookup[opcode].name << "  (" << std::hex << std::setw(4)
-                << std::setfill('0') << static_cast<int>(address) << ")";
-    } else if (lookup[opcode].addr_mode == &CPU::IDX) {
-      item1 = read(start++);
-      std::cout << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(item1) << "\t\t" << lookup[opcode].name
-                << " ($" << static_cast<int>(item1) << ",X)";
-    } else if (lookup[opcode].addr_mode == &CPU::IDY) {
-      item1 = read(start++);
-      //($40),Y
-      std::cout << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(item1) << "\t\t" << lookup[opcode].name
-                << " ($" << static_cast<int>(item1) << "),Y";
+        if (lookup[opcode].addr_mode == &CPU::IMM) {
+            item1 = read(start++);
+            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(item1) << "    " 
+               << lookup[opcode].name << " #$" << std::hex << std::setw(2) << std::setfill('0') 
+               << static_cast<int>(item1);
+        } else if (lookup[opcode].addr_mode == &CPU::IMP) {
+            ss << "    " << lookup[opcode].name;
+        } else if (lookup[opcode].addr_mode == &CPU::ZP0) {
+            item1 = read(start++);
+            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(item1) << "    " 
+               << lookup[opcode].name << " $" << std::hex << std::setw(2) << std::setfill('0') 
+               << static_cast<int>(item1);
+        } else if (lookup[opcode].addr_mode == &CPU::ACC) {
+            item1 = read(start++);
+            ss << "    " << lookup[opcode].name << " A";
+        } else if (lookup[opcode].addr_mode == &CPU::ZPX) {
+            item1 = read(start++);
+            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(item1) << "    " 
+               << lookup[opcode].name << " $" << std::hex << std::setw(2) << std::setfill('0') 
+               << static_cast<int>(item1) << ",X";
+        } else if (lookup[opcode].addr_mode == &CPU::ZPY) {
+            item1 = read(start++);
+            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(item1) << "    " 
+               << lookup[opcode].name << " $" << std::hex << std::setw(2) << std::setfill('0') 
+               << static_cast<int>(item1) << ",Y";
+        } else if (lookup[opcode].addr_mode == &CPU::REL) {
+            item1 = read(start++);
+            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(item1) << "    " 
+               << lookup[opcode].name << " *" << static_cast<int>(item1);
+        } else if (lookup[opcode].addr_mode == &CPU::ABS) {
+            uint8_t lo = read(start++);
+            uint8_t hi = read(start++);
+            uint16_t address = ((uint16_t)hi << 8) | lo;
+            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(lo) << "  " 
+               << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hi) << "  " 
+               << lookup[opcode].name << "  $" << std::hex << std::setw(4) << std::setfill('0') 
+               << static_cast<int>(address);
+        } else if (lookup[opcode].addr_mode == &CPU::ABX) {
+            uint8_t lo = read(start++);
+            uint8_t hi = read(start++);
+            uint16_t address = ((uint16_t)hi << 8) | lo;
+            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(lo) << "  " 
+               << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hi) << "  " 
+               << lookup[opcode].name << "  $" << std::hex << std::setw(4) << std::setfill('0') 
+               << static_cast<int>(address) << ",X";
+        } else if (lookup[opcode].addr_mode == &CPU::ABY) {
+            uint8_t lo = read(start++);
+            uint8_t hi = read(start++);
+            uint16_t address = ((uint16_t)hi << 8) | lo;
+            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(lo) << "  " 
+               << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hi) << "  " 
+               << lookup[opcode].name << "  $" << std::hex << std::setw(4) << std::setfill('0') 
+               << static_cast<int>(address) << ",Y";
+        } else if (lookup[opcode].addr_mode == &CPU::IND) {
+            uint8_t lo = read(start++);
+            uint8_t hi = read(start++);
+            uint16_t address = ((uint16_t)hi << 8) | lo;
+            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(lo) << "  " 
+               << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hi) << "    " 
+               << lookup[opcode].name << "  (" << std::hex << std::setw(4) << std::setfill('0') 
+               << static_cast<int>(address) << ")";
+        } else if (lookup[opcode].addr_mode == &CPU::IDX) {
+            item1 = read(start++);
+            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(item1) << "    " 
+               << lookup[opcode].name << " ($" << static_cast<int>(item1) << ",X)";
+        } else if (lookup[opcode].addr_mode == &CPU::IDY) {
+            item1 = read(start++);
+            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(item1) << "    " 
+               << lookup[opcode].name << " ($" << static_cast<int>(item1) << "),Y";
+        }
+        ss << std::endl;
     }
-    if (debug_enable) {
-      std::cout << std::endl;
-    }
-    else{
-      std::cout<<std::endl;
-    }
-  }
+
+    return ss.str();
 }
+
 
 void CPU::log() {
   std::cout << "A:" << std::hex << std::setw(2) << std::setfill('0')
@@ -1292,7 +1282,7 @@ bool CPU::debug() {
                "========"
             << std::endl;
   std::cout << "instruction: ";
-  dissasemble(PC, PC);
+  disassemble(PC, PC);
   std::cout << "      cycles: " << static_cast<int>(total_cycles)
             << "     Cycles left: " << static_cast<int>(cycles)
             << "       FLAGS: " << (get_flag(Negative) ? "N" : "-")

@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <sstream>
 class BUS;
 class CPU {
 public:
@@ -167,5 +168,5 @@ private:
   void log();
 
 public:
-  void dissasemble(uint16_t start, uint16_t end);
+  std::string disassemble(uint16_t start, uint16_t end);
 };

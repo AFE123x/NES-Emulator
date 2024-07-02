@@ -7,7 +7,8 @@ BUS::BUS() {
   this->ram = new uint8_t[0x0800];
   memset(ram, 0, 0x0800);
   game = new cartridge();
-  if (!game->insert("/home/afe123x/Documents/projects/NES-Emulator/tests/nestest.nes")) {
+  bool success = !game->insert("/home/afe123x/Documents/projects/NES-Emulator/tests/nestest.nes");
+  if (success) {
     game->clean();
     return;
   }
@@ -50,4 +51,9 @@ void BUS::cpuwrite(uint16_t addr, uint8_t byte) {
   }
 }
 
-void BUS::clock() { ppu->patterntable1(); }
+void BUS::clock() {
+  ppu->patterntable1();
+  ppu->patterntable2();
+  std::string astring = cpu->disassemble(0x8000, 0x8000);
+  ppu->drawdisassembly(astring);
+}

@@ -1,6 +1,7 @@
 #pragma once
 class cartridge;
 #include<cstdint>
+#include<string>
 class television;
 class PPU {
 public:
@@ -12,6 +13,8 @@ public:
   void ppuwrite(uint16_t address, uint8_t byte);
   void connectcart(cartridge* cartridge);
   void patterntable1();
+  void patterntable2();
+  bool drawdisassembly(std::string& dissasembly);
   void clock();
   void printBinary(uint8_t value);
 private:

@@ -11,80 +11,92 @@
 ![text](./image.png)
 
 
-## How do we control the PPU?
+## PPU Registers
 
-- To read/write to PPU memory is done with I/O registers $2006 and $2007 in CPU memory.
-	- This R/W is usually done during V-Blank at the end of a frame, because you don't want to mess with data while it's rendering.
-	- Another thing to be mindful of, the PPU has 16 bit addresses, but the register is only one byte. 
-		- Because of this, we need to write to address $2006 twice.
-	- $2007 has the actual byte itself, we can read and write to this address.
-	- after doing a write, the address is incremented by 1 or 32 depending on the 2nd bit of $2000
-	- The first read from $2007 isn't valid, but will be buffered and return on next read.
-		- Exception to this are color palettes.
+- The PPU has eight memory mapped registers to the PPU, located at address $2000 to $2007.
+	- The addresses are mirrored every 8 bytes, from $2008 to $3FFF.
+- The PPU will start rendering immediately, but it'll ignore writes to most registers, until it reaches the pre render scan line of the next fram.
+	- AKA, it'll not write for around 29658 CPU cycles for NTSC, which we assume CPU and PPU reset at same time.
 
-## PPU storage
+## $2000 - Controller > write
 
-- The PPU has a 256 byte area of memory, SPR-RAM(Sprite Ram), to store sprite attributes. The sprites are found in the pattern table.
-
-## Control registers
-
-- The PPU has control registers at locations $2000 and $2001
-- $2000 has control register 1
-- $2001 has control register 2.
-- These registers are **write only**
-
-### $2000 register
-- only has write access
-- Bit 7 is used to disable NMIs, which are interrupts generated when V-Blanks occur.
-	- Remember, NMIs aren't affected by interrupt disable flag on CPU flag.
-	- if the bit is 0, NMI will not happen, otherwise, it will happen.
-- Bit 6 is a toggle between master/slave select for the PPU.
-	- When bit 6 is 0, the PPU will get the palette index for the backdrop colors from the EXT pin. It's grounded on the NES, so I don't think we'll have to worry about it.
-- Bit 5 will toggle the sprite size between 8x8 and 8x16.
-	- 1 will switch the sprite to 8x16.
-- Bit 4 specifies which pattern table to use (0: $0000, 1: 1$000)
-- bit 3 specifies which sprite pattern table to use for 8x8 sprites
-	- 0: $0000, 1: $1000
-	- not used in 8x16 sprite size.
-- After I/O occurs with the PPU address, the address is incremented by either 1 (horizontal), or 32 (vertical). bit 2 of $2000 will determine how te increment
-	- If bit 2 is set, it'll be incremented by 32, otherwise 1.
-- the 2 lsb represent the name table address.
-	- 0 is $2000, 1 is $2400, 2 is $2800 and 3 is $2C00.
-	- Another way to look at this:
-		- when you set x to one, you add 256 to X position
-		- when you set y to one, you add 240 to y position.
-
-### $2001 register
-
-- Clearing bit 3 clears the background, and the sprites can be hidden by clearing bit 4.
+- This is the PPU Control register (Commonly named PPUCTRL), which only has **write** access.
 
 
-## PPU Status Registers
+- The flagas for controlling PPU Operations
+```bash
+7  bit  0
+---- ----
+VPHB SINN
+|||| ||||
+|||| ||++- Base nametable address
+|||| ||    (0 = $2000; 1 = $2400; 2 = $2800; 3 = $2C00)
+|||| |+--- VRAM address increment per CPU read/write of PPUDATA
+|||| |     (0: add 1, going across; 1: add 32, going down)
+|||| +---- Sprite pattern table address for 8x8 sprites
+||||       (0: $0000; 1: $1000; ignored in 8x16 mode)
+|||+------ Background pattern table address (0: $0000; 1: $1000)
+||+------- Sprite size (0: 8x8 pixels; 1: 8x16 pixels)
+|+-------- PPU master/slave select
+|          (0: read backdrop from EXT pins; 1: output color on EXT pins)
++--------- Generate an NMI at the start of the vertical blanking interval.
 
-- The PPU status register is located at $2002, it's **read only**
-- This register reports the status to the CPU.
-	- bit 7 indicates if a V-blank is occuring.
-	- Bit 4 indicates if the PPU is willing to accept write to VRAM.
-		- if it's 0, then the write's ignored.
-	- bit 6 and 7 will come later.
-- When you read from address $2002, bit 7 is set to 0 with $2005 and $2006.
+```
+- The Vertical interval blanking is the time between the end of the visible line of frame, and beginning of the first visible line of the next frame/field.
+	- AKA, you'd want to mess with graphics during this time.
+- Another to look at the 2 least significant bits is:
+
+```
+7  bit  0
+---- ----
+.... ..YX
+       ||
+       |+- 1: Add 256 to the X scroll position
+       +-- 1: Add 240 to the Y scroll position
+```
+- Changing the name table is required when scrolling.
+- When the V-Blank flag is set, meaning the PPU is currently in verticle blank, changing the NMI flag in bit 7 of 2000 will generate an NMI. 
+	- To prevent this, you need to clear the vblank flag before writing to 2000 to enable NMI.
+- We'll ignore the master/slave bit.
+- You want to be careful writing to the PPUCTRL register outside vertical blanking in vertical mirror or 4 screen vram mode.
+	- Writing outside vertical blanking, may cause the name table to  be drawn inccorectly from the left nametable, leading to visible glitches.
+		- It'll also mess with sprite 0 hit detection for the scan line.
+	- This glitch only happens to dot 257 and 258. other horizontal lines are fine.
 
 
-## Reading Large ammount of data between CPU and PPU
-- It's not gonna be efficient to use the I/O on the PPU to read the bytes. 
-- You can transfer data from CPU memory to sprite memory with the following steps:
-	- Load required SPR-RAM address to CPU
-	- write required SPR-RAM address to $2003
-	- load byte into CPU
-	- write byte to 2004.
-- This approach would require you to perform the steps 256 times. Dynamic Memory Access is a more efficient way. 
-	- Basically, the whole of sprite memory can be filled with one instruction, a write to $4014. 
-		- Basically, you put the upper byte into this register, and it'll copy the data from, given you put XX in the register, XX00-XXFF to the internal PPU OAM.
-	- This approach uses the memory bus, preventing the cpu from accessing additional instructions.
-		- DMA takes appromixately 512 clock cycles.
-		- Clock stealing is what prevents the cpu from accessing additional instructions.
+## PPU Mask $2001
+
+- This is the PPUMASK register, only has write access.
+- This register handles the rendering of sprites and backgrounds, in addition to color effects
+
+```
+7  bit  0
+---- ----
+BGRs bMmG
+|||| ||||
+|||| |||+- Greyscale (0: normal color, 1: produce a greyscale display)
+|||| ||+-- 1: Show background in leftmost 8 pixels of screen, 0: Hide
+|||| |+--- 1: Show sprites in leftmost 8 pixels of screen, 0: Hide
+|||| +---- 1: Show background
+|||+------ 1: Show sprites
+||+------- Emphasize red (green on PAL/Dendy)
+|+-------- Emphasize green (red on PAL/Dendy)
++--------- Emphasize blue
+```
+
+- bit 1 and 2 will show the sprite/background in the leftmost 8 bit column, setting it to zero will not render them.
+	- This is used in horizontal scrolling situations, so sprites can be partially shown instead of disappearing.
+- Bit 3 and 4 will enable/disable the rendering of the backround and sprites.
+- as mentioned before, this should only be messed with only during v blanks.
+- if either of bit 3 or four is enable, outside the vblank interval, the PPU will make continual use to the PPU address and data bus to fetch tiles to render, and sprites from the OAM.
+	- To modify the PPU memory outside vblank, you should set 3 and 4 to 0.
+- Bits 5,6 and 7 emphasize the colors. AKA, tint.
 
 
+## Status Register - $2002
+
+- This is the PPU status register, has **read** access.
+- This register reflacts the state of various functions inside the PPU.
 ## Color Palette:
 
 - The NES has a color palette, which can store 52 colors.
@@ -147,5 +159,9 @@ result
 
 - Name tables are a matrix of tile numbers, which point to the tiles in the pattern table.
 	- The name table in 32 x 30 tiles.
+	- each tile is 8x8 pixels, so it's 256 x 240 pixels.
 - Each name table has an associated attribute table.
-	- The attribute table tells us which palette to use.
+	- The attribute table has the upper two bits of the color for the tile.
+	- each byte represents a 4 x 4 group of tiles.
+	- an attribute is a 8 x 8 table of these groups.
+	- each 4x4 group is divided into four 2x2 squares, the 8x8 tile is labeled with number 0-F.
