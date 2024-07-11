@@ -2,12 +2,30 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "lldb",
-      "request": "launch",
       "name": "Debug",
-      "program": "${workspaceFolder}/output/NES",
+      "type": "cppdbg",
+      "request": "launch",
       "args": [],
-      "cwd": "${workspaceFolder}"
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "linux": {
+        "MIMode": "gdb",
+        "miDebuggerPath": "gdb",
+        "program": "${workspaceFolder}/output/main"
+      },
+      "osx": {
+        "MIMode": "lldb",
+        "miDebuggerPath": "lldb-mi",
+        "program": "${workspaceFolder}/output/main"
+      },
+      "windows": {
+        "MIMode": "gdb",
+        "miDebuggerPath": "gdb.exe",
+        "program": "${workspaceFolder}/output/main.exe"
+      },
+      "preLaunchTask": "build"
     },
     {
       "name": "C/C++ Runner: Debug Session",
