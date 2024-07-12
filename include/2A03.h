@@ -6,24 +6,40 @@
 class NES;
 class CPU {
 public:
-  CPU(NES* NESBUS);
+  CPU(NES *NESBUS);
   ~CPU();
   void tick();
+  void skip();
   uint8_t read(uint16_t address);
   void write(uint16_t address, uint8_t byte);
-  void printState();
-private:
-  void reset();
-  void nmi();
-  void irq();
-  NES* NESBUS;
-  // Registers
   uint16_t PC;
   uint8_t SP;
   uint8_t A;
   uint8_t X;
   uint8_t Y;
-
+  std::string current_instruction;
+  bool memorychanged;
+private:
+  void reset();
+  void nmi();
+  void irq();
+  NES *NESBUS;
+  // Registers
+public:
+  /*
+  7  bit  0
+  ---- ----
+  NV1B DIZC
+  |||| ||||
+  |||| |||+- Carry
+  |||| ||+-- Zero
+  |||| |+--- Interrupt Disable
+  |||| +---- Decimal
+  |||+------ (No CPU effect; see: the B flag)
+  ||+------- (No CPU effect; always pushed as 1)
+  |+-------- Overflow
+  +--------- Negative
+  */
   union status_register {
     struct status {
       uint8_t carry : 1;
@@ -39,6 +55,7 @@ private:
   };
   status_register flag_register;
 
+private:
   // helper functions
   struct instructions_t {
     std::string name;
@@ -49,11 +66,15 @@ private:
   std::unique_ptr<instructions_t[]> lookuptable;
 
   // important variables
+public:
   uint8_t cycles = 0;
   uint64_t total_cycles = 0;
+
+private:
   uint16_t addr_abs;
   uint16_t addr_rel;
   uint8_t opcode;
+
   // addressing modes
   uint8_t ZP0();
   uint8_t ZPX();

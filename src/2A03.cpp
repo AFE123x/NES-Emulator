@@ -60,41 +60,19 @@ CPU::CPU(NES *NESBUS) {
   lookuptable[0x84] = {"STY {ZP0}", &CPU::ZP0, &CPU::STY, 3};
   lookuptable[0x94] = {"STY {ZPX}", &CPU::ZPX, &CPU::STY, 4};
   lookuptable[0x8C] = {"STY {ABS}", &CPU::ABS, &CPU::STY, 4};
+  lookuptable[0xAA] = {"TAX {IMP}", &CPU::IMP, &CPU::TAX, 2};
+  lookuptable[0xA8] = {"TAY {IMP}", &CPU::IMP, &CPU::TAY, 2};
+  lookuptable[0x8A] = {"TXA {IMP}", &CPU::IMP, &CPU::TXA, 2};
+  lookuptable[0x98] = {"TYA {IMP}", &CPU::IMP, &CPU::TYA, 2};
+  lookuptable[0xBA] = {"TSX {IMP}", &CPU::IMP, &CPU::TSX, 2};
+  lookuptable[0x9A] = {"TXS {IMP}", &CPU::IMP, &CPU::TXS, 2};
+  lookuptable[0x48] = {"PHA {IMP}", &CPU::IMP, &CPU::PHA, 3};
+  lookuptable[0x08] = {"PHP {IMP}", &CPU::IMP, &CPU::PHP, 3};
+  lookuptable[0x68] = {"PLA {IMP}", &CPU::IMP, &CPU::PLA, 4};
+  lookuptable[0x28] = {"PLP {IMP}", &CPU::IMP, &CPU::PLP, 4};
   reset();
 }
-void CPU::printState() {
-  std::cout << "PC: " << std::hex << std::setw(4) << std::setfill('0') << PC
-            << std::endl;
-  std::cout << "SP: " << std::hex << std::setw(2) << std::setfill('0')
-            << static_cast<int>(SP) << std::endl;
-  std::cout << "A: " << std::hex << std::setw(2) << std::setfill('0')
-            << static_cast<int>(A) << std::endl;
-  std::cout << "X: " << std::hex << std::setw(2) << std::setfill('0')
-            << static_cast<int>(X) << std::endl;
-  std::cout << "Y: " << std::hex << std::setw(2) << std::setfill('0')
-            << static_cast<int>(Y) << std::endl;
 
-  std::cout << "Flags:" << std::endl;
-  std::cout << "  Carry: " << static_cast<int>(flag_register.flag.carry)
-            << std::endl;
-  std::cout << "  Zero: " << static_cast<int>(flag_register.flag.zero)
-            << std::endl;
-  std::cout << "  Interrupt Disable: "
-            << static_cast<int>(flag_register.flag.Interrupt_disable)
-            << std::endl;
-  std::cout << "  Decimal: " << static_cast<int>(flag_register.flag.Decimal)
-            << std::endl;
-  std::cout << "  Break Command: "
-            << static_cast<int>(flag_register.flag.break_command) << std::endl;
-  std::cout << "  Unused: " << static_cast<int>(flag_register.flag.unused)
-            << std::endl;
-  std::cout << "  Overflow: " << static_cast<int>(flag_register.flag.overflow)
-            << std::endl;
-  std::cout << "  Negative: " << static_cast<int>(flag_register.flag.negative)
-            << std::endl;
-  char aoeu;
-  std::cin >> aoeu;
-}
 /**
  * @brief Destroy the CPU::CPU object
  *
@@ -102,9 +80,10 @@ void CPU::printState() {
 CPU::~CPU() { std::cout << "CPU Deallocated" << std::endl; }
 
 void CPU::reset() {
-
+  current_instruction = "reset";
   uint16_t lo = read(0xFFFC);
   uint16_t hi = read(0xFFFD);
+  memorychanged = true;
 
   PC = (hi << 8) | lo;
 
@@ -121,6 +100,7 @@ void CPU::reset() {
 
 void CPU::irq() {
   if (!flag_register.flag.Interrupt_disable) {
+    current_instruction = "irq";
     write(0x100 + SP--, (PC >> 8) & 0xFF);
     write(0x100 + SP--, (PC & 0xFF));
     flag_register.flag.Interrupt_disable = 1;
@@ -135,6 +115,7 @@ void CPU::irq() {
 }
 
 void CPU::nmi() {
+  current_instruction = "nmi";
   write(0x100 + SP--, (PC >> 8) & 0xFF);
   write(0x100 + SP--, (PC & 0xFF));
   flag_register.flag.Interrupt_disable = 1;
@@ -152,14 +133,23 @@ void CPU::nmi() {
  */
 void CPU::tick() {
   if (cycles == 0) {
-    printState();
+    // NESBUS->updateregisters();
+    // printState();
     opcode = read(PC++);
+    current_instruction = lookuptable[opcode].name;
+
     uint8_t cycles1 = (this->*(lookuptable[opcode].addr_mode))();
     uint8_t cycles2 = (this->*(lookuptable[opcode].instruction))();
     cycles = cycles1 + cycles2;
   }
   cycles--;
   total_cycles++;
+}
+
+void CPU::skip() {
+  while (cycles > 0) {
+    tick();
+  }
 }
 
 /**
@@ -177,6 +167,9 @@ uint8_t CPU::read(uint16_t address) { return NESBUS->cpuread(address); }
  * @param byte
  */
 void CPU::write(uint16_t address, uint8_t byte) {
+  if (address <= 0xFF) {
+    memorychanged = true;
+  }
   NESBUS->cpuwrite(address, byte);
 }
 
@@ -376,3 +369,75 @@ uint8_t CPU::STY() {
   write(addr_abs, Y);
   return lookuptable[opcode].cycles;
 }
+
+//===============================Register Transfers===========================
+
+uint8_t CPU::TAX() {
+  X = A;
+  flag_register.flag.zero = (X == 0) ? 1 : 0;
+  flag_register.flag.negative = (X & 0x80) ? 1 : 0;
+  return lookuptable[opcode].cycles;
+}
+
+uint8_t CPU::TAY() {
+  Y = A;
+  flag_register.flag.zero = (Y == 0) ? 1 : 0;
+  flag_register.flag.negative = (Y & 0x80) ? 1 : 0;
+  return lookuptable[opcode].cycles;
+}
+
+uint8_t CPU::TXA() {
+  A = X;
+  flag_register.flag.zero = (A == 0) ? 1 : 0;
+  flag_register.flag.negative = (A & 0x80) ? 1 : 0;
+  return lookuptable[opcode].cycles;
+}
+
+uint8_t CPU::TYA() {
+  A = Y;
+  flag_register.flag.zero = (A == 0) ? 1 : 0;
+  flag_register.flag.negative = (A & 0x80) ? 1 : 0;
+  return lookuptable[opcode].cycles;
+}
+
+//====================stack operations=================
+
+uint8_t CPU::TSX() {
+  X = SP;
+  flag_register.flag.zero = (X == 0) ? 1 : 0;
+  flag_register.flag.negative = (X & 0x80) ? 1 : 0;
+  return lookuptable[opcode].cycles;
+}
+uint8_t CPU::TXS() {
+  SP = X;
+  return lookuptable[opcode].cycles;
+}
+uint8_t CPU::PHA() {
+  write(0x100 + SP--, A);
+  return lookuptable[opcode].cycles;
+}
+uint8_t CPU::PHP() {
+  write(0x100 + SP--, flag_register.data);
+  return lookuptable[opcode].cycles;
+}
+uint8_t CPU::PLA() {
+  A = read(0x100 + ++SP);
+  flag_register.flag.zero = (A == 0) ? 1 : 0;
+  flag_register.flag.negative = (A & 0x80) ? 1 : 0;
+  return lookuptable[opcode].cycles;
+}
+uint8_t CPU::PLP() {
+
+  flag_register.data = read(0x100 + ++SP);
+  return lookuptable[opcode].cycles;
+}
+
+//==================logical operations===================
+
+uint8_t CPU::AND() { return 0; }
+
+uint8_t CPU::EOR() { return 0; }
+
+uint8_t CPU::ORA() { return 0; }
+
+uint8_t CPU::BIT() { return 0; }

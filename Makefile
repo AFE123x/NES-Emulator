@@ -7,7 +7,7 @@
 CXX = g++
 
 # define any compile-time flags
-CXXFLAGS	:= -std=c++17 -Wall -Wextra -g -fsanitize=address,undefined -lSDL2
+CXXFLAGS	:= -std=c++17 -Wall -Wextra -g -fsanitize=address,undefined -lSDL2 -lSDL2_ttf -O2
 
 # define library paths in addition to /usr/lib
 #   if I wanted to include libraries not in /usr/lib I'd specify
