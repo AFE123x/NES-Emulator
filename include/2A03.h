@@ -15,7 +15,7 @@ public:
 private:
   void reset();
   void nmi();
-  void m
+  void irq();
   NES* NESBUS;
   // Registers
   uint16_t PC;

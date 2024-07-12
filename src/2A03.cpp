@@ -11,8 +11,8 @@
 
 #include "../include/2A03.h"
 #include "../include/emulator.h"
+#include <iomanip>
 #include <iostream>
-
 /**
  * @brief Construct a new CPU::CPU object
  *
@@ -20,6 +20,7 @@
  */
 CPU::CPU(NES *NESBUS) {
   this->NESBUS = NESBUS;
+  
   PC = addr_abs = addr_rel = 0;
   SP = A = X = Y = flag_register.data = cycles = 0;
   total_cycles = 0;
@@ -59,6 +60,7 @@ CPU::CPU(NES *NESBUS) {
   lookuptable[0x84] = {"STY {ZP0}", &CPU::ZP0, &CPU::STY, 3};
   lookuptable[0x94] = {"STY {ZPX}", &CPU::ZPX, &CPU::STY, 4};
   lookuptable[0x8C] = {"STY {ABS}", &CPU::ABS, &CPU::STY, 4};
+  reset();
 }
 void CPU::printState() {
   std::cout << "PC: " << std::hex << std::setw(4) << std::setfill('0') << PC
@@ -99,6 +101,51 @@ void CPU::printState() {
  */
 CPU::~CPU() { std::cout << "CPU Deallocated" << std::endl; }
 
+void CPU::reset() {
+
+  uint16_t lo = read(0xFFFC);
+  uint16_t hi = read(0xFFFD);
+
+  PC = (hi << 8) | lo;
+
+  A = 0;
+  X = 0;
+  Y = 0;
+  SP = 0xFD;
+  flag_register.data = 0;
+
+  addr_rel ^= addr_rel;
+  addr_abs ^= addr_abs;
+  cycles = 8;
+}
+
+void CPU::irq() {
+  if (!flag_register.flag.Interrupt_disable) {
+    write(0x100 + SP--, (PC >> 8) & 0xFF);
+    write(0x100 + SP--, (PC & 0xFF));
+    flag_register.flag.Interrupt_disable = 1;
+    flag_register.flag.unused = 1;
+    flag_register.flag.break_command = 1;
+    write(0x100 + SP--, flag_register.data);
+    uint8_t lo = read(0xFFFE);
+    uint8_t hi = read(0xFFFF);
+    PC = ((uint16_t)hi << 8) | lo;
+    cycles = 7;
+  }
+}
+
+void CPU::nmi() {
+  write(0x100 + SP--, (PC >> 8) & 0xFF);
+  write(0x100 + SP--, (PC & 0xFF));
+  flag_register.flag.Interrupt_disable = 1;
+  flag_register.flag.unused = 1;
+  flag_register.flag.break_command = 0;
+  write(0x100 + SP--, flag_register.data);
+  uint8_t lo = read(0xFFFA);
+  uint8_t hi = read(0xFFFB);
+  PC = ((uint16_t)hi << 8) | lo;
+  cycles = 8;
+}
 /**
  * @brief Performs one system tick.
  *
@@ -112,7 +159,7 @@ void CPU::tick() {
     cycles = cycles1 + cycles2;
   }
   cycles--;
-  cycles++;
+  total_cycles++;
 }
 
 /**
@@ -317,7 +364,7 @@ uint8_t CPU::LDY() {
 
 uint8_t CPU::STA() {
   write(addr_abs, A);
-  Acceptance return lookuptable[opcode].cycles;
+  return lookuptable[opcode].cycles;
 }
 
 uint8_t CPU::STX() {

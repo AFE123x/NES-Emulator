@@ -3,9 +3,9 @@
   "configurations": [
     {
       "name": "Debug",
-      "type": "cppdbg",
+      "type": "lldb",
       "request": "launch",
-      "args": [],
+      "args": ["-l","asnoehunto"],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],
@@ -13,7 +13,7 @@
       "linux": {
         "MIMode": "gdb",
         "miDebuggerPath": "gdb",
-        "program": "${workspaceFolder}/output/main"
+        "program": "${workspaceFolder}/output/nes-emu"
       },
       "osx": {
         "MIMode": "lldb",

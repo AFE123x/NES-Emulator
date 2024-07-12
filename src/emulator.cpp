@@ -1,7 +1,6 @@
 #include "../include/emulator.h"
 #include "../include/2A03.h"
-NES::NES() {
-}
+NES::NES() {}
 NES::~NES() {
   // Clean up.
   SDL_DestroyRenderer(renderer);
@@ -9,7 +8,7 @@ NES::~NES() {
   SDL_Quit();
 }
 bool NES::initialize(uint8_t scale) {
-  //initialize SDL2 video
+  // initialize SDL2 video
   if (SDL_Init(SDL_INIT_VIDEO) != 0) {
     SDL_Log("Unable to initialize SDL: %s", SDL_GetError());
     return false;
@@ -59,21 +58,41 @@ bool NES::initialize(uint8_t scale) {
 
   return true;
 }
-uint8_t NES::cpuread(uint16_t address){
-    return memory[address];
-}
-void NES::cpuwrite(uint16_t address, uint8_t byte){
-    memory[address] = byte;
-}
+uint8_t NES::cpuread(uint16_t address) { return memory[address]; }
+void NES::cpuwrite(uint16_t address, uint8_t byte) { memory[address] = byte; }
 bool NES::run(const std::string &rom, uint8_t scale) {
   if (!initialize(scale)) {
     return false;
   }
-  cpu = std::make_shared<CPU>(this);
   uint32_t array_size = 64 * 1024;
   memory = std::make_unique<uint8_t[]>(array_size);
-  for(int i = 0; i < array_size; i++){
+
+  for (uint32_t i = 0; i < array_size; i++) {
     memory[i] = 0;
+  }
+  // a9 0a 85 00 a9 14 85 01 a5 00 85 02 a5 01 85 03
+  memory[0x8000] = 0xA9;
+  memory[0x8001] = 0xA;
+  memory[0x8002] = 0x85;
+  memory[0x8003] = 0x00;
+  memory[0x8004] = 0xA9;
+  memory[0x8005] = 0x14;
+  memory[0x8006] = 0x85;
+  memory[0x8007] = 0x01;
+  memory[0x8008] = 0xA5;
+  memory[0x8009] = 0x00;
+  memory[0x800A] = 0x85;
+  memory[0x800B] = 0x02;
+  memory[0x800C] = 0xA5;
+  memory[0x800D] = 0x01;
+  memory[0x800E] = 0x85;
+  memory[0x800F] = 0x03;
+  memory[0xFFFC] = 0x00;
+  memory[0xFFFD] = 0x80;
+  cpu = std::make_shared<CPU>(this);
+
+  while (1) {
+    cpu->tick();
   }
   return true;
 }
