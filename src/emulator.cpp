@@ -7,6 +7,10 @@ NES::~NES() {
   SDL_DestroyWindow(window);
   SDL_Quit();
 }
+
+/*
+use this as a reference for the GUI: https://thenumb.at/cpp-course/sdl2/07/07.html
+*/
 bool NES::initialize(uint8_t scale) {
   // initialize SDL2 video
   if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -55,7 +59,9 @@ bool NES::initialize(uint8_t scale) {
   }
   // Delay for 10 seconds.
   SDL_Delay(2000);
-
+  SDL_DestroyRenderer(renderer);
+  SDL_DestroyWindow(window);
+  SDL_Quit();
   return true;
 }
 uint8_t NES::cpuread(uint16_t address) { return memory[address]; }

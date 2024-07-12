@@ -20,7 +20,7 @@
  */
 CPU::CPU(NES *NESBUS) {
   this->NESBUS = NESBUS;
-  
+
   PC = addr_abs = addr_rel = 0;
   SP = A = X = Y = flag_register.data = cycles = 0;
   total_cycles = 0;
@@ -114,8 +114,8 @@ void CPU::reset() {
   SP = 0xFD;
   flag_register.data = 0;
 
-  addr_rel ^= addr_rel;
-  addr_abs ^= addr_abs;
+  addr_rel = 0;
+  addr_abs = 0;
   cycles = 8;
 }
 
