@@ -94,7 +94,7 @@ CPU::CPU(NES *NESBUS) {
   illegalops();
   reset();
 }
-void CPU::illegalops(){
+void CPU::illegalops() {
   lookuptable[0xEB] = {"ILL: SBC {IMM}", &CPU::IMM, &CPU::SBC, 2};
 }
 void CPU::populate2() {
@@ -144,7 +144,6 @@ void CPU::populate2() {
   lookuptable[0x00] = {"BRK {IMP}", &CPU::IMP, &CPU::SEI, 7};
   lookuptable[0xEA] = {"NOP {IMP}", &CPU::IMP, &CPU::NOP, 2};
   lookuptable[0x40] = {"RTI {IMP}", &CPU::IMP, &CPU::RTI, 6};
-  
 }
 void CPU::populate1() {
   lookuptable[0x0D] = {"ORA {ABS}", &CPU::ABS, &CPU::ORA, 4};
@@ -210,29 +209,66 @@ void CPU::populate1() {
  */
 CPU::~CPU() { std::cout << "CPU Deallocated" << std::endl; }
 
+/**
+ * @brief Resets the CPU to its initial state.
+ *
+ * This function simulates the reset behavior of a 6502 CPU by initializing
+ * the Program Counter (PC) to the reset vector address and setting up
+ * the CPU registers to their default values. This is typically done at
+ * the start of emulation or when the CPU is reset.
+ *
+ * The current implementation sets the PC to a temporary address (0x8000).
+ * This should be updated to use the actual reset vector address read from
+ * memory locations 0xFFFC (low byte) and 0xFFFD (high byte).
+ *
+ * @note The `current_instruction` variable is set to "reset" for debugging
+ * purposes.
+ * @note `memorychanged` is marked as true, possibly indicating that the memory
+ * state has changed.
+ * @note The `cycles` variable is set to 8 to represent the number of cycles for
+ * the reset process.
+ */
 void CPU::reset() {
   current_instruction = "reset";
+
   uint16_t lo = read(0xFFFC);
   uint16_t hi = read(0xFFFD);
+
   memorychanged = true;
 
-  // PC = (hi << 8) | lo;
   PC = 0x8000;
+
   A = 0;
   X = 0;
   Y = 0;
   SP = 0xFD;
   flag_register.data = 0;
-
   addr_rel = 0;
   addr_abs = 0;
   cycles = 8;
 }
 
+/**
+ * @brief Handles an IRQ (Interrupt Request) signal.
+ *
+ * This function simulates the behavior of the 6502 CPU when an IRQ is received
+ * and interrupts are enabled. It saves the CPU state, disables further IRQs,
+ * and sets the Program Counter (PC) to the IRQ vector address.
+ *
+ * @note The `current_instruction` variable is set to "irq" for debugging
+ * purposes.
+ * @note The `cycles` variable is set to 7 to represent the number of cycles for
+ * processing the IRQ.
+ *
+ * @pre The `Interrupt_disable` flag should be clear for the IRQ to be
+ * processed.
+ */
 void CPU::irq() {
   if (!flag_register.flag.Interrupt_disable) {
     current_instruction = "irq";
+
     write(0x100 + SP--, (PC >> 8) & 0xFF);
+
     write(0x100 + SP--, (PC & 0xFF));
     flag_register.flag.Interrupt_disable = 1;
     flag_register.flag.unused = 1;
@@ -245,6 +281,18 @@ void CPU::irq() {
   }
 }
 
+/**
+ * @brief Handles an NMI (Non-Maskable Interrupt) signal.
+ *
+ * This function simulates the behavior of the 6502 CPU when an NMI is received.
+ * An NMI always interrupts the CPU, saving the CPU state, disabling further
+ * NMIs, and setting the Program Counter (PC) to the NMI vector address.
+ *
+ * @note The `current_instruction` variable is set to "nmi" for debugging
+ * purposes.
+ * @note The `cycles` variable is set to 8 to represent the number of cycles for
+ * processing the NMI.
+ */
 void CPU::nmi() {
   current_instruction = "nmi";
   write(0x100 + SP--, (PC >> 8) & 0xFF);
@@ -258,6 +306,7 @@ void CPU::nmi() {
   PC = ((uint16_t)hi << 8) | lo;
   cycles = 8;
 }
+
 /**
  * @brief Performs one system tick.
  *
@@ -266,12 +315,12 @@ void CPU::tick() {
   if (cycles == 0) {
     // NESBUS->updateregisters();
     // printState();
-    if(PC > 0xA905 && PC < 0xA90D){
-      std::cout<<"we here"<<std::endl;
+    if (PC > 0xA905 && PC < 0xA90D) {
+      std::cout << "we here" << std::endl;
     }
     opcode = read(PC++);
     current_instruction = lookuptable[opcode].name;
-    std::cout<<current_instruction<<std::endl;
+    std::cout << current_instruction << std::endl;
     uint8_t cycles1 = (this->*(lookuptable[opcode].addr_mode))();
     uint8_t cycles2 = (this->*(lookuptable[opcode].instruction))();
     cycles = cycles1 + cycles2;
@@ -918,51 +967,49 @@ uint8_t CPU::BVC() {
 
 //=======================status flag==================
 
-uint8_t CPU::CLC(){
+uint8_t CPU::CLC() {
   flag_register.flag.carry = 0;
   return lookuptable[opcode].cycles;
 }
 
-uint8_t CPU::CLD(){
+uint8_t CPU::CLD() {
   flag_register.flag.decimal = 0;
   return lookuptable[opcode].cycles;
 }
 
-uint8_t CPU::CLI(){
+uint8_t CPU::CLI() {
   flag_register.flag.Interrupt_disable = 0;
   return lookuptable[opcode].cycles;
 }
 
-uint8_t CPU::CLV(){
+uint8_t CPU::CLV() {
   flag_register.flag.overflow = 0;
   return lookuptable[opcode].cycles;
 }
 
-uint8_t CPU::SEC(){
+uint8_t CPU::SEC() {
   flag_register.flag.carry = 1;
   return lookuptable[opcode].cycles;
 }
 
-uint8_t CPU::SED(){
+uint8_t CPU::SED() {
   flag_register.flag.decimal = 1;
   return lookuptable[opcode].cycles;
 }
 
-uint8_t CPU::SEI(){
+uint8_t CPU::SEI() {
   flag_register.flag.Interrupt_disable = 1;
   return lookuptable[opcode].cycles;
 }
 
-uint8_t CPU::BRK(){
+uint8_t CPU::BRK() {
   irq();
   return 0;
 }
 
-uint8_t CPU::NOP(){
-  return 2;
-}
+uint8_t CPU::NOP() { return 2; }
 
-uint8_t CPU::RTI(){
+uint8_t CPU::RTI() {
   flag_register.data = read(0x100 + ++SP);
   uint8_t lo = read(0x100 + ++SP);
   uint8_t hi = read(0x100 + ++SP);

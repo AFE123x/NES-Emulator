@@ -67,8 +67,7 @@ bool NES::initialize(uint8_t scale) {
     SDL_Quit();
   }
 
-  font = TTF_OpenFont("/home/afe123x/Documents/projects/NES-Emulator/src/fonts/"
-                      "Retro Gaming.ttf",
+  font = TTF_OpenFont("../src/fonts/Retro Gaming.ttf",
                       12);
   if (!font) {
     SDL_Log("Failed to load font: %s", TTF_GetError());
@@ -271,6 +270,9 @@ bool NES::run(const std::string &rom, uint8_t scale) {
           cpu->skip();
           cpu->tick();
           updateregisters();
+        }
+        else if(keyPressed == SDLK_q){
+          quit = true;
         }
       }
     }
