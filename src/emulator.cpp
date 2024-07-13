@@ -107,7 +107,7 @@ bool NES::PrintText(char *buf, SDL_Color color, int X, int Y) {
   // Clean up resources
   SDL_DestroyTexture(text_texture);
   SDL_FreeSurface(text);
-  SDL_Delay(5);
+  SDL_Delay(15);
   return true; // Return true if everything succeeds
 }
 void NES::setstatusregister() {
@@ -197,19 +197,19 @@ void NES::updateregisters() {
   PrintText(buf, color, 510, 85);
 
   if (cpu->memorychanged) {
-    for (int j = 0; j < 4; j++) {
-      for (int i = 0; i < 1; i++) {
+    for (int j = 0; j < 16; j++) {
+      for (int i = 0; i < 16; i++) {
         cache[i][j] = memory[(i << 4) + j];
         snprintf(buf, 3, "%X", cache[i][j]);
-        PrintText(buf, color, 10 + j * 30, 10 + i * 30);
+        PrintText(buf, color, 10 + j * 22, 10 + i * 22);
       }
     }
     cpu->memorychanged = false;
   } else {
-    for (int j = 0; j < 4; j++) {
-      for (int i = 0; i < 1; i++) {
+    for (int j = 0; j < 16; j++) {
+      for (int i = 0; i < 16; i++) {
         snprintf(buf, 3, "%X", cache[i][j]);
-        PrintText(buf, color, 10 + j * 30, 10 + i * 30);
+        PrintText(buf, color, 10 + j * 22, 10 + i * 22);
       }
     }
   }
