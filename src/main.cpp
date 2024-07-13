@@ -6,7 +6,9 @@
 int main(int argc, char *argv[]) {
   if (argc < 2) {
     std::cout << "./NES {arguments}, write -h/--help for help" << std::endl;
+    return 1;
   }
+  std::string rom;
   uint8_t scale = 1;
   for (int i = 1; i < argc; i++) {
     std::string mystring(argv[i]);
@@ -29,8 +31,9 @@ int main(int argc, char *argv[]) {
         std::cout << "./NES -l {rom file}" << std::endl;
         break;
       } else {
-        std::cout << "We'll try to open it lol" << std::endl;
+        //std::cout << "We'll try to open it lol" << std::endl;
         i++;
+        rom = argv[i];
       }
     } else if (mystring == "-c" || mystring == "--config") {
       std::cout << "open config" << std::endl;
@@ -49,6 +52,6 @@ int main(int argc, char *argv[]) {
     }
   }
   NES nes;
-  nes.run("antehunao",scale);
+  nes.run(rom,scale);
   return 0;
 }

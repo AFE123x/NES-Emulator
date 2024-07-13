@@ -19,6 +19,7 @@ public:
   uint8_t Y;
   std::string current_instruction;
   bool memorychanged;
+
 private:
   void reset();
   void nmi();
@@ -45,7 +46,7 @@ public:
       uint8_t carry : 1;
       uint8_t zero : 1;
       uint8_t Interrupt_disable : 1;
-      uint8_t Decimal : 1;
+      uint8_t decimal : 1;
       uint8_t break_command : 1;
       uint8_t unused : 1;
       uint8_t overflow : 1;
@@ -56,6 +57,9 @@ public:
   status_register flag_register;
 
 private:
+  void populate1();
+  void populate2();
+  void illegalops();
   // helper functions
   struct instructions_t {
     std::string name;

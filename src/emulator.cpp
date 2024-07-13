@@ -1,13 +1,20 @@
 #include "../include/emulator.h"
 #include "../include/2A03.h"
+#include "../include/Cartridge.h"
 #include <cstdio>
+#include <cstring> // For memset()
+#include <fcntl.h>
 #include <iostream>
+#include <memory>
+#include <stdexcept> // For std::runtime_error
+#include <unistd.h>
 NES::NES() {}
 NES::~NES() {
   // Clean up.
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
   SDL_Quit();
+  // close(romfile);
 }
 
 /*
@@ -185,23 +192,25 @@ void NES::updateregisters() {
 
   // print out cycles
 
-  sprintf(buf, "cycles: %d  total: %ld", cpu->cycles, cpu->total_cycles);
-  PrintText(buf, color, 490, 70);
+  sprintf(buf, "cycles: %d", cpu->cycles);
+  PrintText(buf, color, 510, 70);
+  sprintf(buf, "cycles: %ld", cpu->total_cycles);
+  PrintText(buf, color, 510, 85);
 
   if (cpu->memorychanged) {
-    for (int j = 0; j < 16; j++) {
-      for (int i = 0; i < 16; i++) {
+    for (int j = 0; j < 4; j++) {
+      for (int i = 0; i < 1; i++) {
         cache[i][j] = memory[(i << 4) + j];
         snprintf(buf, 3, "%X", cache[i][j]);
-        PrintText(buf, color, 10 + j * 20, 10 + i * 20);
+        PrintText(buf, color, 10 + j * 30, 10 + i * 30);
       }
     }
     cpu->memorychanged = false;
   } else {
-    for (int j = 0; j < 16; j++) {
-      for (int i = 0; i < 16; i++) {
+    for (int j = 0; j < 4; j++) {
+      for (int i = 0; i < 1; i++) {
         snprintf(buf, 3, "%X", cache[i][j]);
-        PrintText(buf, color, 10 + j * 20, 10 + i * 20);
+        PrintText(buf, color, 10 + j * 30, 10 + i * 30);
       }
     }
   }
@@ -209,41 +218,36 @@ void NES::updateregisters() {
   SDL_RenderPresent(renderer);
 }
 
-uint8_t NES::cpuread(uint16_t address) { return memory[address]; }
-void NES::cpuwrite(uint16_t address, uint8_t byte) { memory[address] = byte; }
+void NES::loadrom(const std::string &rom) {
+  game = std::make_shared<Cartridge>(rom);
+}
+
+uint8_t NES::cpuread(uint16_t address) {
+  uint8_t data = 0;
+  if (address <= 0x1FFF) {
+    data = memory[address & 0x7FF];
+  } else if (address >= 0x2000 && address <= 0x3FFF) {
+    // PPU stuff
+    data = 0;
+  } else if (address >= 0x4020) {
+    game->cpuread(address, data);
+  }
+  return data;
+}
+void NES::cpuwrite(uint16_t address, uint8_t byte) {
+  if (address <= 0x1FFF) {
+    memory[address & 0x7FF] = byte;
+  }
+}
 bool NES::run(const std::string &rom, uint8_t scale) {
   std::cout << rom << std::endl;
+  uint32_t array_size = 2 * 1024;
+  memory = std::make_unique<uint8_t[]>(array_size);
+  loadrom(rom);
+
   if (!initialize(scale)) {
     return false;
   }
-
-  uint32_t array_size = 64 * 1024;
-  memory = std::make_unique<uint8_t[]>(array_size);
-
-  // Initialize memory
-  for (uint32_t i = 0; i < array_size; i++) {
-    memory[i] = 0;
-  }
-
-  // Set initial memory values
-  memory[0x8000] = 0xA9;
-  memory[0x8001] = 0x00;
-  memory[0x8002] = 0x85;
-  memory[0x8003] = 0x00;
-  memory[0x8004] = 0xA9;
-  memory[0x8005] = 0x14;
-  memory[0x8006] = 0x85;
-  memory[0x8007] = 0x01;
-  memory[0x8008] = 0xA5;
-  memory[0x8009] = 0x00;
-  memory[0x800A] = 0x85;
-  memory[0x800B] = 0x02;
-  memory[0x800C] = 0xA5;
-  memory[0x800D] = 0x01;
-  memory[0x800E] = 0x85;
-  memory[0x800F] = 0x03;
-  memory[0xFFFC] = 0x00;
-  memory[0xFFFD] = 0x80;
 
   // Create CPU instance
   cpu = std::make_shared<CPU>(this);
@@ -260,19 +264,17 @@ bool NES::run(const std::string &rom, uint8_t scale) {
       } else if (e.type == SDL_KEYDOWN) {
         // Check which key was pressed
         SDL_Keycode keyPressed = e.key.keysym.sym;
-        if (keyPressed == SDLK_t) { //perform one clock tick.
+        if (keyPressed == SDLK_t) { // perform one clock tick.
           cpu->tick();
           updateregisters();
-        }
-        else if(keyPressed == SDLK_g){ //goto the next instruction
-          cpu->skip();
-          cpu->tick();
-          updateregisters();
+        } else if (keyPressed == SDLK_g) { // goto the next instruction
         }
       }
     }
-
-    SDL_Delay(50);
+    cpu->skip();
+    cpu->tick();
+    // updateregisters();
+    // SDL_Delay(10);
   }
 
   // Cleanup resources

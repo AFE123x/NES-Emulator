@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 class CPU;
+class Cartridge;
 class NES {
 public:
   NES();
@@ -13,12 +14,15 @@ public:
   uint8_t cpuread(uint16_t address);
   void cpuwrite(uint16_t address, uint8_t byte);
   void updateregisters();
+  void loadrom(const std::string& rom);
 
 private:
   bool PrintText(char *buf, SDL_Color color, int X, int Y);
+  int romfile;
   void setstatusregister();
   TTF_Font *font;
   std::shared_ptr<CPU> cpu;
+  std::shared_ptr<Cartridge> game;
   bool initialize(uint8_t scale);
   std::unique_ptr<uint8_t[]> memory;
   SDL_Window *window = nullptr;
