@@ -268,13 +268,13 @@ bool NES::run(const std::string &rom, uint8_t scale) {
           cpu->tick();
           updateregisters();
         } else if (keyPressed == SDLK_g) { // goto the next instruction
+          cpu->skip();
+          cpu->tick();
+          updateregisters();
         }
       }
     }
-    cpu->skip();
-    cpu->tick();
-    // updateregisters();
-    // SDL_Delay(10);
+    SDL_Delay(10);
   }
 
   // Cleanup resources
