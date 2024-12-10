@@ -2,9 +2,9 @@
 #include"../include/cpu.h"
 #include <stdlib.h>
 #include <assert.h>
-
+#include<string.h>
 // Static pointer to represent the system's memory.
-static char* memory = NULL;
+char memory[0x10000];
 
 /**
  * @brief Initializes the bus memory.
@@ -13,8 +13,7 @@ static char* memory = NULL;
  * This memory serves as the bus for the system's components to interact with.
  */
 static void initialize_bus() {
-    memory = calloc(0x10000, sizeof(char)); // Allocate memory for the bus.
-    assert(memory); // Ensure memory allocation succeeded.
+   memset(memory,0,sizeof(memory));
 }
 
 /**
@@ -26,7 +25,7 @@ static void initialize_bus() {
  * @note The function assumes the memory has already been initialized.
  */
 void cpu_read(uint16_t address, uint8_t* byte) {
-    assert(memory); // Ensure memory is initialized.
+        // assert(memory); / / Ensure memory is initialized.
     *byte = memory[address]; // Read the byte from the specified address.
 }
 
@@ -39,7 +38,7 @@ void cpu_read(uint16_t address, uint8_t* byte) {
  * @note The function assumes the memory has already been initialized.
  */
 void cpu_write(uint16_t address, uint8_t byte) {
-    assert(memory); // Ensure memory is initialized.
+    // assert(memory); // Ensure memory is initialized.
     memory[address] = byte; // Write the byte to the specified address.
 }
 
@@ -55,5 +54,5 @@ void cpu_write(uint16_t address, uint8_t byte) {
 void run_system(char* rom) {
     initialize_bus(); // Initialize the bus memory.
     cpu_init();
-    free(memory);
+    // free(memory);
 }

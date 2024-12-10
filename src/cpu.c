@@ -5,7 +5,11 @@
 #include <stdio.h>
 #include<stdlib.h>
 #include<assert.h>
+#include<string.h>
 
+#ifdef UNIT_TESTING
+#include "/opt/homebrew/include/criterion/criterion.h"
+#endif
 /* Helper global variables */
 // Temporary variables used during instruction decoding and execution.
 uint8_t immval;   // Immediate value fetched from memory.
@@ -17,6 +21,8 @@ int8_t rel_addr;   // Relative address used for branching.
 uint16_t PC; // Program Counter: Points to the next instruction to execute.
 uint8_t SP;  // Stack Pointer: Points to the top of the stack in memory.
 
+uint64_t total_cycles;
+uint8_t cycles;
 
 processor_state state; // CPU status flags instance.
 
@@ -38,25 +44,138 @@ typedef struct {
     void (*address_mode)(void); // Addressing mode handler.
     void (*instruction)(void); // Instruction handler.
     uint8_t cycles;            // Cycle count.
-    char name[10];             // Instruction name.
+    char name[15];             // Instruction name.
 } instructions_t;
 
 
+instructions_t opcodetable[255];
 
 
+/**
+ * @brief Adds an opcode to the opcode table with its associated properties.
+ * 
+ * This function populates the opcode table entry for a specific opcode with its
+ * addressing mode, instruction handler, execution cycle count, and name. It is used 
+ * to define the behavior of the 6502 CPU for each opcode.
+ * 
+ * @param opcode The opcode value (0x00 to 0xFF) representing the instruction.
+ * @param address_mode Pointer to the function that implements the addressing mode for this opcode.
+ * @param instruction Pointer to the function that implements the instruction logic for this opcode.
+ * @param cycles The number of clock cycles the instruction takes to execute.
+ * @param name The mnemonic name of the instruction (e.g., "LDA", "STA").
+ */
+static void addopcode(uint8_t opcode, void (*address_mode)(void), void (*instruction)(void), uint8_t cycles, const char* name) {
+    // Set the addressing mode function pointer for the opcode.
+    opcodetable[opcode].address_mode = address_mode;
+
+    // Set the cycle count for the opcode.
+    opcodetable[opcode].cycles = cycles;
+
+    // Set the instruction handler function pointer for the opcode.
+    opcodetable[opcode].instruction = instruction;
+
+    // Copy the mnemonic name into the opcode table entry.
+    strcpy(opcodetable[opcode].name, name);
+}
+
+
+static void LOADSTORE_INSTRUCTIONS(){
+    addopcode(0xA9,addr_immediate,LDA,2,"LDA {IMM}");
+    addopcode(0xA5,addr_zero_page,LDA,3,"LDA {ZP}");
+    addopcode(0xB5,addr_zero_page_x,LDA,4,"LDA {ZPX}");
+    addopcode(0xAD,addr_absolute,LDA,4,"LDA {ABS}");
+    addopcode(0xBD,addr_absolute_x,LDA,4,"LDA {ABSX}");
+    addopcode(0xB9,addr_absolute_y,LDA,4,"LDA {ABSY}");
+    addopcode(0xA1,addr_indexed_indirect,LDA,6,"LDA {INDX}");
+    addopcode(0xB1,addr_indirect_indexed,LDA,5,"LDA {INDY}");
+
+    addopcode(0xA2,addr_immediate,LDX,2,"LDX {IMM}");
+    addopcode(0xA6,addr_zero_page,LDX,3,"LDX {ZP}");
+    addopcode(0xB6,addr_zero_page_y,LDX,4,"LDX {ZPY}");
+    addopcode(0xAE,addr_absolute,LDX,4,"LDX {ABS}");
+    addopcode(0xBE,addr_absolute_y,LDX,4,"LDX {ABSY}");
+
+    addopcode(0xA0,addr_immediate,LDY,2,"LDY {IMM}");
+    addopcode(0xA4,addr_zero_page,LDY,3,"LDY {ZP}");
+    addopcode(0xB4,addr_zero_page_x,LDY,4,"LDY {ZPX}");
+    addopcode(0xAC,addr_absolute,LDY,4,"LDY {ABS}");
+    addopcode(0xBC,addr_absolute_x,LDY,4,"LDY {ABSX}");
+
+    addopcode(0x85,addr_zero_page,STA,3,"STA {ZP}");
+    addopcode(0x95,addr_zero_page_x,STA,4,"STA {ZPX}");
+    addopcode(0x8D,addr_absolute,STA,4,"STA {ABS}");
+    addopcode(0x9D,addr_absolute_x,STA,5,"STA {ABSX}");
+    addopcode(0x99,addr_absolute_y,STA,5,"STA {ABSY}");
+    addopcode(0x81,addr_indexed_indirect,STA,6,"STA {INDX}");
+    addopcode(0x91,addr_indirect_indexed,STA,6,"STA {INDY}");
+
+    addopcode(0x86,addr_zero_page,STX,3,"STX {ZP}");
+    addopcode(0x96,addr_zero_page_y,STX,4,"STX {ZPY}");
+    addopcode(0x8E,addr_absolute,STX,4,"STX {ABS}");
+
+    addopcode(0x84,addr_zero_page,STY,3,"STY {ZP}");
+    addopcode(0x94,addr_zero_page_x,STY,4,"STY {ZPX}");
+    addopcode(0x8C,addr_absolute,STY,4,"STY {ABS}");
+}
 
 /* CPU Initialization */
 /**
  * @brief Initializes the CPU.
  */
 void cpu_init() {
-    printf("Initialized\n");
+    LOADSTORE_INSTRUCTIONS();
 }
 
 /* CPU Clock Cycle */
 /**
  * @brief Executes a single CPU clock cycle.
  */
-void clock() {
-    printf("clock");
+void clock_cpu() {
+    
+    if(cycles == 0){
+        uint8_t opcode;
+        cpu_read(PC++,&opcode);
+        instructions_t decode = opcodetable[opcode];
+        cycles = decode.cycles;
+        /* addressing mode*/
+        decode.address_mode();
+        /* instruction*/
+        decode.instruction();
+
+        /* print out instruction*/
+        printf("%x: %s\n",opcode,decode.name);
+    }
 }
+
+
+#ifdef UNIT_TESTING
+
+TestSuite(Instructions);
+
+Test(Instructions,LDA){
+    cpu_init();
+    cpu_write(0,0xA9);
+    cpu_write(1,0xFF);
+    PC = 0;
+    clock_cpu();
+    cr_assert_eq(A,255,"LDA test - FAILED!");
+}
+
+Test(Instructions,LDX){
+    cpu_init();
+    cpu_write(0,0xA2);
+    cpu_write(1,0xFF);
+    PC = 0;
+    clock_cpu();
+    cr_assert_eq(X,255,"LDX test - FAILED!");
+}
+
+Test(Instructions,LDY){
+    cpu_init();
+    cpu_write(0,0xA0);
+    cpu_write(1,0xFF);
+    PC = 0;
+    clock_cpu();
+    cr_assert_eq(Y,255,"LDY test - FAILED!");
+}
+#endif

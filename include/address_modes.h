@@ -10,7 +10,8 @@ extern int8_t rel_addr;   // Relative address used for branching.
 extern uint16_t PC;        // Program Counter.
 extern uint8_t X;          // X Register.
 extern uint8_t Y;          // Y Register.
-
+extern uint64_t total_cycles; //total clock cycles
+extern uint8_t cycles; //cycles left
 /* Function prototypes for addressing modes. */
 void addr_immediate(void);
 void addr_zero_page(void);
