@@ -24,5 +24,5 @@ void addr_absolute_y(void);
 void addr_indirect(void);
 void addr_indexed_indirect(void);
 void addr_indirect_indexed(void);
-
+void addr_implied(void);
 #endif // ADDRESSING_MODES_H

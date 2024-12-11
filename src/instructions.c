@@ -69,3 +69,32 @@ void STY()
 {
     cpu_write(abs_addr, Y); // Write the value of Y to the absolute memory address.
 }
+
+
+/* register transfer */
+
+void TAX(){
+  X = A;
+  state.Z = (X == 0);
+  state.S = (X & 0x80) != 0;
+}
+
+void TAY(){
+  Y = A;
+  state.Z = (Y == 0);
+  state.S = (Y & 0x80) != 0;
+}
+
+void TXA(){
+  A = X;
+  state.Z = (A == 0);
+  state.S = (A & 0x80) != 0;
+
+}
+
+void TYA(){
+  A = Y;
+  state.Z = (A == 0);
+  state.S = (A & 0x80) != 0;
+
+}

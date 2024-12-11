@@ -14,10 +14,15 @@ void addr_immediate(void) {
     cpu_read(PC++, &immval);
 }
 
+void addr_implied(void){
+  return;
+}
+
 void addr_zero_page(void) {
     // Zero-page addressing: Address is a single byte (00 to FF).
     uint8_t temp;
     cpu_read(PC++, &temp);
+    abs_addr = temp;
     cpu_read(temp, &immval);
 }
 
@@ -26,7 +31,8 @@ void addr_zero_page_x(void) {
     uint8_t temp;
     cpu_read(PC++, &temp);
     temp += X;
-    temp = temp & 0xFF; // Ensure wrapping within zero-page (00 to FF).
+    temp = temp & 0xFF; // Ensure wrapping within zero-page (00 to FF)
+    abs_addr = temp;
     cpu_read(temp, &immval);
 }
 
@@ -36,6 +42,7 @@ void addr_zero_page_y(void) {
     cpu_read(PC++, &temp);
     temp += Y;
     temp = temp & 0xFF; // Ensure wrapping within zero-page (00 to FF).
+    abs_addr = temp;
     cpu_read(temp, &immval);
 }
 

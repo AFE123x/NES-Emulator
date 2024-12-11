@@ -118,12 +118,20 @@ static void LOADSTORE_INSTRUCTIONS(){
     addopcode(0x8C,addr_absolute,STY,4,"STY {ABS}");
 }
 
+void REGISTERTRANSFER_INSTRUCTIONS(){
+  addopcode(0xAA,addr_implied,TAX,2,"TAX");
+  addopcode(0xA8,addr_implied,TAY,2,"TAY");
+  addopcode(0x8A,addr_implied,TXA,2,"TXA");
+  addopcode(0x98,addr_implied,TYA,2,"TYA");
+}
+
 /* CPU Initialization */
 /**
  * @brief Initializes the CPU.
  */
 void cpu_init() {
     LOADSTORE_INSTRUCTIONS();
+    REGISTERTRANSFER_INSTRUCTIONS();
 }
 
 /* CPU Clock Cycle */
@@ -178,4 +186,83 @@ Test(Instructions,LDY){
     clock_cpu();
     cr_assert_eq(Y,255,"LDY test - FAILED!");
 }
+
+Test(Instructions,STA){
+    cpu_init();
+    cpu_write(0,0x85);  
+    cpu_write(1,0x95);
+    PC = 0;
+    A = 69;
+    
+    clock_cpu();
+    uint8_t byte;
+    cpu_read(0x95,&byte);
+    cr_assert_eq(byte,69,"STA test - FAILED! value: %d",byte);
+}
+
+Test(Instructions,STX){
+    cpu_init();
+    cpu_write(0,0x86);  
+    cpu_write(1,0x95);
+    PC = 0;
+    X = 69;
+    
+    clock_cpu();
+    uint8_t byte;
+    cpu_read(0x95,&byte);
+    cr_assert_eq(byte,69,"STX test - FAILED! value: %d",byte);
+}
+
+Test(Instructions,STY){
+    cpu_init();
+    cpu_write(0,0x84);  
+    cpu_write(1,0x95);
+    PC = 0;
+    Y = 69;
+    
+    clock_cpu();
+    uint8_t byte;
+    cpu_read(0x95,&byte);
+    cr_assert_eq(byte,69,"STY test - FAILED! value: %d",byte);
+}
+
+
+Test(Instructions,TAX){
+  cpu_init();
+  cpu_write(0,0xAA);
+  PC = 0;
+  A = 10;
+  clock_cpu();
+  cr_assert_eq(X,10,"TAX test - FAILED! value: %d",X);
+}
+
+Test(Instructions,TAY){
+  cpu_init();
+  cpu_write(0,0xA8);
+  PC = 0;
+  A = 10;
+  clock_cpu();
+  cr_assert_eq(Y,10,"TAY test - FAILED! value: %d",Y);
+
+}
+
+Test(Instructions,TXA){
+  cpu_init();
+  cpu_write(0,0x8A);
+  PC = 0;
+  X = 20;
+  clock_cpu();
+  cr_assert_eq(A,20,"TXA test - FAILED! value: %d",A);
+}
+
+Test(Instructions,TYA){
+  cpu_init();
+  cpu_write(0,0x98);
+  PC = 0;
+  Y = 90;
+  clock_cpu();
+  cr_assert_eq(A,90,"TYA test - FAILED! value: %d",A);
+}
+
+
 #endif

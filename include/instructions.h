@@ -49,4 +49,13 @@ void LDY();
 void STA();
 void STX();
 void STY();
+
+/* REGISTER TRANSFERS OPERATIONS */
+
+void TAX();
+void TAY();
+void TXA();
+void TYA();
+
+
 #endif
