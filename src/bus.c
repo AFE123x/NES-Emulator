@@ -2,6 +2,7 @@
 #include"../include/cpu.h"
 #include <stdlib.h>
 #include <assert.h>
+#include<stdio.h>
 #include<string.h>
 // Static pointer to represent the system's memory.
 char memory[0x10000];
@@ -54,5 +55,9 @@ void cpu_write(uint16_t address, uint8_t byte) {
 void run_system(char* rom) {
     initialize_bus(); // Initialize the bus memory.
     cpu_init();
+    while(1){
+        clock_cpu();
+        printf("California outta touch\n");
+    }
     // free(memory);
 }

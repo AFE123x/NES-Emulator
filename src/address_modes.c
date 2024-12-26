@@ -1,7 +1,7 @@
 #include "../include/address_modes.h"
 #include "../include/bus.h"
 #ifdef UNIT_TESTING
-#include "/opt/homebrew/include/criterion/criterion.h"
+#include <criterion/criterion.h>
 #endif
 
 /* 

@@ -1,7 +1,7 @@
 #ifndef INSTRUCTIONS_H
 #define INSTRUCTIONS_H
 #include<stdint.h>
-/* load / store operations */
+
 /**
  * @brief Processor state representation.
  * 
@@ -35,6 +35,7 @@ extern uint8_t immval;   // Immediate value fetched from memory.
 extern uint16_t abs_addr; // Absolute address calculated during decoding.
 extern int8_t rel_addr;   // Relative address used for branching.
 extern uint16_t PC;        // Program Counter.
+extern uint8_t SP;        // Stack Pointer
 extern uint8_t X;          // X Register.
 extern uint8_t Y;          // Y Register.
 extern processor_state state; // CPU status flags instance.
@@ -57,5 +58,13 @@ void TAY();
 void TXA();
 void TYA();
 
+/* Stack Operations */
+
+void TSX();
+void TXS();
+void PHA();
+void PHP();
+void PLA();
+void PLP();
 
 #endif

@@ -5,7 +5,7 @@ TEST_FLAGS := -lcriterion
 UNIT_TESTING := -DUNIT_TESTING
 
 # Include path for Criterion
-CRITERION_INCLUDE_PATH := /opt/homebrew/include/criterion  # Adjust as needed
+CRITERION_INCLUDE_PATH := /opt/homebrew/include # Adjust as needed
 CRITERION_LIB_PATH := /opt/homebrew/lib  # Adjust this path to where Criterion is installed
 
 # Directories

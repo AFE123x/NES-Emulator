@@ -8,7 +8,7 @@
 #include<string.h>
 
 #ifdef UNIT_TESTING
-#include "/opt/homebrew/include/criterion/criterion.h"
+#include<criterion/criterion.h>
 #endif
 /* Helper global variables */
 // Temporary variables used during instruction decoding and execution.
@@ -119,10 +119,19 @@ static void LOADSTORE_INSTRUCTIONS(){
 }
 
 void REGISTERTRANSFER_INSTRUCTIONS(){
-  addopcode(0xAA,addr_implied,TAX,2,"TAX");
-  addopcode(0xA8,addr_implied,TAY,2,"TAY");
-  addopcode(0x8A,addr_implied,TXA,2,"TXA");
-  addopcode(0x98,addr_implied,TYA,2,"TYA");
+  addopcode(0xAA,addr_implied,TAX,2,"TAX {IMP}");
+  addopcode(0xA8,addr_implied,TAY,2,"TAY {IMP}");
+  addopcode(0x8A,addr_implied,TXA,2,"TXA {IMP}");
+  addopcode(0x98,addr_implied,TYA,2,"TYA {IMP}");
+}
+
+void STACK_OPERATIONS_INSTRUCTIONS(){
+    addopcode(0x9A,addr_implied,TXS,2,"TXS {IMP}");
+    addopcode(0xBA,addr_implied,TSX,2,"TSX {IMP}");
+    addopcode(0x48,addr_implied,PHA,3,"PHA {IMP}");
+    addopcode(0x08,addr_implied,PHP,3,"PHP {IMP}");
+    addopcode(0x68,addr_implied,PLA,4,"PLA {IMP}");
+    addopcode(0x28,addr_implied,PLP,4,"PLP {IMP}");
 }
 
 /* CPU Initialization */
@@ -132,6 +141,13 @@ void REGISTERTRANSFER_INSTRUCTIONS(){
 void cpu_init() {
     LOADSTORE_INSTRUCTIONS();
     REGISTERTRANSFER_INSTRUCTIONS();
+    STACK_OPERATIONS_INSTRUCTIONS();
+    cpu_write(0,0x68);
+    cpu_write(0,0x08);
+    cpu_write(1,0x68);
+    PC = 0;
+    state.raw = 0x45;
+    SP = 0xFF;
 }
 
 /* CPU Clock Cycle */
@@ -153,6 +169,7 @@ void clock_cpu() {
         /* print out instruction*/
         printf("%x: %s\n",opcode,decode.name);
     }
+    cycles--;
 }
 
 
@@ -263,6 +280,79 @@ Test(Instructions,TYA){
   clock_cpu();
   cr_assert_eq(A,90,"TYA test - FAILED! value: %d",A);
 }
+/*
+    addopcode(0x9A,addr_implied,TXS,2,"TXS {IMP}");
+    addopcode(0xBA,addr_implied,TSX,2,"TSX {IMP}");
+    addopcode(0x48,addr_implied,PHA,3,"PHA {IMP}");
+    addopcode(0x08,addr_implied,PHP,3,"PHP {IMP}");
+    addopcode(0x68,addr_implied,PLA,4,"PLA {IMP}");
+    addopcode(0x28,addr_implied,PLP,4,"PLP {IMP}");
+*/
+Test(Instructions,TXS){
+    cpu_init();
+    cpu_write(0,0x9A);
+    PC = 0;
+    X = 0xFF;
+    SP = 0x5;
+    clock_cpu();
+    cr_assert_eq(SP,0xFF,"TXS test - FAILED! value: %d",SP);
+}
+Test(Instructions,TSX){
+    cpu_init();
+    cpu_write(0,0xBA);
+    PC = 0;
+    X = 0xFF;
+    SP = 0x5;
+    clock_cpu();
+    cr_assert_eq(X,0x5,"TSX test - FAILED! value: %d",X);
+}
+Test(Instructions,PHA){
+    cpu_init();
+    cpu_write(0,0x48);
+    PC = 0;
+    A = 0x45;
+    SP = 0xFF;
+    clock_cpu();
+    uint8_t byte;
+    cpu_read(0x1FF,&byte);
+    cr_assert_eq(byte,0x45,"TYA test - FAILED! value: %d",byte);
+}
+Test(Instructions,PHP){
+    cpu_init();
+    cpu_write(0,0x08);
+    PC = 0;
+    state.raw = 0x45;
+    SP = 0xFF;
+    clock_cpu();
+    uint8_t byte;
+    cpu_read(0x1FF,&byte);
+    cr_assert_eq(byte,0x45,"TYA test - FAILED! value: %d",byte);
+}
 
+Test(Instructions,PLA){
+    cpu_init();
+    cpu_write(0,0x08);
+    cpu_write(1,0x68);
+    PC = 0;
+    state.raw = 0x45;
+    SP = 0xFF;
+    clock_cpu();
+    cycles = 0;
+    clock_cpu();
+    cr_assert_eq(A,0x45,"TYA test - FAILED! value: %d",A);
+}
+
+Test(Instructions,PLP){
+    cpu_init();
+    cpu_write(0,0x08);
+    cpu_write(1,0x28);
+    PC = 0;
+    state.raw = 0xFF;
+    SP = 0xFF;
+    clock_cpu();
+    cycles = 0;
+    clock_cpu();
+    cr_assert_eq(state.raw,0xFF,"TYA test - FAILED! value: %d",A);
+}
 
 #endif
