@@ -152,12 +152,20 @@ void PLP(){
 
 /* Logical Operations*/
 
+/**
+ * Perform a bitwise and with the Accumulator register and a byte from memory.
+ * Zero flag set if A is 0.
+ * Signed flag set if A is negative.
+ */
 void AND(){
   A = A & immval;
   state.Z = A == 0;
   state.S = (A & 0x80) != 0;
 }
 
+/**
+ * Performs a exclusive or
+ */
 void EOR(){
   A = A ^ immval;
   state.Z = A == 0;
@@ -172,7 +180,91 @@ void ORA(){
 
 void BIT(){
   uint8_t val = A & immval;
-  state.Z = (A == 0);
-  state.S = (A & 0x80) != 0;
-  state.V = (A & 0x40) != 0;
+  state.Z = (val == 0);
+  state.S = (val & 0x80) != 0;
+  state.V = (val & 0x40) != 0;
+}
+
+
+void ADC(){
+  uint8_t a = A;
+  uint8_t b = immval;
+  uint8_t c = (state.C) ? 1 : 0;
+  uint16_t result = a + b + c;
+  char a_prop, b_prop, c_prop;
+  a_prop = a & 0x80;
+  b_prop = b & 0x80;
+  c_prop = (result & 0x80);
+  state.C = (result > 255);
+  state.Z = (result == 0);
+  state.V = ((c_prop ^ a_prop) & (c_prop ^ b_prop)) != 0;
+  A = (uint8_t)(result & 0xFF);
+}
+
+void SBC(){
+  uint8_t a = A;
+  uint8_t b = immval;
+  uint8_t c = (state.C) ? 1 : 0;
+  uint16_t result = a + (~b + 1) + 0xFF + c;
+  // printf("Result:%d + %d =  %d\n",a & 0x80, (~b + 1) & 0x80,result & 0x80);
+  char a_prop, b_prop, c_prop;
+  a_prop = a & 0x80;
+  b_prop = (~b + 1) & 0x80;
+  c_prop = (result & 0x80);
+  state.C = (result > 255);
+  state.Z = (result == 0);
+  state.V = ((c_prop ^ a_prop) & (c_prop ^ b_prop)) ? 1 : 0;
+  // printf("OVerflow? %d\n",state.V);
+  A = (uint8_t)(result & 0xFF);
+}
+void CMP(){
+  state.C = (A >= immval);
+  state.Z = (A == immval);
+  uint8_t calculation = (A - immval) & 0xFF;
+  state.S = (calculation & 0x80) != 0;
+}
+void CPX(){
+  state.C = (X >= immval);
+  state.Z = (X == immval);
+  uint8_t calculation = (X - immval) & 0xFF;
+  state.S = (calculation & 0x80) != 0;
+}
+void CPY(){
+  state.C = (Y >= immval);
+  state.Z = (Y == immval);
+  uint8_t calculation = (Y - immval) & 0xFF;
+  state.S = (calculation & 0x80) != 0;
+}
+
+void INC(){
+  immval++;
+  state.Z = (immval == 0);
+  state.S = (immval & 0x80) != 0;
+  cpu_write(abs_addr,immval);
+}
+void INX(){
+  X++;
+  state.Z = (X == 0);
+  state.S = (X & 0x80) != 0;
+}
+void INY(){
+  Y++;
+  state.Z = (Y == 0);
+  state.S = (Y & 0x80) != 0;
+}
+void DEC(){
+  immval--;
+  state.Z = (immval == 0);
+  state.S = (immval & 0x80) != 0;
+  cpu_write(abs_addr,immval);
+}
+void DEX(){
+  X--;
+  state.Z = (X == 0);
+  state.S = (X & 0x80) != 0;
+}
+void DEY(){
+  Y--;
+  state.Z = (Y == 0);
+  state.S = (Y & 0x80) != 0;
 }

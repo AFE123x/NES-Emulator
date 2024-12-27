@@ -11,7 +11,8 @@
 
 void addr_immediate(void) {
     // Immediate addressing: Operand is the next byte in memory.
-    cpu_read(PC++, &immval);
+    abs_addr = PC++;
+    cpu_read(abs_addr, &immval);
 }
 
 void addr_implied(void){

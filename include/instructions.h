@@ -67,4 +67,27 @@ void PHP();
 void PLA();
 void PLP();
 
+
+/* Logical operations */
+
+void AND();
+void EOR();
+void ORA();
+void BIT();
+
+/* Arithmetic Instructions */
+void ADC();
+void SBC();
+void CMP();
+void CPX();
+void CPY();
+
+/* Increments and Decrements */
+
+void INC();
+void INX();
+void INY();
+void DEC();
+void DEX();
+void DEY();
 #endif
