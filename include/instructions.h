@@ -40,7 +40,7 @@ extern uint8_t X;          // X Register.
 extern uint8_t Y;          // Y Register.
 extern processor_state state; // CPU status flags instance.
 extern uint8_t A; // Accumulator: Used for arithmetic and logic operations.
-
+extern uint8_t opcode;
 
 /* LOAD/STORE OPERATIONS */
 
@@ -90,4 +90,11 @@ void INY();
 void DEC();
 void DEX();
 void DEY();
+
+/* Shifts */
+
+void ASL();
+void LSR();
+void ROL();
+void ROR();
 #endif

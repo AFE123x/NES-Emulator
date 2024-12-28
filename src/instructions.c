@@ -198,6 +198,7 @@ void ADC(){
   state.C = (result > 255);
   state.Z = (result == 0);
   state.V = ((c_prop ^ a_prop) & (c_prop ^ b_prop)) != 0;
+  state.S = (result & 0x80) != 0; 
   A = (uint8_t)(result & 0xFF);
 }
 
@@ -206,7 +207,6 @@ void SBC(){
   uint8_t b = immval;
   uint8_t c = (state.C) ? 1 : 0;
   uint16_t result = a + (~b + 1) + 0xFF + c;
-  // printf("Result:%d + %d =  %d\n",a & 0x80, (~b + 1) & 0x80,result & 0x80);
   char a_prop, b_prop, c_prop;
   a_prop = a & 0x80;
   b_prop = (~b + 1) & 0x80;
@@ -214,7 +214,7 @@ void SBC(){
   state.C = (result > 255);
   state.Z = (result == 0);
   state.V = ((c_prop ^ a_prop) & (c_prop ^ b_prop)) ? 1 : 0;
-  // printf("OVerflow? %d\n",state.V);
+  state.S = (result & 0x80) != 0;
   A = (uint8_t)(result & 0xFF);
 }
 void CMP(){
@@ -267,4 +267,45 @@ void DEY(){
   Y--;
   state.Z = (Y == 0);
   state.S = (Y & 0x80) != 0;
+}
+
+void ASL(){
+  uint8_t* ptr = (opcode == 0x0A) ? &A : &immval;
+  state.C = (*ptr & 0x80) != 0;
+  *ptr = *ptr << 1;
+  state.S = (*ptr & 0x80) != 0;
+  state.Z = (*ptr == 0);
+  if (opcode != 0x0A) cpu_write(abs_addr,immval);
+
+}
+
+void LSR(){
+  uint8_t* ptr = (opcode == 0x4A) ? &A : &immval;
+  state.C = (*ptr & 0x1) != 0;
+  *ptr = *ptr >> 1;
+  state.Z = (*ptr == 0);
+  state.S = (*ptr & 0x80) != 0;
+  if(opcode != 0x4A) cpu_write(abs_addr,immval);
+}
+
+void ROL(){
+  uint8_t* ptr = (opcode == 0x2A) ? &A : &immval;
+  uint8_t temp = (state.C != 0);
+  state.C = (*ptr & 0x80) ? 1 : 0;
+  *ptr = (*ptr << 1) & 0xFE;
+  *ptr = *ptr | temp;
+  state.Z = (*ptr == 0);
+  state.S = (*ptr & 0x80) != 0;
+  if(opcode != 0x2A) cpu_write(abs_addr,immval); 
+}
+
+void ROR(){
+  uint8_t* ptr = (opcode == 0x6A) ? &A : &immval;
+  uint8_t temp = (state.C != 0) ? 0x80 : 0;
+  state.C = (*ptr & 0x1) ? 1 : 0;
+  *ptr = (*ptr >> 1) & 0x7F;
+  *ptr = *ptr | temp;
+  state.Z = (*ptr == 0);
+  state.S = (*ptr & 0x80) != 0;
+  if(opcode != 0x6A) cpu_write(abs_addr,immval); 
 }

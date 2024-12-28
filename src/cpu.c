@@ -24,7 +24,12 @@ uint8_t SP;  // Stack Pointer: Points to the top of the stack in memory.
 uint64_t total_cycles;
 uint8_t cycles;
 
+
+
 processor_state state; // CPU status flags instance.
+
+
+uint8_t opcode; //global variable for opcode.
 
 /* General-purpose registers */
 // Registers used during computation and addressing.
@@ -234,6 +239,36 @@ void INCREMENT_DECREMENT_INSTRUCTIONS(){
     /* DEY instruction*/
     addopcode(0x88,addr_implied,DEY,2,"DEY {IMP}");
 }
+
+void SHIFT_INSTRUCTIONS(){
+    /* Arithmetic Shift Left */
+    addopcode(0x0A,addr_implied,ASL,2,"ASL {ACC}");
+    addopcode(0x06,addr_zero_page,ASL,5,"ASL {ZP0}");
+    addopcode(0x16,addr_zero_page_x,ASL,6,"ASL {ZPX}");
+    addopcode(0x0E,addr_absolute,ASL,6,"ASL {ABS}");
+    addopcode(0x1E,addr_absolute_x,ASL,7,"ASL {ABX}");
+
+    /* Logical shift right */
+    addopcode(0x4A,addr_implied,LSR,2,"LSR {ACC}");
+    addopcode(0x46,addr_zero_page,LSR,5,"LSR {ZP0}");
+    addopcode(0x56,addr_zero_page_x,LSR,6,"LSR {ZPX}");
+    addopcode(0x4E,addr_absolute,LSR,6,"LSR {ABS}");
+    addopcode(0x5E,addr_absolute_x,LSR,7,"LSR {ABX}");
+    
+    /* Rotate Left*/
+    addopcode(0x2A,addr_implied,ROL,2,"ROL {ACC}");
+    addopcode(0x26,addr_zero_page,ROL,5,"ROL {ZP0}");
+    addopcode(0x36,addr_zero_page_x,ROL,6,"ROL {ZPX}");
+    addopcode(0x2E,addr_absolute,ROL,6,"ROL {ABS}");
+    addopcode(0x3E,addr_absolute_x,ROL,7,"ROL {ABX}");
+
+    /* Rotate Right*/
+    addopcode(0x6A,addr_implied,ROR,2,"ROR {ACC}");
+    addopcode(0x66,addr_zero_page,ROR,5,"ROR {ZP0}");
+    addopcode(0x76,addr_zero_page_x,ROR,6,"ROR {ZPX}");
+    addopcode(0x6E,addr_absolute,ROR,6,"ROR {ABS}");
+    addopcode(0x7E,addr_absolute_x,ROR,7,"ROR {ABX}");
+}
 /* CPU Initialization */
 /**
  * @brief Initializes the CPU.
@@ -245,6 +280,7 @@ void cpu_init() {
     LOGICAL_OPERATIONS();
     ARITHMETIC_INSTRUCTIONS();
     INCREMENT_DECREMENT_INSTRUCTIONS();
+    SHIFT_INSTRUCTIONS();
     SP = 0xFF;
 }
 
@@ -255,7 +291,6 @@ void cpu_init() {
 void clock_cpu() {
     
     if(cycles == 0){
-        uint8_t opcode;
         cpu_read(PC++,&opcode);
         instructions_t decode = opcodetable[opcode];
         cycles = decode.cycles;
@@ -545,7 +580,7 @@ Test(Instructions,SBC){
     cpu_write(0,0xE9);
     cpu_write(1,0x1);
     PC = 0;
-    A = 0x00;
+    A = 0x0;
     clock_cpu();
     cr_assert_eq(state.S,1,"SBC: Signed flag test failed!");
 }
@@ -566,6 +601,7 @@ Test(Instructions,SBC2){
     cpu_write(1,0x1);
     PC = 0;
     A = 0x45;
+    state.C = 1;
     clock_cpu();
     cr_assert_eq(A,0x44,"SBC: subtraction failed!");
 }
@@ -658,5 +694,123 @@ Test(Instruction,CPY2){
     PC = 0;
     clock_cpu();
     cr_assert_eq(state.S,1,"CPX SF - Failed!");
+}
+
+Test(Instruction, INC){
+    cpu_init();
+    cpu_write(0,0xE6);
+    cpu_write(0x45,0x1);
+    cpu_write(1,0x45);
+    PC = 0x00;
+    clock_cpu();
+    uint8_t byte;
+    cpu_read(0x45,&byte);
+    cr_assert_eq(byte,0x2,"INC Instruction - Failed!");
+}
+
+Test(Instruction,INX){
+    cpu_init();
+    cpu_write(0x00,0xE8);
+    PC = 0;
+    X = 0x45;
+    clock_cpu();
+    cr_assert_eq(X,0x46,"INX Instruction - Failed!");
+}
+
+Test(Instruction,INY){
+    cpu_init();
+    cpu_write(0x00,0xC8);
+    PC = 0;
+    Y = 0x45;
+    clock_cpu();
+    cr_assert_eq(Y,0x46,"INX Instruction - Failed!");
+}
+
+Test(Instruction, DEC){
+    cpu_init();
+    cpu_write(0,0xC6);
+    cpu_write(0x45,0x45);
+    cpu_write(1,0x45);
+    PC = 0x00;
+    clock_cpu();
+    uint8_t byte;
+    cpu_read(0x45,&byte);
+    cr_assert_eq(byte,0x44,"DEC Instruction - Failed! Actual: %x, expected: 0x44",byte);
+}
+
+Test(Instruction,DEX){
+    cpu_init();
+    cpu_write(0x00,0xCA);
+    PC = 0;
+    X = 0x45;
+    clock_cpu();
+    cr_assert_eq(X,0x44,"DEX  Instruction - Failed!");
+}
+
+Test(Instruction,DEY){
+    cpu_init();
+    cpu_write(0x00,0x88);
+    PC = 0;
+    Y = 0x45;
+    clock_cpu();
+    cr_assert_eq(Y,0x44,"DEY  Instruction - Failed!");
+}
+
+Test(Instruction,ASL){
+    cpu_init();
+    cpu_write(0,0x0A);
+    PC = 0;
+    A = 0x7;
+    clock_cpu();
+    cr_assert_eq(A,14,"ASL Instruction - FAILED!");
+}
+
+Test(Instruction,LSR){
+    cpu_init();
+    cpu_write(0,0x4A);
+    PC = 0;
+    A = 0xFF;
+    clock_cpu();
+    cr_assert_eq(A,0x7F,"LSR Instruction - FAILED!");
+}
+
+Test(Instruction,ROL){
+    cpu_init();
+    cpu_write(0,0x2A);
+    PC = 0;
+    A = 0xFF;
+    state.C = 1;
+    clock_cpu();
+    cr_assert_eq(A,0xFF,"ROL Instruction - FAILED!");
+}
+
+Test(Instruction,ROL1){
+    cpu_init();
+    cpu_write(0,0x2A);
+    PC = 0;
+    A = 0xFF;
+    state.C = 0;
+    clock_cpu();
+    cr_assert_eq(A,0xFE,"ROL Instruction - FAILED!");
+}
+
+Test(Instruction,ROR){
+    cpu_init();
+    cpu_write(0,0x6A);
+    PC = 0;
+    A = 0xFF;
+    state.C = 1;
+    clock_cpu();
+    cr_assert_eq(A,0xFF,"ROL Instruction - FAILED!");
+}
+
+Test(Instruction,ROR1){
+    cpu_init();
+    cpu_write(0,0x6A);
+    PC = 0;
+    A = 0xFF;
+    state.C = 0;
+    clock_cpu();
+    cr_assert_eq(A,0x7F,"ROL Instruction - FAILED!");
 }
 #endif
