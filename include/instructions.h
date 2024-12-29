@@ -126,11 +126,6 @@ void SEC();
 void SED();
 void SEI();
 
-/*
-BRK 	Force an interrupt 	B
-NOP 	No Operation 	 
-RTI 	Return from Interrupt 	All
-*/
 
 /* System Functions */
 

@@ -2,11 +2,10 @@
 CC := clang
 CFLAGS := -fsanitize=address,undefined -Og -g -Wall -Werror
 TEST_FLAGS := -lcriterion
-UNIT_TESTING := -DUNIT_TESTING
 
 # Include path for Criterion
 CRITERION_INCLUDE_PATH := /opt/homebrew/include # Adjust as needed
-CRITERION_LIB_PATH := /opt/homebrew/lib  # Adjust this path to where Criterion is installed
+CRITERION_LIB_PATH := /opt/homebrew/lib         # Adjust this path to where Criterion is installed
 
 # Directories
 SRC_DIR := src
@@ -27,7 +26,7 @@ prod: LDFLAGS :=
 prod: $(TARGET)
 
 # Testing target (links with Criterion and defines UNIT_TESTING macro)
-test: CFLAGS := $(CFLAGS) $(UNIT_TESTING) -I$(CRITERION_INCLUDE_PATH)
+test: CFLAGS := $(CFLAGS) -DUNIT_TESTING -I$(CRITERION_INCLUDE_PATH)
 test: LDFLAGS := -L$(CRITERION_LIB_PATH) $(TEST_FLAGS)
 test: $(TARGET)
 
