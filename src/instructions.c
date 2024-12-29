@@ -309,3 +309,163 @@ void ROR(){
   state.S = (*ptr & 0x80) != 0;
   if(opcode != 0x6A) cpu_write(abs_addr,immval); 
 }
+
+void JMP(){
+    PC = abs_addr;
+}
+void JSR(){
+  uint16_t temp = PC - 1;
+  uint8_t lo_byte = temp & 0xFF;
+  uint8_t hi_byte = (temp >> 8) & 0xFF;
+  cpu_write(SP,hi_byte);
+  SP--;
+  cpu_write(SP,lo_byte);
+  SP--;
+  PC = abs_addr;
+}
+void RTS(){
+  SP++;
+  uint8_t lo;
+  uint16_t hi;
+  cpu_read(SP,&lo);
+  SP++;
+  cpu_read(SP,(uint8_t*)&hi);
+  uint16_t temp = (hi << 8) | lo;
+  PC = temp + 1;
+}
+
+
+void BCC(){
+  if(!state.C){
+    cycles += 1;
+    uint16_t temp = PC + (int8_t)rel_addr;
+    if((temp & 0xFF00) != (PC & 0xFF00)){
+      cycles += 2;
+    }
+    PC = temp;
+  }
+}
+void BCS(){
+  if(state.C){
+    cycles += 1;
+    uint16_t temp = PC + (int8_t)rel_addr;
+    if((temp & 0xFF00) != (PC & 0xFF00)){
+      cycles += 2;
+    }
+    PC = temp;
+  }
+}
+void BEQ(){
+  if(state.Z){
+    cycles += 1;
+    uint16_t temp = PC + (int8_t)rel_addr;
+    if((temp & 0xFF00) != (PC & 0xFF00)){
+      cycles += 2;
+    }
+    PC = temp;
+  }
+}
+void BMI(){
+  if(state.S){
+    cycles += 1;
+    uint16_t temp = PC + (int8_t)rel_addr;
+    if((temp & 0xFF00) != (PC & 0xFF00)){
+      cycles += 2;
+    }
+    PC = temp;
+  }
+}
+void BNE(){
+  if(!state.Z){
+    cycles += 1;
+    uint16_t temp = PC + (int8_t)rel_addr;
+    if((temp & 0xFF00) != (PC & 0xFF00)){
+      cycles += 2;
+    }
+    PC = temp;
+  }
+}
+void BPL(){
+  if(!state.S){
+    cycles += 1;
+    uint16_t temp = PC + (int8_t)rel_addr;
+    if((temp & 0xFF00) != (PC & 0xFF00)){
+      cycles += 2;
+    }
+    PC = temp;
+  }
+}
+void BVC(){
+  if(!state.V){
+    cycles += 1;
+    uint16_t temp = PC + (int8_t)rel_addr;
+    if((temp & 0xFF00) != (PC & 0xFF00)){
+      cycles += 2;
+    }
+    PC = temp;
+  }
+}
+void BVS(){
+  if(state.V){
+    cycles += 1;
+    uint16_t temp = PC + (int8_t)rel_addr;
+    if((temp & 0xFF00) != (PC & 0xFF00)){
+      cycles += 2;
+    }
+    PC = temp;
+  }
+}
+
+void CLC(){
+  state.C = 0;
+}
+void CLD(){
+  state.D = 0;
+}
+void CLI(){
+  state.I = 0;
+}
+void CLV(){
+  state.V = 0;
+}
+void SEC(){
+  state.C = 1;
+}
+void SED(){
+  state.D = 1;
+}
+void SEI(){
+  state.I = 1;
+}
+
+void BRK(){
+  uint16_t temp = PC + 1;
+  uint8_t hi = temp >> 8;
+  uint8_t lo = temp & 0xFF;
+  cpu_write(SP,hi);
+  SP--;
+  cpu_write(SP,lo);
+  SP--;
+  cpu_write(SP,state.raw);
+  SP--;
+  cpu_read(0xFFFF,&hi);
+  cpu_Read(0xFFFE,&lo);
+  PC = ((uint16_t)hi << 8) | lo;
+  state.B = 1;
+}
+
+void NOP(){
+  return;
+}
+
+void RTI(){
+  uint8_t lo;
+  uint16_t hi;
+  SP++;
+  cpu_read(SP,&state.raw);
+  SP++;
+  cpu_read(SP,&lo);
+  SP++;
+  cpu_read(SP,&hi);
+  PC = ((uint16_t)hi << 8) | lo;
+}

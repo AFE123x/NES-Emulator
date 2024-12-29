@@ -41,7 +41,7 @@ extern uint8_t Y;          // Y Register.
 extern processor_state state; // CPU status flags instance.
 extern uint8_t A; // Accumulator: Used for arithmetic and logic operations.
 extern uint8_t opcode;
-
+extern uint8_t cycles;
 /* LOAD/STORE OPERATIONS */
 
 void LDA();
@@ -97,4 +97,44 @@ void ASL();
 void LSR();
 void ROL();
 void ROR();
+
+
+/* Jumps & Calls */
+
+void JMP();
+void JSR();
+void RTS();
+
+/* branching */
+
+void BCC();
+void BCS();
+void BEQ();
+void BMI();
+void BNE();
+void BPL();
+void BVC();
+void BVS();
+
+/* Status Flag Change */
+
+void CLC();
+void CLD();
+void CLI();
+void CLV();
+void SEC();
+void SED();
+void SEI();
+
+/*
+BRK 	Force an interrupt 	B
+NOP 	No Operation 	 
+RTI 	Return from Interrupt 	All
+*/
+
+/* System Functions */
+
+void BRK();
+void NOP();
+void RTI();
 #endif

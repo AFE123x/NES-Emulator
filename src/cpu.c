@@ -269,6 +269,47 @@ void SHIFT_INSTRUCTIONS(){
     addopcode(0x6E,addr_absolute,ROR,6,"ROR {ABS}");
     addopcode(0x7E,addr_absolute_x,ROR,7,"ROR {ABX}");
 }
+
+void JUMP_CALLS_INSTRUCTIONS(){
+    /* JMP Instructions*/
+    addopcode(0x4C,addr_absolute,JMP,3,"JMP {ABS}");
+    addopcode(0x6C,addr_indirect,JMP,5,"JMP {IND}");
+
+    /* JSR Instructions */
+    addopcode(0x20,addr_absolute,JSR,6,"JSR {ABS}");
+
+    /* RTS Instructions */
+    addopcode(0x60, addr_implied,RTS,6,"RTS {IMP}");
+}
+
+void BRANCHES_INSTRUCTIONS(){
+    addopcode(0x90,addr_relative,BCC,2,"BCC {REL}");
+    addopcode(0xB0,addr_relative,BCS,2,"BCS {REL}");
+    addopcode(0xF0,addr_relative,BEQ,2,"BEQ {REL}");
+    addopcode(0x30,addr_relative,BMI,2,"BMI {REL}");
+    addopcode(0xD0,addr_relative,BNE,2,"BNE {REL}");
+    addopcode(0x10,addr_relative,BPL,2,"BPL {REL}");
+    addopcode(0x50,addr_relative,BVC,2,"BVC {REL}");
+    addopcode(0x70,addr_relative,BVS,2,"BVS {REL}");
+}
+
+void STATUS_FLAG_INSTRUCTIONS(){
+
+    addopcode(0x18,addr_implied,CLC,2,"CLC {IMP}");
+    addopcode(0xD8,addr_implied,CLD,2,"CLD {IMP}");
+    addopcode(0x58,addr_implied,CLI,2,"CLI {IMP}");
+    addopcode(0xB8,addr_implied,CLV,2,"CLV {IMP}");
+    addopcode(0x38,addr_implied,SEC,2,"SEC {IMP}");
+    addopcode(0xF8,addr_implied,SED,2,"SED {IMP}");
+    addopcode(0x78,addr_implied,SEI,2,"SEI {IMP}");
+}
+
+void SYSTEM_INSTRUCTIONS(){
+    addopcode(0x00,addr_implied,BRK,7,"BRK {IMP}");
+    addopcode(0xEA,addr_implied,NOP,2,"NOP {IMP}");
+    addopcode(0x40,addr_implied,RTI,6,"RTI {IMP}");
+
+}
 /* CPU Initialization */
 /**
  * @brief Initializes the CPU.
@@ -281,6 +322,10 @@ void cpu_init() {
     ARITHMETIC_INSTRUCTIONS();
     INCREMENT_DECREMENT_INSTRUCTIONS();
     SHIFT_INSTRUCTIONS();
+    JUMP_CALLS_INSTRUCTIONS();
+    BRANCHES_INSTRUCTIONS();
+    SYSTEM_INSTRUCTIONS();
+    STATUS_FLAG_INSTRUCTIONS();
     SP = 0xFF;
 }
 
@@ -304,7 +349,6 @@ void clock_cpu() {
     }
     cycles--;
 }
-
 
 #ifdef UNIT_TESTING
 
@@ -812,5 +856,58 @@ Test(Instruction,ROR1){
     state.C = 0;
     clock_cpu();
     cr_assert_eq(A,0x7F,"ROL Instruction - FAILED!");
+}
+
+Test(Instruction,JMP){
+    cpu_init();
+    cpu_write(0,0x4C);
+    cpu_write(1,0xAD);
+    cpu_write(2,0xDE);
+    PC = 0;
+    clock_cpu();
+    cr_assert_eq(PC,0xDEAD,"JMP{ABS} Instruction - FAILED!");
+}
+
+Test(Instruction,JMP1){
+    cpu_init();
+    cpu_write(0,0x6C);
+    cpu_write(1,0xAD);
+    cpu_write(2,0xDE);
+    cpu_write(0xDEAD,0xEF);
+    cpu_write(0xDEAD + 1,0xBE);
+    PC = 0;
+    clock_cpu();
+    cr_assert_eq(PC,0xBEEF,"JMP{IND} Instruction - FAILED! Expected: 0xBEEF, Actual: %x",PC);
+}
+
+Test(Instruction,JSRRTS){
+    cpu_init();
+    cpu_write(0,0x20);
+    cpu_write(1,0xEF);
+    cpu_write(2,0xBE);
+    cpu_write(0xBEEF,0x60);
+    for(int i = 0; i < 5; i++){
+        clock_cpu();
+    }
+    char success1 = PC == 0xBEEF;
+    for(int i = 0; i < 5; i++){
+        clock_cpu();
+    }
+    char success = ((PC == 0x3) && (SP == 0xFF));
+    cr_assert_eq(success && success1,1,"JSR - RTS Instruction - FAILED!");
+}
+
+Test(Instruction,BCC){
+    PC = 0;
+    rel_addr = 4;
+    BCC();
+    cr_assert_eq(PC,4,"BCC - FAILED!");
+}
+
+Test(Instruction,BCC1){
+    PC = 100;
+    rel_addr = -4;
+    BCC();
+    cr_assert_eq(PC,96,"BCC - FAILED!");
 }
 #endif
