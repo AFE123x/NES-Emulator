@@ -334,7 +334,9 @@ void RTS(){
   PC = temp + 1;
 }
 
-
+/**
+ * @brief branch if the carry flag is clear.
+ */
 void BCC(){
   if(!state.C){
     cycles += 1;
@@ -345,6 +347,10 @@ void BCC(){
     PC = temp;
   }
 }
+
+/**
+ * @brief branch if the carry flag is set. 
+ */
 void BCS(){
   if(state.C){
     cycles += 1;
@@ -355,6 +361,10 @@ void BCS(){
     PC = temp;
   }
 }
+
+/**
+ *  @brief branch if the zero flag is set.
+ */
 void BEQ(){
   if(state.Z){
     cycles += 1;
@@ -365,6 +375,10 @@ void BEQ(){
     PC = temp;
   }
 }
+
+/**
+ * @brief branches if the signed flag is set. 
+ */
 void BMI(){
   if(state.S){
     cycles += 1;
@@ -375,6 +389,10 @@ void BMI(){
     PC = temp;
   }
 }
+
+/**
+ * @brief branches if the Zero flag is clear
+ */
 void BNE(){
   if(!state.Z){
     cycles += 1;
@@ -385,6 +403,10 @@ void BNE(){
     PC = temp;
   }
 }
+
+/**
+ * @brief branches if the Signed flag is clear
+ */
 void BPL(){
   if(!state.S){
     cycles += 1;
@@ -395,6 +417,10 @@ void BPL(){
     PC = temp;
   }
 }
+
+/**
+ * @brief branches if the Overflag is clear
+ */
 void BVC(){
   if(!state.V){
     cycles += 1;
@@ -405,6 +431,10 @@ void BVC(){
     PC = temp;
   }
 }
+
+/**
+ * @brief branches if the Overflow Flag is set
+ */
 void BVS(){
   if(state.V){
     cycles += 1;
@@ -416,28 +446,59 @@ void BVS(){
   }
 }
 
+/**
+ * @brief clears the carry flag
+ */
 void CLC(){
   state.C = 0;
 }
+
+/**
+ * @brief Clears the Decimal flag
+ */
 void CLD(){
   state.D = 0;
 }
+
+/**
+ * @brief clears the Interrupt flag
+ */
 void CLI(){
   state.I = 0;
 }
+
+/**
+ * @brief clears the overflow flag
+ */
 void CLV(){
   state.V = 0;
 }
+
+/**
+ * @brief sets the carry flag
+ */
 void SEC(){
   state.C = 1;
 }
+
+/**
+ * @brief Sets the decimal flag
+ */
 void SED(){
   state.D = 1;
 }
+
+/**
+ * @brief Sets the Interrupt flag
+ */
 void SEI(){
   state.I = 1;
 }
 
+/**
+ * @brief Break Interrupt Instruction
+ * @details Manually causes an interrupt.
+ */
 void BRK(){
   uint16_t temp = PC + 1;
   uint8_t hi = temp >> 8;
@@ -454,10 +515,19 @@ void BRK(){
   state.B = 1;
 }
 
+/**
+ * Performs nothing
+ */
 void NOP(){
   return;
 }
 
+/**
+ * @brief Return from Interrupt
+ * @details The RTI instruction is used at the end of an interrupt processing 
+ * routine. It pulls the processor flags from the stack followed by the
+ * program counter.
+ */
 void RTI(){
   uint8_t lo;
   uint16_t hi;
