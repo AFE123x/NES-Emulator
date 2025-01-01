@@ -28,7 +28,21 @@ uint8_t cycles;
 
 processor_state state; // CPU status flags instance.
 
-
+/**
+ * @brief Get status function, which will retrieve the CPU state.
+ * intended for debugging purposes.
+ */
+struct cpu_test get_status(){
+    struct cpu_test result;
+    result.PC = PC;
+    result.A = A;
+    result.X = X;
+    result.Y = Y;
+    result.SP = SP;
+    cpu_read(0x2,&result.two_byte);
+    cpu_read(0x3,&result.three_byte);
+    return result;
+}
 uint8_t opcode; //global variable for opcode.
 
 /* General-purpose registers */
@@ -310,6 +324,10 @@ void SYSTEM_INSTRUCTIONS(){
     addopcode(0x40,addr_implied,RTI,6,"RTI {IMP}");
 
 }
+
+void ILLEGAL_OPCODES(){
+    addopcode(0x1A,addr_implied,NOP,2,"NOP {IMP}");
+}
 /* CPU Initialization */
 /**
  * @brief Initializes the CPU.
@@ -326,7 +344,9 @@ void cpu_init() {
     BRANCHES_INSTRUCTIONS();
     SYSTEM_INSTRUCTIONS();
     STATUS_FLAG_INSTRUCTIONS();
+    // ILLEGAL_OPCODES();
     SP = 0xFF;
+    PC = 0x8000;
 }
 
 /* CPU Clock Cycle */
@@ -337,6 +357,7 @@ void clock_cpu() {
     
     if(cycles == 0){
         cpu_read(PC++,&opcode);
+        printf("PC %x - opcode: %x: ",PC,opcode);
         instructions_t decode = opcodetable[opcode];
         cycles = decode.cycles;
         /* addressing mode*/
@@ -345,7 +366,7 @@ void clock_cpu() {
         decode.instruction();
 
         /* print out instruction*/
-        printf("%x: %s\n",opcode,decode.name);
+        printf("%s\n",decode.name);
     }
     cycles--;
 }
