@@ -5,6 +5,7 @@
 #include <assert.h>
 #include<stdio.h>
 #include<string.h>
+#include "../include/sdl_interface.h"
 // Static pointer to represent the system's memory.
 char memory[2 * 1024];
 
@@ -99,6 +100,7 @@ void run_system(char* rom) {
     initialize_bus();
     loadrom(rom);
     cpu_init();
+    init_SDL();
     while(1){
         clock_cpu();
         struct cpu_test test = get_status();

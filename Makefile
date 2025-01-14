@@ -1,7 +1,8 @@
 # Compiler and flags
 CC := clang
-CFLAGS := -fsanitize=address,undefined -Og -g -Wall -Werror
-TEST_FLAGS := -lcriterion
+CFLAGS :=  -Og -g -Wall -Werror -I/opt/homebrew/include/SDL2 -D_THREAD_SAFE
+LDFLAGS := -L/opt/homebrew/lib -lSDL2
+TEST_FLAGS := -lcriterion -fsanitize=address,undefined
 
 # Include path for Criterion
 CRITERION_INCLUDE_PATH := /opt/homebrew/include # Adjust as needed
@@ -22,7 +23,7 @@ all: prod
 
 # Production target (default behavior)
 prod: CFLAGS := $(CFLAGS)
-prod: LDFLAGS :=
+prod: LDFLAGS := $(LDFLAGS)
 prod: $(TARGET)
 
 # Testing target (links with Criterion and defines UNIT_TESTING macro)
@@ -32,7 +33,7 @@ test: $(TARGET)
 
 # Link objects to create the executable
 $(TARGET): $(OBJS) | $(BIN_DIR)
-	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
+	$(CC) -o $@ $^ $(LDFLAGS)
 
 # Compile sources to objects
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
