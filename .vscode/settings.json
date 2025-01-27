@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "chrono": "c",
+        "functional": "c",
+        "cpu.h": "c",
+        "criterion.h": "c",
+        "string.h": "c",
+        "stdlib.h": "c",
+        "assert.h": "c",
+        "vector": "cpp"
+    }
+}

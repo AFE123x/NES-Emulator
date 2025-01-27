@@ -1,5 +1,2 @@
-obj/
-bin/
+build/
 resources/
-.vscode/*
-roms/
