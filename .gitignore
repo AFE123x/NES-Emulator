@@ -1,3 +1,2 @@
-build/
-resources/
+target/
 .DS_Store
