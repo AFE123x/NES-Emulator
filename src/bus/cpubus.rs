@@ -1,7 +1,7 @@
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 pub struct Cpubus{
     memory: Vec<u8>,
-    cpu: Rc<crate::cpu::processor::Cpu>
+    cpu: Option<Weak<crate::cpu::processor::Cpu>>,
 }
 
 impl Cpubus{
@@ -9,8 +9,11 @@ impl Cpubus{
         println!("CPU BUS - INITIALIZED");
         Self {
             memory: vec![0; 0x10000],
-            cpu: Rc::new(crate::cpu::processor::Cpu::new()),
+            cpu: None,
         }
+    }
+    pub fn link_cpu(&mut self, cpu: Weak<crate::cpu::processor::Cpu>){
+        self.cpu = Some(cpu);
     }
     pub fn clock(&self){
        println!("clock"); 

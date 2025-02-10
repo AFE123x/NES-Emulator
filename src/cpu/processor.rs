@@ -1,3 +1,6 @@
+mod address_modes;
+use crate::bus::cpubus::Cpubus;
+use std::rc::{Rc,Weak};
 pub struct Cpu{
     a: u8,
     x: u8,
@@ -10,16 +13,17 @@ pub struct Cpu{
     immval: u8,
     abs_addr: u16,
     relval: u8,
-    opcode_table: Vec<InstructionsT>,
+    cpubus: Option<Weak<Cpubus>>,
 }
 
 pub struct StatusFlag{
-    cf: bool, //carry flag
-    zf: bool, // zero flag
+    c: bool, //carry flag
+    z: bool, // zero flag
     i: bool, //interrupt disable
+    d: bool, //decimal flag
     b: bool, //break flag
     v: bool, //overflow flag
-    s: bool, //sign flag
+    n: bool, //sign flag
 }
 
 pub enum LSOperations{
@@ -52,35 +56,6 @@ pub enum AddressModes{
     IndirectIndexed,
 }
 
-pub struct InstructionsT{
-    opcode: u8,
-    addrmode: AddressModes,
-    instruction: Instruction,
-    nmeumonic: String,
-}
-/*
-pub trait Clone: Sized {
-    // Required method
-    fn clone(&self) -> Self;
-
-    // Provided method
-    fn clone_from(&mut self, source: &Self) { ... }
-}
-*/
-impl Clone for InstructionsT{
-    fn clone(&self) -> Self{
-       Self{
-            opcode: self.opcode,
-            addrmode: self.addrmode,
-            instruction: self.instruction,
-            nmeumonic: self.nmeumonic,
-        }
-    }
-    fn clone_from(&mut self, source: &Self){
-    }
-}
-
-
 impl Cpu{
     pub fn new() -> Self{
         println!("CPU - INITIALIZED!");
@@ -91,25 +66,44 @@ impl Cpu{
             sp: 0,
             pc: 0x8000,
             flags: StatusFlag{
-                cf: false,
-                zf: false,
+                c: false,
+                z: false,
                 i: false,
+                d: false,
                 b: false,
                 v: false,
-                s: false,
+                n: false,
             },
             cycles_left: 0,
             total_cycles: 0,
             abs_addr: 0,
             relval: 0,
             immval: 0,
-            opcode_table: vec![InstructionsT; 0x100],
+            cpubus: None,
         }
     }
+
     pub fn clock(&mut self){
         if self.total_cycles == 0{
-        
+            self.decode(0xFF);
         }
         self.total_cycles -= 1;
     }
+
+    pub fn linkbus(&mut self, bus: Weak<Cpubus>){
+        self.cpubus = Some(bus);
+    }
+
+    fn decode(&mut self, opcode: u8){
+        match opcode{
+            0xA9 => self.execute_instruction(AddressModes::Immediate,Instruction::LoadStoreInstructions(LSOperations::LDA), "LDA".to_string(),2),
+            _ => todo!(),
+        };
+    }
+    fn execute_instruction(&mut self, addrmode: AddressModes, 
+    instruction: Instruction, nmeumonic: String, cycles: u8){
+        
+    }
+
+ 
 }
