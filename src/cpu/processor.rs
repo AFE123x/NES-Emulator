@@ -1,6 +1,6 @@
 mod address_modes;
-use crate::bus::cpubus::Cpubus;
-use std::rc::{Rc,Weak};
+use crate::bus::cpubus::{Cpubus};
+use std::{cell::RefCell, rc::Rc};
 pub struct Cpu{
     a: u8,
     x: u8,
@@ -13,7 +13,7 @@ pub struct Cpu{
     immval: u8,
     abs_addr: u16,
     relval: u8,
-    cpubus: Option<Weak<Cpubus>>,
+    cpubus: Option<*mut Cpubus>,
 }
 
 pub struct StatusFlag{
@@ -85,12 +85,20 @@ impl Cpu{
 
     pub fn clock(&mut self){
         if self.total_cycles == 0{
-            self.decode(0xFF);
+            // unsafe{
+            //     (*self.cpubus.unwrap()).cpu_read(0xFF, true);
+            // }
+            let mut x;
+            unsafe {
+                x = (*self.cpubus.unwrap()).cpu_read(0xFF,true);
+            }
+            self.pc = self.pc.wrapping_add(1);
+            self.decode(0xA9);
         }
         self.total_cycles -= 1;
     }
 
-    pub fn linkbus(&mut self, bus: Weak<Cpubus>){
+    pub fn linkbus(&mut self, bus: &mut Cpubus){
         self.cpubus = Some(bus);
     }
 
@@ -100,10 +108,33 @@ impl Cpu{
             _ => todo!(),
         };
     }
-    fn execute_instruction(&mut self, addrmode: AddressModes, 
-    instruction: Instruction, nmeumonic: String, cycles: u8){
-        
+    fn execute_instruction(
+        &mut self, 
+        addrmode: AddressModes, 
+        instruction: Instruction, 
+        nmeumonic: String, 
+        cycles: u8){
+            self.cycles_left = cycles;
+            self.handle_addr_mode(addrmode);
+            
+    }
+    fn handle_addr_mode(&mut self, addrmode: AddressModes){
+        match addrmode{
+            AddressModes::Implicit => self.immediate_addressing(),
+            AddressModes::Accumulator => todo!(),
+            AddressModes::Immediate => todo!(),
+            AddressModes::Zeropage => todo!(),
+            AddressModes::ZeropageX => todo!(),
+            AddressModes::ZeropageY => todo!(),
+            AddressModes::Relative => todo!(),
+            AddressModes::Absolute => todo!(),
+            AddressModes::AbsoluteX => todo!(),
+            AddressModes::AbsoluteY => todo!(),
+            AddressModes::Indirect => todo!(),
+            AddressModes::IndexedIndirect => todo!(),
+            AddressModes::IndirectIndexed => todo!(),
+        }
     }
 
- 
-}
+    }
+

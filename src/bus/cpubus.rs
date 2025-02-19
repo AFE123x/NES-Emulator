@@ -1,21 +1,26 @@
-use std::rc::{Rc, Weak};
+use crate::cpu::processor::Cpu;
 pub struct Cpubus{
     memory: Vec<u8>,
-    cpu: Option<Weak<crate::cpu::processor::Cpu>>,
+    cpu: *mut Cpu,
 }
 
 impl Cpubus{
-    pub fn new() -> Self{
+    pub fn new(cpu: &mut Cpu) -> Self{
         println!("CPU BUS - INITIALIZED");
-        Self {
-            memory: vec![0; 0x10000],
-            cpu: None,
+        Self{
+            memory: vec![0;0xFFFF + 1],
+            cpu: cpu,
         }
     }
-    pub fn link_cpu(&mut self, cpu: Weak<crate::cpu::processor::Cpu>){
-        self.cpu = Some(cpu);
+    pub fn clock(&self) {
+        println!("clock");
+        unsafe{
+            (*self.cpu).clock();
+        }
     }
-    pub fn clock(&self){
-       println!("clock"); 
+
+    pub fn cpu_read(&self, address: u16, readonly: bool) -> u8{
+        self.memory[address as usize]
     }
+    
 }
