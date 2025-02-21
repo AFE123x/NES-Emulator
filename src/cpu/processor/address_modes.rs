@@ -9,9 +9,14 @@ impl Cpu{
         byte
     }
 
-    fn read(&mut self, address: u16) -> u8{
+    pub fn read(&mut self, address: u16) -> u8{
         unsafe{
             (*self.cpubus.unwrap()).cpu_read(address, false)
+        }
+    }
+    pub fn write(&mut self, address: u16,byte: u8){
+        unsafe {
+            (*self.cpubus.unwrap()).cpu_write(address, byte);
         }
     }
     pub fn immediate_addressing(&mut self){
@@ -61,6 +66,7 @@ impl Cpu{
         let lo = self.fetch() as u16;
         let hi = self.fetch() as u16;
         self.abs_addr = (hi << 8) | lo;
+        self.immval = self.read(self.abs_addr);
         self.extra_cycles = 0;
     }
 
@@ -75,6 +81,7 @@ impl Cpu{
         else{
             self.extra_cycles = 0;
         }
+        self.immval = self.read(self.abs_addr);
     }
 
 
@@ -89,7 +96,7 @@ impl Cpu{
         else{
             self.extra_cycles = 0;
         }
-
+        self.immval = self.read(self.abs_addr);
     }
 
     pub fn indirect_addressing(&mut self){
@@ -106,40 +113,23 @@ impl Cpu{
             let lo = self.read(ptr + 0) as u16;
             self.abs_addr = hi | lo;
         }
+        self.immval = self.read(self.abs_addr);
     }
 
-    pub fn indexedindirect_addressing(&mut self){
+    pub fn indexedindirect_addressing(&mut self){ // x
         let temp = self.fetch() as u16;
         let lo = self.read(temp.wrapping_add(self.x as u16)) as u16;
         let hi = self.read(temp.wrapping_add(self.x as u16).wrapping_add(1)) as u16;
         self.abs_addr = (hi << 8) | lo;
+        self.immval = self.read(self.abs_addr);
     }
 
-    /*
-uint8_t olc6502::IZY()
-{
-	uint16_t t = read(pc);
-	pc++;
-
-	uint16_t lo = read(t & 0x00FF);
-	uint16_t hi = read((t + 1) & 0x00FF);
-
-	addr_abs = (hi << 8) | lo;
-	addr_abs += y;
-	
-	if ((addr_abs & 0xFF00) != (hi << 8))
-		return 1;
-	else
-		return 0;
-}
-
-     */
-    pub fn indirect_indexed(&mut self){
+    pub fn indirect_indexed(&mut self){ // y
         let temp = self.fetch() as u16;
         let lo = self.read(temp & 0x00FF) as u16;
         let hi = self.read(temp.wrapping_add(1) & 0x00FF) as u16;
         self.abs_addr = (hi << 8) | lo;
-        self.abs_addr += self.y as u16;
+        self.abs_addr = self.abs_addr.wrapping_add(self.y as u16);
 
         if (self.abs_addr & 0xFF00) != (hi << 8){
             self.extra_cycles = 1;

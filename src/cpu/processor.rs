@@ -29,12 +29,35 @@ pub enum LSOperations{
     STX,
     STY,
 }
+pub enum StackOP{
+    TSX,
+    TXS,
+    PHA,
+    PHP,
+    PLA,
+    PLP,
+}
 
+pub enum RegTranOp{
+    TAX,
+    TAY,
+    TXA,
+    TYA,
+}
+
+pub enum LogicalOp{
+    AND,
+    EOR,
+    ORA,
+    BIT,
+}
 /// Enum representing all possible instructions.
 pub enum Instruction{
     LoadStoreInstructions(LSOperations),
+    RegisterTransferInstructions(RegTranOp),
+    StackOperations(StackOP),
+    LogicalOperations(LogicalOp),
 }
-
 /// Enum representing the different addressing modes.
 pub enum AddressModes{
     Implicit,
@@ -129,6 +152,183 @@ impl Cpu{
             0xB1 => {
                 self.execute_instruction(AddressModes::IndirectIndexed, Instruction::LoadStoreInstructions(LSOperations::LDA), "LDA {IDY}".to_string(),5);
             },
+            0xA2 => {
+                self.execute_instruction(AddressModes::Immediate, Instruction::LoadStoreInstructions(LSOperations::LDX), "LDX {IMM}".to_string(), 2);
+            },
+            0xA6 => {
+                self.execute_instruction(AddressModes::Zeropage, Instruction::LoadStoreInstructions(LSOperations::LDX), "LDX {ZP0}".to_string(), 3);
+            },
+            0xB6 => {
+                self.execute_instruction(AddressModes::ZeropageY, Instruction::LoadStoreInstructions(LSOperations::LDX), "LDX {ZPY}".to_string(), 4);
+            },
+            0xAE => {
+                self.execute_instruction(AddressModes::Absolute, Instruction::LoadStoreInstructions(LSOperations::LDX), "LDX {ABS}".to_string(), 4);
+            },
+            0xBE => {
+                self.execute_instruction(AddressModes::AbsoluteY, Instruction::LoadStoreInstructions(LSOperations::LDX), "LDX {ABY}".to_string(), 4);  
+            },
+            0xA0 => {
+                self.execute_instruction(AddressModes::Immediate, Instruction::LoadStoreInstructions(LSOperations::LDY), "LDY {IMM}".to_string(), 2);
+            },
+            0xA4 => {
+                self.execute_instruction(AddressModes::Zeropage, Instruction::LoadStoreInstructions(LSOperations::LDY), "LDY {ZP0}".to_string(), 3);
+            },
+            0xB4 => {
+                self.execute_instruction(AddressModes::ZeropageX, Instruction::LoadStoreInstructions(LSOperations::LDY), "LDY {ZPX}".to_string(), 4);
+            },
+            0xAC => {
+                self.execute_instruction(AddressModes::Absolute, Instruction::LoadStoreInstructions(LSOperations::LDY), "LDY {ABS}".to_string(), 4);
+            },
+            0xBC => {
+                self.execute_instruction(AddressModes::AbsoluteX, Instruction::LoadStoreInstructions(LSOperations::LDY), "LDY {ABX}".to_string(), 4);
+            },
+            0x85 => {
+                self.execute_instruction(AddressModes::Zeropage, Instruction::LoadStoreInstructions(LSOperations::STA), "STA {ZP0}".to_string(), 3);
+            },
+            0x95 => {
+                self.execute_instruction(AddressModes::ZeropageX, Instruction::LoadStoreInstructions(LSOperations::STA), "STA {ZPX}".to_string(), 4);
+            },
+            0x8d => {
+                self.execute_instruction(AddressModes::Absolute, Instruction::LoadStoreInstructions(LSOperations::STA), "STA {ABS}".to_string(), 4);
+            },
+            0x9d => {
+                self.execute_instruction(AddressModes::AbsoluteX, Instruction::LoadStoreInstructions(LSOperations::STA), "STA {ABX}".to_string(), 5);
+            },
+            0x99 => {
+                self.execute_instruction(AddressModes::AbsoluteY, Instruction::LoadStoreInstructions(LSOperations::STA), "STA {ABY}".to_string(), 5);
+            },
+            0x81 => {
+                self.execute_instruction(AddressModes::IndexedIndirect, Instruction::LoadStoreInstructions(LSOperations::STA), "STA {IDX}".to_string(), 6);
+            },
+            0x91 => {
+                self.execute_instruction(AddressModes::IndirectIndexed, Instruction::LoadStoreInstructions(LSOperations::STA), "STA {IDY}".to_string(), 6);
+            },
+            0x86 => {
+                self.execute_instruction(AddressModes::Zeropage, Instruction::LoadStoreInstructions(LSOperations::STX), "STX {ZP0}".to_string(), 3);
+            },
+            0x96 => {
+                self.execute_instruction(AddressModes::ZeropageY, Instruction::LoadStoreInstructions(LSOperations::STX), "STX {ZPY}".to_string(), 4);
+            },
+            0x8e => {
+                self.execute_instruction(AddressModes::Absolute, Instruction::LoadStoreInstructions(LSOperations::STX), "STX {ABS}".to_string(), 4);
+            },
+            0x84 => {
+                self.execute_instruction(AddressModes::Zeropage, Instruction::LoadStoreInstructions(LSOperations::STY), "STY {ZP0}".to_string(), 3);
+            },
+            0x94 => {
+                self.execute_instruction(AddressModes::ZeropageX, Instruction::LoadStoreInstructions(LSOperations::STY), "STY {ZPX}".to_string(), 4);
+            },
+            0x8c => {
+                self.execute_instruction(AddressModes::Absolute, Instruction::LoadStoreInstructions(LSOperations::STY), "STY {ABS}".to_string(), 4);
+            },
+            0xaa => {
+                self.execute_instruction(AddressModes::Implicit, Instruction::RegisterTransferInstructions(RegTranOp::TAX), "TAX {IMP}".to_string(), 2);
+            },
+            0xa8 => {
+                self.execute_instruction(AddressModes::Implicit, Instruction::RegisterTransferInstructions(RegTranOp::TAY), "TAY {IMP}".to_string(), 2);
+            },
+            0x8a => {
+                self.execute_instruction(AddressModes::Implicit, Instruction::RegisterTransferInstructions(RegTranOp::TXA), "TXA {IMP}".to_string(), 2);
+            },
+            0x98 => {
+                self.execute_instruction(AddressModes::Implicit, Instruction::RegisterTransferInstructions(RegTranOp::TYA), "TYA {IMP}".to_string(), 2);
+            },
+            0xba => {
+                self.execute_instruction(AddressModes::Implicit, Instruction::StackOperations(StackOP::TSX), "TSX {IMP}".to_string(), 2);
+            },
+            0x9a => {
+                self.execute_instruction(AddressModes::Implicit, Instruction::StackOperations(StackOP::TXS), "TXS {IMP}".to_string(), 2);
+            },
+            0x48 => {
+                self.execute_instruction(AddressModes::Implicit, Instruction::StackOperations(StackOP::PHA), "PHA {IMP}".to_string(), 3);
+            },
+            0x8 => {
+                self.execute_instruction(AddressModes::Implicit, Instruction::StackOperations(StackOP::PHP), "PHP {IMP}".to_string(), 3);
+            },
+            0x68 => {
+                self.execute_instruction(AddressModes::Implicit, Instruction::StackOperations(StackOP::PLA), "PLA {IMP}".to_string(), 4);
+            },
+            0x28 => {
+                self.execute_instruction(AddressModes::Implicit, Instruction::StackOperations(StackOP::PLP), "PLP {IMP}".to_string(), 4);
+            },
+            0x29 => {
+                self.execute_instruction(AddressModes::Immediate, Instruction::LogicalOperations(LogicalOp::AND), "AND {IMM}".to_string(), 2);
+            },
+            0x25 => {
+                self.execute_instruction(AddressModes::Zeropage, Instruction::LogicalOperations(LogicalOp::AND), "AND {ZP0}".to_string(), 3);
+            },
+            0x35 => {
+                self.execute_instruction(AddressModes::ZeropageX, Instruction::LogicalOperations(LogicalOp::AND), "AND {ZPX}".to_string(), 4);
+            },
+            0x2d => {
+                self.execute_instruction(AddressModes::Absolute, Instruction::LogicalOperations(LogicalOp::AND), "AND {ABS}".to_string(), 4);
+            },
+            0x3d => {
+                self.execute_instruction(AddressModes::AbsoluteX, Instruction::LogicalOperations(LogicalOp::AND), "AND {ABX}".to_string(), 4);
+            },
+            0x39 => {
+                self.execute_instruction(AddressModes::AbsoluteY, Instruction::LogicalOperations(LogicalOp::AND), "AND {ABY}".to_string(), 4);
+            },
+            0x21 => {
+                self.execute_instruction(AddressModes::IndexedIndirect, Instruction::LogicalOperations(LogicalOp::AND), "AND {IDX}".to_string(), 6);
+            },
+            0x31 => {
+                self.execute_instruction(AddressModes::IndirectIndexed, Instruction::LogicalOperations(LogicalOp::AND), "AND {IDY}".to_string(), 5);
+            },
+            0x49 => {
+                self.execute_instruction(AddressModes::Immediate, Instruction::LogicalOperations(LogicalOp::EOR), "EOR {IMM}".to_string(), 2);
+            },
+            0x45 => {
+                self.execute_instruction(AddressModes::Zeropage, Instruction::LogicalOperations(LogicalOp::EOR), "EOR {ZP0}".to_string(), 3);
+            },
+            0x55 => {
+                self.execute_instruction(AddressModes::ZeropageX, Instruction::LogicalOperations(LogicalOp::EOR), "EOR {ZPX}".to_string(), 4);
+            },
+            0x4d => {
+                self.execute_instruction(AddressModes::Absolute, Instruction::LogicalOperations(LogicalOp::EOR), "EOR {ABS}".to_string(), 4);
+            },
+            0x5d => {
+                self.execute_instruction(AddressModes::AbsoluteX, Instruction::LogicalOperations(LogicalOp::EOR), "EOR {ABX}".to_string(), 4);
+            },
+            0x59 => {
+                self.execute_instruction(AddressModes::AbsoluteY, Instruction::LogicalOperations(LogicalOp::EOR), "EOR {ABY}".to_string(), 4);
+            },
+            0x41 => {
+                self.execute_instruction(AddressModes::IndexedIndirect, Instruction::LogicalOperations(LogicalOp::EOR), "EOR {IDX}".to_string(), 6);
+            },
+            0x51 => {
+                self.execute_instruction(AddressModes::IndirectIndexed, Instruction::LogicalOperations(LogicalOp::EOR), "EOR {IDY}".to_string(), 5);
+            },
+            0x9 => {
+                self.execute_instruction(AddressModes::Immediate, Instruction::LogicalOperations(LogicalOp::ORA), "ORA {IMM}".to_string(), 2);
+            },
+            0x5 => {
+                self.execute_instruction(AddressModes::Zeropage, Instruction::LogicalOperations(LogicalOp::ORA), "ORA {ZP0}".to_string(), 3);
+            },
+            0x15 => {
+                self.execute_instruction(AddressModes::ZeropageX, Instruction::LogicalOperations(LogicalOp::ORA), "ORA {ZPX}".to_string(), 4);
+            },
+            0xd => {
+                self.execute_instruction(AddressModes::Absolute, Instruction::LogicalOperations(LogicalOp::ORA), "ORA {ABS}".to_string(), 4);
+            },
+            0x1d => {
+                self.execute_instruction(AddressModes::AbsoluteX, Instruction::LogicalOperations(LogicalOp::ORA), "ORA {ABX}".to_string(), 4);
+            },
+            0x19 => {
+                self.execute_instruction(AddressModes::AbsoluteY, Instruction::LogicalOperations(LogicalOp::ORA), "ORA {ABY}".to_string(), 4);
+            },
+            0x1 => {
+                self.execute_instruction(AddressModes::IndexedIndirect, Instruction::LogicalOperations(LogicalOp::ORA), "ORA {IDX}".to_string(), 6);
+            },
+            0x11 => {
+                self.execute_instruction(AddressModes::IndirectIndexed, Instruction::LogicalOperations(LogicalOp::ORA), "ORA {IDY}".to_string(), 5);
+            },
+            0x24 => {
+                self.execute_instruction(AddressModes::Zeropage, Instruction::LogicalOperations(LogicalOp::BIT), "BIT {ZP0}".to_string(), 3);
+            },
+            0x2c => {
+                self.execute_instruction(AddressModes::Absolute, Instruction::LogicalOperations(LogicalOp::BIT), "BIT {ABS}".to_string(), 4);
+            },
             _ => todo!(),
         };
     }
@@ -167,18 +367,47 @@ impl Cpu{
     fn handle_instruction(&mut self, instruction: Instruction){
         match instruction{
             Instruction::LoadStoreInstructions(lsoperations) => {
-                match lsoperations{
-                    LSOperations::LDA => {
-                        self.LDA();
-                    }
-                    LSOperations::LDX => todo!(),
-                    LSOperations::LDY => todo!(),
-                    LSOperations::STA => todo!(),
-                    LSOperations::STX => todo!(),
-                    LSOperations::STY => todo!(),
+                                        match lsoperations{
+                                            LSOperations::LDA => {
+                                                self.LDA();
+                                            }
+                                            LSOperations::LDX => {
+                                                self.LDX();
+                                            },
+                                            LSOperations::LDY => {
+                                                self.LDY();
+                                            },
+                                            LSOperations::STA => self.STA(),
+                                            LSOperations::STX => self.STX(),
+                                            LSOperations::STY => self.STY(),
+                                        }
+                                    },
+            Instruction::RegisterTransferInstructions(reg_tran_op) => {
+                                match reg_tran_op{
+                                    RegTranOp::TAX => self.TAX(),
+                                    RegTranOp::TAY => self.TAY(),
+                                    RegTranOp::TYA => self.TYA(),
+                                    RegTranOp::TXA => self.TXA(),
+                                }
+                            },
+            Instruction::StackOperations(stack_op) => {
+                        match stack_op{
+                            StackOP::TSX => self.TSX(),
+                            StackOP::TXS => self.TXS(),
+                            StackOP::PHA => self.PHA(),
+                            StackOP::PHP => self.PHP(),
+                            StackOP::PLA => self.PLA(),
+                            StackOP::PLP => self.PLP(),
+                        }
+                    },
+            Instruction::LogicalOperations(logical_op) => {
+                match logical_op{
+                    LogicalOp::AND => self.AND(),
+                    LogicalOp::EOR => self.EOR(),
+                    LogicalOp::ORA => self.ORA(),
+                    LogicalOp::BIT => self.BIT(),
                 }
             },
-            _ => todo!(),
         };
     }
 
@@ -193,7 +422,35 @@ impl Cpu{
         self.x = byte;
     }
     #[cfg(test)]
+    pub fn get_x(&mut self) -> u8{
+        self.x
+    }
+    #[cfg(test)]
+    pub fn set_y(&mut self,byte: u8){
+        self.y = byte;
+    }
+    #[cfg(test)]
+    pub fn get_y(&mut self) -> u8{
+        self.y
+    }
+    #[cfg(test)]
     pub fn get_flag(&self) -> u8{
         self.flags
+    }
+    #[cfg(test)]
+    pub fn get_a(&self) -> u8{
+        self.a
+    }
+    #[cfg(test)]
+    pub fn set_a(&mut self,byte: u8){
+        self.a = byte;
+    }
+    #[cfg(test)]
+    pub fn get_sflag(&self) -> u8{
+        self.flags
+    }
+    #[cfg(test)]
+    pub fn set_sflag(&mut self,byte: u8){
+        self.flags = byte;
     }
 }
