@@ -22,5 +22,9 @@ impl Cpubus{
     pub fn cpu_read(&self, address: u16, readonly: bool) -> u8{
         self.memory[address as usize]
     }
+
+    pub fn cpu_write(&mut self, address: u16, byte: u8){
+        self.memory[address as usize] = byte;
+    }
     
 }
