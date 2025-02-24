@@ -1,3 +1,5 @@
+use std::{error::Error, fs};
+
 use crate::cpu::processor::Cpu;
 pub struct Cpubus{
     memory: Vec<u8>,
@@ -13,13 +15,22 @@ impl Cpubus{
         }
     }
     pub fn clock(&self) {
-        println!("clock");
         unsafe{
+            // println!("{:#x} {:#x} {:#x} {:#x}",&self.memory[0],&self.memory[1],&self.memory[2],&self.memory[3]);
             (*self.cpu).clock();
         }
     }
+    
+    pub fn load_rom(&mut self,s: &String) -> Result<(),Box<dyn Error>>{
+        let rom_bytes = fs::read(s)?;
+        let rom_data  = &rom_bytes[0x0010..0x4010];
+        self.memory[0x8000..0x8000 + rom_data.len()].copy_from_slice(rom_data);
+        self.memory[0xC000..0xC000 + rom_data.len()].copy_from_slice(rom_data);
+        Ok(())
+    }
 
     pub fn cpu_read(&self, address: u16, readonly: bool) -> u8{
+        // println!("{}",readonly);
         self.memory[address as usize]
     }
 

@@ -140,10 +140,10 @@ impl Cpu{
     }
 
     pub fn implied_addressing(&mut self){
-        let x = 0;
+        let _x = 0;
     }
 
     pub fn accumulator_addressing(&mut self){
-        let x = 0;
+        let _x = 0;
     }
 }

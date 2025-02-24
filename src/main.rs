@@ -1,12 +1,17 @@
-mod cpu;
 mod bus;
-use cpu::processor::Cpu;
+mod cpu;
 use bus::cpubus::Cpubus;
+use cpu::processor::Cpu;
 
 fn main() {
-    // Create CPU and Bus separately
     let mut cpu = Cpu::new();
     let mut bus = Cpubus::new(&mut cpu);
+    match bus.load_rom(&"roms/nestest.nes".to_string()) {
+        Ok(_) => {}
+        Err(_) => {
+            panic!("INVALID ROM!!!");
+        }
+    }
     cpu.linkbus(&mut bus);
 
     // Start the clock loop
@@ -14,4 +19,3 @@ fn main() {
         bus.clock();
     }
 }
-
