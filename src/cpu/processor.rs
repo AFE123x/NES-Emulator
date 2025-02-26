@@ -1,5 +1,5 @@
 mod address_modes;
-use crate::bus::cpubus::Cpubus;
+use crate::{bus::cpubus::Cpubus, cartridge::cartridge::Cartridge};
 mod instructions;
 
 /// Represents the CPU with its registers, flags, and connection to the bus.
@@ -194,6 +194,8 @@ impl Cpu {
     pub fn linkbus(&mut self, bus: &mut Cpubus) {
         self.cpubus = Some(bus);
     }
+
+
 
     /// Decodes an opcode and executes the corresponding instruction.
     fn decode(&mut self, opcode: u8) {
@@ -1539,6 +1541,38 @@ absolut,Y	SRE oper,Y	5B	3	7
         };
     }
 
+    pub fn reset(&mut self){
+        let lo: u16 = self.read(0xFFFC) as u16;
+        let hi: u16 = self.read(0xFFFD) as u16;
+        self.pc = (hi << 8) | lo;
+        self.a = 0;
+        self.x = 0;
+        self.y = 0;
+        self.sp = 0xfd;
+        self.flags = 0;
+        self.flags = self.flags | 0x20;
+
+        self.abs_addr = 0;
+        self.relval = 0;
+        self.cycles_left = 0;
+        self.total_cycles = 0;
+        self.extra_cycles = 0;
+    }
+
+    pub fn nmi(&mut self){
+        self.write(0x100 + self.sp as u16, (self.pc >> 8) as u8);
+        self.sp = self.sp.wrapping_sub(1);
+        self.write(0x100 + self.sp as u16,(self.pc & 0xFF) as u8);
+        self.sp = self.sp.wrapping_sub(1);
+
+        self.setflag(Flags::Break, false);
+        self.setflag(Flags::Interrupt, true);
+        let lo = self.read(0xFFFA) as u16;
+        let hi = self.read(0xFFFB) as u16;
+        self.pc = (hi << 8) | lo;
+        self.cycles_left = 8;
+    }
+
     //helper functions solely for testing
     #[cfg(test)]
     pub fn get_accumulator(&self) -> u8 {
@@ -1588,5 +1622,10 @@ absolut,Y	SRE oper,Y	5B	3	7
     #[cfg(test)]
     pub fn set_pc(&mut self, address: u16) {
         self.pc = address;
+    }
+
+    #[cfg(test)]
+    pub fn set_sp(&mut self, byte: u8){
+        self.sp = byte;
     }
 }
