@@ -1,55 +1,48 @@
-mod bus;
+use std::error::Error;
+mod ppu;
+use bus::Bus;
+use cartridge::Cartridge;
+use cpu::Cpu;
+use ppu::{Ppu as p, Frame::Frame};
+use sdl2::{keyboard::Keycode, pixels::{Color, PixelFormatEnum}};
 mod cartridge;
+
 mod cpu;
-mod frame;
-pub mod ppu;
-use bus::cpubus::Cpubus;
-use cartridge::cartridge::Cartridge;
-use cpu::processor::Cpu;
-use ppu::ppu::Ppu;
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
-use sdl2::pixels::PixelFormatEnum;
-use std::{env, fs};
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    let args = ["aoeu".to_string(), args[1].to_string()];
+
+mod bus;
+
+fn main() -> Result<(),Box<dyn Error>> {
     let mut cpu = Cpu::new();
-    let buf = match fs::read(&args[1]) {
-        Ok(str) => str,
-        Err(_) => todo!(),
-    };
+    let mut Cartridge = Cartridge::new("roms/mario.nes".to_string());
+    let mut ppu = p::new(&mut Cartridge);
+    let mut bus = Bus::new(&mut cpu,&mut Cartridge,&mut ppu);
 
-    let mut cartridge = Cartridge::new(buf);
-    let mut ppu = Ppu::new(&mut cartridge);
-    let mut bus = Cpubus::new(&mut cpu, &mut cartridge, &mut ppu);
-    let dream = ppu.make_pallet_table(0, 2);
+    let sdl_context = sdl2::init()?;
+    let video = sdl_context.video()?; //initialize the video subsystem.
+    let window = video.window("Rust EMU", 128 * 4, 128 * 2 * 4).build()?;
+    let mut canvas = window.into_canvas().build()?;
+    canvas.set_scale(4.0, 4.0)?;
+    let texture = canvas.texture_creator();
+    let mut texture = texture.create_texture_target(PixelFormatEnum::RGB24, 128, 128)?;
+    let frfr = ppu.create_palette_table();
+    
     cpu.linkbus(&mut bus);
-    cpu.reset();
-    // Start the clock loop
-    let sdl_context = sdl2::init().unwrap();
-    let video_subsys = sdl_context.video().unwrap();
-    let window = video_subsys
-        .window("NES Emulator", 128 * 3, 128 * 3)
-        .position_centered()
-        .build()
-        .unwrap();
-
-    let mut canvas = window.into_canvas().present_vsync().build().unwrap();
-    let mut event_pump = sdl_context.event_pump().unwrap();
-    canvas.set_scale(3.0, 3.0).unwrap();
-    let creator = canvas.texture_creator();
-    let mut texture = creator
-        .create_texture_target(PixelFormatEnum::RGB24, 128, 128)
-        .unwrap();
-
-    texture.update(None, &dream.get_buf(), 128 * 3).expect("Failed to update texture");
-    canvas.copy(&texture, None, None).unwrap();
-    canvas.present();
-    loop{
+    let mut quit = true;
+    let mut pump = sdl_context.event_pump()?;
+    while quit {
+        while let Some(i) = pump.poll_event(){
+            match i{ 
+                sdl2::event::Event::Quit { .. } | sdl2::event::Event::KeyDown { keycode: Some(Keycode::ESCAPE), .. } => quit = false,
+                _ => {}
+            }
+        }
         
-    }
-    loop {
         bus.clock();
+        canvas.set_draw_color(Color::RGB(255, 255, 255));
+        texture.update(None, &frfr.get_buf(), 128 * 3)?;
+        canvas.clear();
+        canvas.copy(&texture,None,None)?;
+        canvas.present();
     }
+    Ok(())
 }
