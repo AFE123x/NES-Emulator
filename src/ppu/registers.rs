@@ -1,4 +1,4 @@
-use bitflags::bitflags;
+use bitflags::{bitflags, Flags};
 /*
 7  bit  0
 ---- ----
@@ -20,7 +20,8 @@ VPHB SINN
 
 bitflags! {
     pub struct PPUCTRL: u8{
-        const name_table = 0b0000_0011;
+        const name_table_x = 0b0000_0001;
+        const name_table_y = 0b0000_0010;
         const vram_increment = 0b0000_0100;
         const sprite_pattern_table_address = 0b0000_1000;
         const background_pattern_table_address = 0b0001_0000;
@@ -29,6 +30,9 @@ bitflags! {
         const master_slave_select = 0b0100_0000;
     }
 }
+
+
+
 
 /*
 7  bit  0

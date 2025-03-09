@@ -1,12 +1,11 @@
-pub mod Frame;
+pub mod frame;
 mod registers;
+use frame::Frame;
 use registers::{PPUCTRL, PPUMASK, PPUSTATUS};
-use Frame::Frame as Fram;
 
 use crate::cartridge::Cartridge;
 
 pub struct Ppu {
-    pattern_table: Vec<Vec<u8>>,
     ppuctrl: PPUCTRL,
     ppumask: PPUMASK,
     ppustatus: PPUSTATUS,
@@ -27,14 +26,18 @@ pub struct Ppu {
     scroll_y: u8,
     ppu_addr_index: u8,
     ppu_data_buffer: u8,
-    cached_table: bool,
-    cycle: u16,
+    cycle: i16,
+    scanline: i16,
+    main_frame: *mut Frame,
+    frame_complete: bool,
+    palette: Vec<u8>,
+    indexboi: u16,
+    enable_interrupt: bool,
 }
 
 impl Ppu {
-    pub fn new(cart: &mut Cartridge) -> Self {
+    pub fn new(cart: &mut Cartridge, frame: &mut Frame) -> Self {
         Self {
-            pattern_table: vec![vec![0; 128 as usize * 128 as usize]; 2],
             ppuctrl: PPUCTRL::empty(),
             ppumask: PPUMASK::empty(),
             ppustatus: PPUSTATUS::empty(),
@@ -55,15 +58,60 @@ impl Ppu {
             scroll_y: 0,
             ppu_addr_index: 0,
             ppu_data_buffer: 0,
-            cached_table: false,
             cycle: 0,
+            main_frame: frame,
+            scanline: 0,
+            frame_complete: false,
+            palette: vec![0; 0x20],
+            indexboi: 0,
+            enable_interrupt: false,
         }
     }
-    pub fn ppu_read(&self, address: u16) -> u8 {
-        unsafe { (*self.cart).ppu_read(address) }
+    pub fn get_frame_comp(&mut self) -> bool {
+        let toreturn = self.frame_complete;
+        if toreturn {
+            self.frame_complete = false;
+        }
+        toreturn
     }
-    pub fn create_palette_table(&mut self) -> Fram {
-        let mut fr = Fram::new(128, 256); // 128x256 NES pattern table
+
+    pub fn get_enable_interrupt(&mut self) -> bool {
+        let toreturn = self.enable_interrupt;
+        if toreturn {
+            self.enable_interrupt = false;
+        }
+        toreturn
+    }
+
+    pub fn ppu_read(&self, address: u16) -> u8 {
+        let mut data = 0;
+        if address <= 0x1FFF {
+            unsafe { (*self.cart).ppu_read(address, &mut data) };
+        } else if address <= 0x3EFF {
+            data = self.vram[address as usize & 0x7FE];
+        } else if address <= 0x3FFF {
+            let temp_address = address & 0x1F;
+            data = self.palette[temp_address as usize];
+        } else {
+            todo!()
+        }
+        data
+    }
+    pub fn ppu_write(&mut self, address: u16, byte: u8) {
+        if address <= 0x1FFF {
+            unsafe { (*self.cart).ppu_write(address, byte) };
+        } else if address <= 0x3EFF {
+            self.vram[address as usize & 0x7FE] = byte;
+        } else if address <= 0x3FFF {
+            //println!("Trying to write to address {:#x}", address);
+            let temp_address = address & 0x1F;
+            self.palette[temp_address as usize] = byte;
+        } else {
+            todo!()
+        }
+    }
+    pub fn create_palette_table(&mut self) -> Frame {
+        let mut palette_frame = Frame::new(128, 256); // 128x256 NES pattern table
 
         for r in 0..256 {
             for col in 0..128 {
@@ -71,33 +119,18 @@ impl Ppu {
                 let lo = self.ppu_read(addr);
                 let hi = self.ppu_read(addr + 8);
                 let pixel_idx = ((hi >> (7 - (col % 8))) & 1) * 2 + ((lo >> (7 - (col % 8))) & 1);
-
-                if r < 128 {
-                    self.pattern_table[0][((r as usize) << 7) + col as usize] = pixel_idx;
-                } else {
-                    self.pattern_table[1][(((r as usize) - 128) << 7) + col as usize] = pixel_idx;
-                }
-            }
-        }
-
-        for r in 0..256 {
-            for col in 0..128 {
-                let table_idx = if r < 128 { 0 } else { 1 };
-                let color_idx = self.pattern_table[table_idx][((r % 128) << 7) + col];
-
-                let color = match color_idx {
+                let color = match pixel_idx {
                     0 => (0, 0, 0),
                     1 => (255, 0, 0),
                     2 => (0, 255, 0),
                     3 => (0, 0, 255),
                     _ => (0, 0, 0),
                 };
-
-                fr.drawpixel(col as u16, r as u16, color);
+                palette_frame.drawpixel(col as u16, r as u16, color);
             }
         }
 
-        fr
+        palette_frame
     }
 
     pub fn cpu_read(&mut self, address: u16) -> u8 {
@@ -106,9 +139,10 @@ impl Ppu {
             0x00 => 0,
             0x01 => self.ppumask.bits(),
             0x02 => {
-                self.wlatch = 0;
-                self.ppustatus.set(PPUSTATUS::vblank_flag, true);
-                self.ppustatus.bits()
+                self.ppu_addr_index = 0;
+                let data = self.ppustatus.bits();
+                self.ppustatus.set(PPUSTATUS::vblank_flag, false);
+                data
             }
             0x03 => 0,
             0x04 => {
@@ -120,7 +154,10 @@ impl Ppu {
             0x06 => 0,
             0x07 => {
                 let mut data = self.ppu_data_buffer;
-                self.ppu_data_buffer = self.vram[self.ppuaddr as usize];
+                self.ppu_data_buffer = self.ppu_read(self.ppuaddr);
+                if address >= 0x3F00 {
+                    data = self.ppu_data_buffer;
+                }
                 self.ppuaddr =
                     self.ppuaddr
                         .wrapping_add(if self.ppuctrl.contains(PPUCTRL::vram_increment) {
@@ -128,9 +165,7 @@ impl Ppu {
                         } else {
                             1
                         });
-                if address >= 0x3F00 {
-                    data = self.ppu_data_buffer;
-                }
+
                 data
             }
             _ => {
@@ -185,13 +220,91 @@ impl Ppu {
                 }
             }
             0x07 => {
-                self.vram[self.ppuaddr as usize] = byte;
+                self.ppu_write(self.ppuaddr, byte);
+                self.ppuaddr = self.ppuaddr.wrapping_add(if self.ppuctrl.contains(PPUCTRL::vram_increment) {32} else {1});
             }
             _ => todo!(),
         }
     }
+    pub fn get_lines(&self) -> (i16, i16) {
+        (self.scanline, self.cycle)
+    }
+    pub fn create_static(&mut self) {
+        for i in 0..256 {
+            for j in 0..240 {
+                unsafe {
+                    (*self.main_frame).drawpixel(
+                        i,
+                        j,
+                        if rand::random_bool(0.5) {
+                            (0, 0, 0)
+                        } else {
+                            (255, 255, 255)
+                        },
+                    );
+                }
+            }
+        }
+    }
 
-    pub fn clock() {
-
+    pub fn create_name_table(&mut self) {
+        println!("NAMETABLE START");
+        for row in 0..30 {
+            for col in 0..32 {
+                let index: u16 = col + (row * 32);
+                let index = 0x2400 + index;
+                let paletteindex = self.ppu_read(index as u16) as u16;
+                print!("{:2x}",paletteindex);
+                let paletteaddr_lo = paletteindex << 4;
+                let paletteaddr_hi = paletteaddr_lo | 0x8;
+                for i in 0..7 {
+                    let mut hi_value = self.ppu_read(paletteaddr_hi + i);
+                    let mut lo_value = self.ppu_read(paletteaddr_lo + i);
+                    for j in 0..7 {
+                        let hi = hi_value & 1;
+                        let lo = lo_value & 1;
+                        let pixel = (hi << 1) | lo;
+                        hi_value >>= 1;
+                        lo_value >>= 1;
+                        let color = match pixel {
+                            0 => (0, 0, 0),
+                            1 => (255, 0, 0),
+                            2 => (0, 255, 0),
+                            3 => (0, 0, 255),
+                            _ => panic!("invalid color"),
+                        };
+                        unsafe {
+                            (*self.main_frame).drawpixel(
+                                (col * 8) as u16 + (8 - j),
+                                (row * 8) + i,
+                                color,
+                            );
+                        }
+                    }
+                }
+            }
+            println!("");
+        }
+        println!("NAMETABLE END");
+    }
+    pub fn clock(&mut self) {
+        self.cycle = self.cycle.wrapping_add(1);
+        if self.cycle > 340 {
+            self.cycle = self.cycle.wrapping_sub(341);
+            self.scanline = self.scanline.wrapping_add(1);
+        }
+        if 0 <= self.scanline && self.scanline <= 239 {
+        } else if self.scanline == 241 && self.cycle == 1 {
+            self.ppustatus.set(PPUSTATUS::vblank_flag, true);
+            if self.ppuctrl.contains(PPUCTRL::vblank_enable) {
+                self.enable_interrupt = true;
+            }
+            self.create_name_table();
+            self.frame_complete = true;
+        } else if self.scanline == 261 && self.cycle == 1 {
+            self.ppustatus.set(PPUSTATUS::vblank_flag, false);
+            self.frame_complete = false;
+            self.scanline = 0;
+        }
     }
 }

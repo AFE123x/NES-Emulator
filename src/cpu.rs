@@ -13,6 +13,7 @@ bitflags! {
     }
 }
 use bitflags::bitflags;
+use instructions::inst_enum::{AddressMode, Instruction};
 
 pub struct Cpu {
     flags: Flags,
@@ -28,6 +29,8 @@ pub struct Cpu {
     total_cycles: usize,
     bus: Option<*mut Bus>,
     opcode: u8,
+    current_instruction: Option<Instruction>,
+    current_addrmode: Option<AddressMode>,
 }
 
 impl Cpu {
@@ -46,7 +49,13 @@ impl Cpu {
             cycles_left: 0,
             total_cycles: 0,
             opcode: 0,
+            current_instruction: None,
+            current_addrmode: None,
         }
+    }
+
+    fn print_state(&self){
+        println!("PC: {:#x}\tA: {:#x}\tX {:#x}\tY {:#x}\tSP {:#x}\tFLAGS {:08b}",self.pc,self.a,self.x,self.y,self.sp,self.flags.bits());
     }
     pub fn linkbus(&mut self, bus: &mut Bus) {
         self.bus = Some(bus);
@@ -65,11 +74,8 @@ impl Cpu {
             let opcode = self.cpu_read(self.pc);
             self.opcode = opcode;
             self.pc = self.pc.wrapping_add(1);
-            print!("PC {:#x} opcode {:#x}",self.pc.wrapping_sub(1),opcode);
-            if self.pc > 0x9000{
-                println!("Were here");
-            }
             self.handle_opcode(opcode);
+            // self.print_state();
         }
         self.cycles_left = self.cycles_left.wrapping_sub(1);
         self.total_cycles = self.total_cycles.wrapping_add(1);

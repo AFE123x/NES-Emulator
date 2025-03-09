@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub enum Instruction {
     // Load/Store Operations
     LDA, LDX, LDY, STA, STX, STY,

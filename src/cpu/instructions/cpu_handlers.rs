@@ -157,7 +157,13 @@ impl Cpu{
             0x00 => self.handle_operation(AddressMode::Implicit, Instruction::BRK, 7),
             0xEA => self.handle_operation(AddressMode::Implicit, Instruction::NOP, 2),
             0x40 => self.handle_operation(AddressMode::Implicit, Instruction::RTI, 6),
-    
+            0xeb => self.handle_operation(AddressMode::Immediate, Instruction::SBC, 2),
+            0x04 => self.handle_operation(AddressMode::ZeroPage, Instruction::NOP, 3),
+            0x44 => self.handle_operation(AddressMode::ZeroPage, Instruction::NOP, 3),
+            0x64 => self.handle_operation(AddressMode::ZeroPage, Instruction::NOP, 3),
+            0xC => self.handle_operation(AddressMode::Absolute, Instruction::NOP, 4),
+            0x14 => self.handle_operation(AddressMode::ZeroPageX, Instruction::NOP, 4),
+            0x1a => self.handle_operation(AddressMode::Implicit, Instruction::NOP, 2),
             _ => {
                 println!("opcode {:#x} not implemented yet",opcode);
                 todo!()
@@ -186,6 +192,7 @@ impl Cpu{
             AddressMode::IndirectIndexed => self.indirectindexed(),
             AddressMode::Immediate => self.immediate(),
         };
+        self.current_addrmode = Some(addrmode);
     }
     fn handle_instruction(&mut self, instruction: Instruction) {
         match instruction {
@@ -246,5 +253,6 @@ impl Cpu{
             Instruction::NOP => {}
             Instruction::RTI => self.rti(),
         };
+        self.current_instruction = Some(instruction);
     }
 }

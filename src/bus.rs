@@ -1,4 +1,4 @@
-use crate::{cartridge::{self, Cartridge}, cpu::Cpu, ppu::Ppu};
+use crate::{cartridge::Cartridge, cpu::Cpu, ppu::Ppu};
 
 pub struct Bus {
     memory: Vec<u8>,
@@ -25,13 +25,14 @@ impl Bus {
             data = unsafe { (*self.ppu).cpu_read(address)};
         }
         else if address <= 0x4017{
-            todo!();
+            //todo!()
+            data = 0;
         }
         else if address <= 0x401F{
             todo!();
         }
         else{
-            data = unsafe{ (*self.cartridge).cpu_read(address)};
+            unsafe{ (*self.cartridge).cpu_read(address, &mut data)};
         }
 
         data
@@ -45,10 +46,8 @@ impl Bus {
             unsafe {(*self.ppu).cpu_write(address, byte);};
         }
         else if address <= 0x4017{
-            todo!();
         }
         else if address <= 0x401F{
-            todo!();
         }
         else{
             unsafe{(*self.cartridge).cpu_write(address, byte);}
@@ -58,6 +57,9 @@ impl Bus {
 
     pub fn clock(&mut self){
         unsafe{
+            (*self.ppu).clock();
+            (*self.ppu).clock();
+            (*self.ppu).clock();
             (*self.cpu).clock();
         }
     }

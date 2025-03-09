@@ -1,7 +1,7 @@
 use super::{Cpu, Flags};
 
-pub mod inst_enum;
 pub mod cpu_handlers;
+pub mod inst_enum;
 
 impl Cpu {
     pub fn lda(&mut self) {
@@ -329,9 +329,6 @@ impl Cpu {
     pub fn bcc(&mut self) {
         if !self.flags.contains(Flags::Carry) {
             self.cycles_left = self.cycles_left.wrapping_add(1);
-            if self.relval & 0x80 != 0 {
-                self.relval = self.relval | 0xFF00 as u16;
-            }
             let temp = self.pc.wrapping_add(self.relval);
             if self.pc & 0xFF00 != temp & 0xFF {
                 self.cycles_left = self.cycles_left.wrapping_add(2);
@@ -343,9 +340,6 @@ impl Cpu {
     pub fn bcs(&mut self) {
         if self.flags.contains(Flags::Carry) {
             self.cycles_left = self.cycles_left.wrapping_add(1);
-            if self.relval & 0x80 != 0 {
-                self.relval = self.relval | 0xFF00 as u16;
-            }
             let temp = self.pc.wrapping_add(self.relval);
             if self.pc & 0xFF00 != temp & 0xFF {
                 self.cycles_left = self.cycles_left.wrapping_add(2);
@@ -357,9 +351,6 @@ impl Cpu {
     pub fn beq(&mut self) {
         if self.flags.contains(Flags::Zero) {
             self.cycles_left = self.cycles_left.wrapping_add(1);
-            if self.relval & 0x80 != 0 {
-                self.relval = self.relval | 0xFF00 as u16;
-            }
             let temp = self.pc.wrapping_add(self.relval);
             if self.pc & 0xFF00 != temp & 0xFF {
                 self.cycles_left = self.cycles_left.wrapping_add(2);
@@ -371,9 +362,6 @@ impl Cpu {
     pub fn bmi(&mut self) {
         if self.flags.contains(Flags::Negative) {
             self.cycles_left = self.cycles_left.wrapping_add(1);
-            if self.relval & 0x80 != 0 {
-                self.relval = self.relval | 0xFF00 as u16;
-            }
             let temp = self.pc.wrapping_add(self.relval);
             if self.pc & 0xFF00 != temp & 0xFF {
                 self.cycles_left = self.cycles_left.wrapping_add(2);
@@ -385,9 +373,6 @@ impl Cpu {
     pub fn bne(&mut self) {
         if !self.flags.contains(Flags::Zero) {
             self.cycles_left = self.cycles_left.wrapping_add(1);
-            if self.relval & 0x80 != 0 {
-                self.relval = self.relval | 0xFF00 as u16;
-            }
             let temp = self.pc.wrapping_add(self.relval);
             if self.pc & 0xFF00 != temp & 0xFF {
                 self.cycles_left = self.cycles_left.wrapping_add(2);
@@ -399,9 +384,6 @@ impl Cpu {
     pub fn bpl(&mut self) {
         if !self.flags.contains(Flags::Negative) {
             self.cycles_left = self.cycles_left.wrapping_add(1);
-            if self.relval & 0x80 != 0 {
-                self.relval = self.relval | 0xFF00 as u16;
-            }
             let temp = self.pc.wrapping_add(self.relval);
             if self.pc & 0xFF00 != temp & 0xFF {
                 self.cycles_left = self.cycles_left.wrapping_add(2);
@@ -413,9 +395,6 @@ impl Cpu {
     pub fn bvc(&mut self) {
         if !self.flags.contains(Flags::Overflow) {
             self.cycles_left = self.cycles_left.wrapping_add(1);
-            if self.relval & 0x80 != 0 {
-                self.relval = self.relval | 0xFF00 as u16;
-            }
             let temp = self.pc.wrapping_add(self.relval);
             if self.pc & 0xFF00 != temp & 0xFF {
                 self.cycles_left = self.cycles_left.wrapping_add(2);
@@ -427,9 +406,6 @@ impl Cpu {
     pub fn bvs(&mut self) {
         if self.flags.contains(Flags::Overflow) {
             self.cycles_left = self.cycles_left.wrapping_add(1);
-            if self.relval & 0x80 != 0 {
-                self.relval = self.relval | 0xFF00 as u16;
-            }
             let temp = self.pc.wrapping_add(self.relval);
             if self.pc & 0xFF00 != temp & 0xFF {
                 self.cycles_left = self.cycles_left.wrapping_add(2);
@@ -456,7 +432,6 @@ impl Cpu {
         let hi = self.cpu_read(0xFFFF) as u16;
         self.pc = (hi << 8) | lo;
     }
-
     pub fn rti(&mut self) {
         self.sp = self.sp.wrapping_add(1);
         let flag = self.cpu_read((0x100 as u16).wrapping_add(self.sp as u16));
@@ -468,11 +443,48 @@ impl Cpu {
         self.pc = (hi << 8) | lo;
         self.flags.set(Flags::Break, false);
     }
+
+
+    pub fn nmi(&mut self){
+        let hi = (self.pc >> 8) & 0xFF;
+        let lo = self.pc & 0xFF;
+        let addr = 0x100 + self.sp as u16;
+        self.cpu_write(addr, hi as u8);
+        self.sp = self.sp.wrapping_sub(1);
+        let addr = 0x100 + self.sp as u16;
+        self.cpu_write(addr, lo as u8);
+        self.sp = self.sp.wrapping_sub(1);
+        self.flags.set(Flags::IDisable, true);
+        let addr = 0x100 + self.sp as u16;
+        self.cpu_write(addr, self.flags.bits());
+        self.sp = self.sp.wrapping_sub(1);
+        let lo = self.cpu_read(0xFFFA) as u16;
+        let hi = self.cpu_read(0xFFFB) as u16;
+        //println!("PC BYTES: {:#x} {:#x}",hi,lo);
+        self.pc = (hi << 8) | lo;
+        //println!("startin interrupt! at addr {:#x}",self.pc);
+        self.cycles_left = 8;
+    }
+    pub fn reset(&mut self){
+        let lo = self.cpu_read(0xFFFC) as u16;
+        let hi = self.cpu_read(0xFFFD) as u16;
+        self.pc = (hi << 8) | lo;
+        self.a = 0;
+        self.x = 0;
+        self.y = 0;
+        self.sp = 0xfd;
+        self.flags = Flags::empty();
+        self.addrabs = 0;
+        self.relval = 0;
+        self.immval = 0;
+        self.cycles_left = 8;
+        self.total_cycles = 0;
+    }
 }
 
 #[cfg(test)]
 mod cputest {
-    use crate::{bus::Bus, cpu::Cpu};
+    use crate::cpu::Cpu;
 
     #[test]
     fn lda_test1() {

@@ -1,78 +1,100 @@
+mod mapper;
+mod mapper000;
+mod mapper001;
+use mapper::Mapper;
+use mapper000::Mapper000;
+use mapper001::Mapper001;
 use std::fs;
-
+struct Header {
+    nes_constants: [u8; 4],
+    prg_rom_size: u8,
+    chr_rom_size: u8,
+    mapper: u8,
+    name_table_arrangement: Nametable,
+}
 pub struct Cartridge {
-    numchrrom: u8,
-    numprgrom: u8,
-    mapper_num: u8,
-    chr_rom: Vec<u8>,
+    header: Header,
     prg_rom: Vec<u8>,
-    nametable_orientation: Nametable,
+    chr_rom: Vec<u8>,
+    mapper: Box<dyn Mapper>,
 }
 
-pub enum Nametable{
+pub enum Nametable {
     Vertical,
     Horizontal,
 }
 
 impl Cartridge {
-    pub fn new(file: String) -> Self {
-        let buffer = fs::read(file);
-        let buffer = match buffer {
-            Ok(buf) => buf,
-            Err(e) => {
-                panic!("Error - {}",e.to_string());
-            },
+    pub fn new(file_name: &str) -> Self {
+        let buf = fs::read(file_name).expect("unable to open file!");
+        let lobyte = buf[6] as u16;
+        let hibyte = buf[7] as u16;
+        let flag = (hibyte << 8) | lobyte;
+        let name_table_arrangement = if flag & 1 != 0 {
+            Nametable::Horizontal
+        } else {
+            Nametable::Vertical
         };
-        let prg_rom_size = buffer[4];
-        let mut prg_rom:Vec<u8> = vec![0;prg_rom_size as usize * 16384];
-        let chr_rom_size = buffer[5];
-        let mut chr_rom:Vec<u8> = vec![0;chr_rom_size as usize * 8192];
-        let lo_byte_mapper = buffer[6];
-        let hi_byte_mapper = buffer[7];
-        let mapper = (hi_byte_mapper & 0xF0) | (lo_byte_mapper >> 4);
-        if mapper != 0{
-            panic!("At this moment, mapper 000 is the only supported option D:");
+        let mapper_num = (flag >> 4) & 0xFF;
+        let mapper: Box<dyn Mapper> = match mapper_num {
+            0 => Box::new(Mapper000{
+                n_chr: buf[5],
+                n_prg: buf[4],
+            }),
+            _ => {
+                panic!("Mapper {} not supported!", mapper_num);
+            }
+        };
+        let training = if lobyte & 0x04 != 0 { 512 } else { 0 };
+        let header = Header {
+            nes_constants: [buf[0], buf[1], buf[2], buf[3]],
+            prg_rom_size: buf[4],
+            chr_rom_size: buf[5],
+            mapper: mapper_num as u8,
+            name_table_arrangement: name_table_arrangement,
+        };
+        let chr_length = header.chr_rom_size as usize * 8192;
+        let prg_length = header.prg_rom_size as usize * 16384;
+        let mut chr_rom: Vec<u8> = vec![0; chr_length];
+        for i in 0..chr_length {
+            chr_rom[i] = buf[16 + training + prg_length + i];
         }
-        println!("prg rom size: {}, chr_rom size {}",prg_rom_size,chr_rom_size);
-        let training_data = if buffer[6] & 0x4 != 0 {512} else {0};
-        let length = prg_rom.len();
-        for i in 0..length{
-            prg_rom[i] = buffer[16 + training_data + i];
-        }
-        let clength = chr_rom.len();
-        for i in 0..clength{
-            chr_rom[i] = buffer[16 + training_data + length + i];
-        }
+        let mut prg_rom: Vec<u8> = vec![0; prg_length];
 
-        let orientation = if lo_byte_mapper & 0x1 != 0 {Nametable::Vertical} else {Nametable::Horizontal};
-        println!("{}",mapper);
+        for i in 0..prg_length {
+            prg_rom[i] = buf[16 + training + i];
+        }
         Self {
-            numchrrom: chr_rom_size,
-            numprgrom: prg_rom_size,
-            mapper_num: mapper,
-            chr_rom: chr_rom,
+            header: header,
             prg_rom: prg_rom,
-            nametable_orientation: orientation,
+            chr_rom: chr_rom,
+            mapper: mapper,
         }
     }
 
-    pub fn cpu_read(&self,address: u16) -> u8{
-        let translated_addr = if self.numprgrom > 1 {address & 0x7FFF} else {address & 0x3FFF};
-        let returnval: u8 = self.prg_rom[translated_addr as usize];
-        returnval
+    pub fn cpu_read(&self, address: u16, byte: &mut u8) {
+        let mut mapped_addr = address;
+        // println!("old addr: {:#x}",mapped_addr);
+        self.mapper.cpu_read(&mut mapped_addr);
+        // println!("new addr: {:#x}",mapped_addr);
+        *byte = self.prg_rom[mapped_addr as usize];
     }
 
-    pub fn cpu_write(&mut self,address: u16, byte: u8){
-        let translated_addr = if self.numprgrom > 1 {address & 0x7FFF} else {address & 0x3FFF};
-        self.prg_rom[translated_addr as usize] = byte;
+    pub fn cpu_write(&mut self, address: u16, byte: u8) {
+        let mut mapped_address = address;
+        self.mapper.cpu_write(&mut mapped_address);
+        self.prg_rom[mapped_address as usize] = byte;
     }
 
-    pub fn ppu_read(&self, address: u16) -> u8{
-        let returnval = self.chr_rom[address as usize & 0x1FFF];
-        returnval
+    pub fn ppu_read(&self, address: u16, byte: &mut u8){
+        let mut mapped_addr = address;
+        self.mapper.ppu_read(&mut mapped_addr);
+        *byte = self.chr_rom[mapped_addr as usize];
     }
 
-    pub fn ppu_write(&mut self, address: u16, byte: u8){
-        let x =  address + byte as u16;
+    pub fn ppu_write(&mut self, address: u16, byte: u8) {
+        let mut mapped_address = address;
+        self.mapper.ppu_write(&mut mapped_address);
+        self.chr_rom[mapped_address as usize] = byte;
     }
 }
