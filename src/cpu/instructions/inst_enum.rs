@@ -21,6 +21,9 @@ pub enum Instruction {
     CLC, CLD, CLI, CLV, SEC, SED, SEI,
     // System Functions
     BRK, NOP, RTI,
+
+    //illegal
+    RRA,
 }
 
 pub enum AddressMode {

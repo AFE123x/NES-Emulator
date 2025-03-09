@@ -33,7 +33,7 @@ impl Cartridge {
         if mapper != 0{
             panic!("At this moment, mapper 000 is the only supported option D:");
         }
-        println!("prg rom size: {}, chr_rom size {}",prg_rom_size,chr_rom_size);
+        // println!("prg rom size: {}, chr_rom size {}",prg_rom_size,chr_rom_size);
         let training_data = if buffer[6] & 0x4 != 0 {512} else {0};
         let length = prg_rom.len();
         for i in 0..length{
@@ -45,7 +45,6 @@ impl Cartridge {
         }
 
         let orientation = if lo_byte_mapper & 0x1 != 0 {Nametable::Vertical} else {Nametable::Horizontal};
-        println!("{}",mapper);
         Self {
             numchrrom: chr_rom_size,
             numprgrom: prg_rom_size,

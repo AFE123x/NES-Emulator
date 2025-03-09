@@ -65,10 +65,7 @@ impl Cpu {
             let opcode = self.cpu_read(self.pc);
             self.opcode = opcode;
             self.pc = self.pc.wrapping_add(1);
-            print!("PC {:#x} opcode {:#x}",self.pc.wrapping_sub(1),opcode);
-            if self.pc > 0x9000{
-                println!("Were here");
-            }
+            println!("PC {:#x} opcode {:#x}",self.pc.wrapping_sub(1),opcode);
             self.handle_opcode(opcode);
         }
         self.cycles_left = self.cycles_left.wrapping_sub(1);

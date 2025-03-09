@@ -170,7 +170,10 @@ impl Cpu {
         let prop_two = prop_two != 0;
         self.flags.set(Flags::Overflow, prop_one && prop_two);
     }
-
+    pub fn rra(&mut self){
+        self.ror();
+        self.adc();
+    }
     pub fn cmp(&mut self) {
         let temp = (self.a as u16).wrapping_sub(self.immval as u16);
         self.flags.set(Flags::Carry, temp > 255);
@@ -467,6 +470,41 @@ impl Cpu {
         let hi = self.cpu_read((0x100 as u16).wrapping_add(self.sp as u16)) as u16;
         self.pc = (hi << 8) | lo;
         self.flags.set(Flags::Break, false);
+    }
+    pub fn nmi(&mut self){
+        println!("INTERRUPT");
+        let lo = (self.pc >> 8) & 0xFF;
+        self.cpu_write(0x100 + self.sp as u16, lo as u8);
+        self.sp = self.sp.wrapping_sub(1);
+        let hi = self.pc & 0xFF;
+        self.cpu_write(0x100 + self.sp as u16, hi as u8);
+        self.sp = self.sp.wrapping_sub(1);
+
+        self.flags.set(Flags::Break, true);
+        self.flags.set(Flags::IDisable, true);
+        self.cpu_write(0x100 + self.sp as u16, self.flags.bits());
+        self.sp = self.sp.wrapping_sub(1);
+        let lo = self.cpu_read(0xFFFA) as u16;
+        let hi = self.cpu_read(0xFFFB) as u16;
+        self.pc = (hi << 8) | lo;
+        println!("interPC: {:#x}",self.pc);
+        self.cycles_left = 8;
+    }
+    pub fn reset(&mut self){
+        let lo = self.cpu_read(0xFFFC) as u16;
+        let hi = self.cpu_read(0xFFFD) as u16;
+        self.pc = (hi << 8) | lo;
+        self.a = 0;
+        self.x = 0;
+        self.y = 0;
+        self.sp = 0xFD;
+        self.flags = Flags::from_bits_truncate(0);
+        self.addrabs = 0;
+        self.relval = 0;
+        self.immval = 0;
+        self.total_cycles = 0;
+        self.cycles_left = 8;
+
     }
 }
 

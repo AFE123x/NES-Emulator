@@ -157,7 +157,9 @@ impl Cpu{
             0x00 => self.handle_operation(AddressMode::Implicit, Instruction::BRK, 7),
             0xEA => self.handle_operation(AddressMode::Implicit, Instruction::NOP, 2),
             0x40 => self.handle_operation(AddressMode::Implicit, Instruction::RTI, 6),
-    
+            0xEB => self.handle_operation(AddressMode::Implicit, Instruction::SBC, 2),
+            0x7F => self.handle_operation(AddressMode::AbsoluteX, Instruction::RRA, 7),
+            0x4 => self.handle_operation(AddressMode::ZeroPage, Instruction::NOP, 3),
             _ => {
                 println!("opcode {:#x} not implemented yet",opcode);
                 todo!()
@@ -245,6 +247,7 @@ impl Cpu{
             Instruction::BRK => self.brk(),
             Instruction::NOP => {}
             Instruction::RTI => self.rti(),
+            Instruction::RRA => self.rra(),
         };
     }
 }
