@@ -71,10 +71,6 @@ impl Ppu {
 
     pub fn reset_frame_com(&mut self) {
         self.frame_completed = false;
-        for i in &self.vram{
-            println!("VRAM {}",i);
-        }
-        std::process::exit(1);
     }
     pub fn ppu_read(&self, address: u16) -> u8 {
         if address <= 0x1FFF {
