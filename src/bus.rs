@@ -47,9 +47,13 @@ impl Bus {
             unsafe {(*self.ppu).cpu_write(address, byte);};
         }
         else if address <= 0x4017{
+            // todo!()
+
         }
         else if address <= 0x401F{
-        }
+            // todo!()
+            
+        }   
         else{
             unsafe{(*self.cartridge).cpu_write(address, byte);}
         }

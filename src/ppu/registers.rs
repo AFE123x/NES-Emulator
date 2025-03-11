@@ -142,7 +142,7 @@ impl vt_reg {
     }
     ///this will set the raw bits of the vt_register (we ignore the msb of the u16)
     pub fn set_data(&mut self, val: u16){
-        let val = val & 0b1_111_11_11111_11111;
+        let val = val & 0b0_111_11_11111_11111;
         self.data = val;
     }
     ///this will set the raw bits of the vt_register

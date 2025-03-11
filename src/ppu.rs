@@ -28,14 +28,15 @@ pub struct Ppu {
     nmi: bool,
     cart: *mut Cartridge,
     palette_memory: Vec<u8>,
-    system_palette: Vec<(u8,u8,u8)>,
+    system_palette: Vec<(u8, u8, u8)>,
     palette_num: u8,
-    cycle_counter: usize,
+    cycle_counter: u16,
+    scanline_counter: u16,
 }
 
 impl Ppu {
-    fn initialize_system_palette() -> Vec<(u8,u8,u8)> {
-        let mut toreturn: Vec<(u8,u8,u8)> = vec![(0, 0, 0); 0x40];
+    fn initialize_system_palette() -> Vec<(u8, u8, u8)> {
+        let mut toreturn: Vec<(u8, u8, u8)> = vec![(0, 0, 0); 0x40];
         toreturn[10] = (0, 81, 0);
         toreturn[11] = (0, 63, 23);
         toreturn[12] = (27, 63, 95);
@@ -102,9 +103,17 @@ impl Ppu {
         toreturn[63] = (0, 0, 0);
         toreturn
     }
+
+    pub fn get_nmi(&mut self) -> bool {
+        let data = self.nmi;
+        if data {
+            self.nmi = false;
+        }
+        data
+    }
     pub fn new(cartridge: &mut Cartridge) -> Self {
-        let mut pal:Vec<u8> = vec![0;0x20];
-        for i in 0..0x20{
+        let mut pal: Vec<u8> = vec![0; 0x20];
+        for i in 0..0x20 {
             pal[i] = rand::random_range(0..0x20) as u8;
         }
         Self {
@@ -129,9 +138,10 @@ impl Ppu {
             system_palette: Ppu::initialize_system_palette(),
             palette_num: 0,
             cycle_counter: 0,
+            scanline_counter: 0,
         }
     }
-    pub fn get_palette(&mut self, palettenum: u8, paletteindex:u8) -> (u8,u8,u8){
+    pub fn get_palette(&mut self, palettenum: u8, paletteindex: u8) -> (u8, u8, u8) {
         let palettenum = palettenum & 0x7;
         let final_index = (palettenum << 2) | paletteindex;
         let paletteinde = self.ppu_read(0x3F00 | final_index as u16);
@@ -177,76 +187,94 @@ impl Ppu {
         let tup = (self.nmi, self.ppustatus.contains(PPUSTATUS::vblank_flag));
         tup
     }
-    pub fn ppu_read(&mut self, address: u16) -> u8 {
-        let mut byte = 0;
-        if address <= 0x1FFF {
-            unsafe { (*self.cart).ppu_read(address, &mut byte) }; //reads palette table information from the cartridge
-        } else if address >= 0x2000 && address <= 0x2FFF {
-            let nametable: Nametable = unsafe { (*self.cart).get_nametable() };
-            byte = match nametable {
-                Nametable::Vertical => {
-                    if address >= 0x2000 && address <= 0x23FF {
-                        //table A
-                        self.vram[(address & 0x3FF) as usize]
-                    } else if address >= 0x2400 && address <= 0x27FF {
-                        //table B
-                        self.vram[(0x400 + (address & 0x3ff)) as usize]
-                    } else if address >= 0x2800 && address <= 0x2BFF {
-                        //mirror of table A
-                        self.vram[(address & 0x3FF) as usize]
-                    } else if address >= 0x2C00 && address <= 0x2FFF {
-                        self.vram[(0x400 + (address & 0x3ff)) as usize]
-                    } else {
-                        panic!("This shouldn't even happen!");
-                    }
-                }
-                Nametable::Horizontal => {
-                    todo!();
-                }
-            };
-        } else if address >= 0x3F00 && address <= 0x3FFF { //palette region
-            byte = self.palette_memory[(address & 0x1F) as usize];
-        } else {
-            
-            // todo!()
-            byte = 0;
-        }
-        byte
+    /*
+		else if (cart->mirror == Cartridge::MIRROR::HORIZONTAL)
+		{
+			// Horizontal
+			if (addr >= 0x0000 && addr <= 0x03FF)
+				data = tblName[0][addr & 0x03FF];
+			if (addr >= 0x0400 && addr <= 0x07FF)
+				data = tblName[0][addr & 0x03FF];
+			if (addr >= 0x0800 && addr <= 0x0BFF)
+				data = tblName[1][addr & 0x03FF];
+			if (addr >= 0x0C00 && addr <= 0x0FFF)
+				data = tblName[1][addr & 0x03FF];
+		}
+*/
+pub fn ppu_read(&mut self, address: u16) -> u8 {
+    let mut byte = 0;
+
+    if address <= 0x1FFF {
+        unsafe { (*self.cart).ppu_read(address, &mut byte) }; // Reads from cartridge space
+    } else if address >= 0x2000 && address <= 0x2FFF {
+        let nametable: Nametable = unsafe { (*self.cart).get_nametable() };
+        byte = match nametable {
+            Nametable::Vertical => {
+                let index = match address {
+                    0x2000..=0x23FF | 0x2800..=0x2BFF => address & 0x3FF,
+                    0x2400..=0x27FF | 0x2C00..=0x2FFF => 0x400 + (address & 0x3FF),
+                    _ => panic!("Address out of range!"),
+                };
+                self.vram[index as usize]
+            }
+            Nametable::Horizontal => {
+                let index = match address {
+                    0x2000..=0x23FF | 0x2400..=0x27FF => address & 0x3FF,
+                    0x2800..=0x2BFF | 0x2C00..=0x2FFF => 0x400 + (address & 0x3FF),
+                    _ => panic!("Address out of range!"),
+                };
+                self.vram[index as usize]
+            }
+        };
+    } else if address >= 0x3000 && address <= 0x3EFF {
+        // Mirror of 0x2000 - 0x2EFF
+        byte = self.ppu_read(address - 0x1000);
+    } else if address >= 0x3F00 && address <= 0x3FFF {
+        // Palette memory handling with mirroring
+        byte = self.palette_memory[(address & 0x1F) as usize];
+    } else {
+        // Open bus or undefined memory area
+        byte = 0;
     }
+
+    byte
+}
+
 
     pub fn ppu_write(&mut self, address: u16, data: u8) {
         if address <= 0x1FFF {
-            unsafe { (*self.cart).ppu_write(address, data) }; //reads palette table information from the cartridge
+            unsafe { (*self.cart).ppu_write(address, data) }; // writes to cartridge space
         } else if address >= 0x2000 && address <= 0x2FFF {
             let nametable: Nametable = unsafe { (*self.cart).get_nametable() };
             match nametable {
                 Nametable::Vertical => {
-                    if address >= 0x2000 && address <= 0x23FF {
-                        //table A
-                        self.vram[(address & 0x3FF) as usize] = data;
-                    } else if address >= 0x2400 && address <= 0x27FF {
-                        //table B
-                        self.vram[(0x400 + (address & 0x3ff)) as usize] = data;
-                    } else if address >= 0x2800 && address <= 0x2BFF {
-                        //mirror of table A
-                        self.vram[(address & 0x3FF) as usize] = data;
-                    } else if address >= 0x2C00 && address <= 0x2FFF {
-                        self.vram[(0x400 + (address & 0x3ff)) as usize] = data;
-                    } else {
-                        panic!("This shouldn't even happen!");
-                    }
+                    let index = match address {
+                        0x2000..=0x23FF | 0x2800..=0x2BFF => address & 0x3FF,
+                        0x2400..=0x27FF | 0x2C00..=0x2FFF => 0x400 + (address & 0x3FF),
+                        _ => panic!("Address out of range!"),
+                    };
+                    self.vram[index as usize] = data;
                 }
                 Nametable::Horizontal => {
-                    todo!();
+                    let index = match address {
+                        0x2000..=0x23FF | 0x2400..=0x27FF => address & 0x3FF,
+                        0x2800..=0x2BFF | 0x2C00..=0x2FFF => 0x400 + (address & 0x3FF),
+                        _ => panic!("Address out of range!"),
+                    };
+                    self.vram[index as usize] = data;
                 }
             };
-        } else if address >= 0x3F00 && address <= 0x3FFF { //palette region
+        } else if address >= 0x3000 && address <= 0x3EFF {
+            // Mirror of 0x2000 - 0x2EFF
+            self.ppu_write(address - 0x1000, data);
+        } else if address >= 0x3F00 && address <= 0x3FFF {
+            // Palette memory handling
             self.palette_memory[(address & 0x1F) as usize] = data;
         } else {
-            // todo!()
-
+            todo!()
         }
     }
+    
 
     ///# cpu_read
     /// This function lets the cpu read from the PPU Address space.
@@ -259,7 +287,6 @@ impl Ppu {
                 data = 0;
             }
             2 => {
-                self.ppustatus.set(PPUSTATUS::vblank_flag, true);
                 data = self.ppustatus.bits();
                 self.w = 0;
             }
@@ -334,8 +361,8 @@ impl Ppu {
                     let fine_y_nametable = data & 0x3F;
                     let fine_y_nametable = fine_y_nametable as u16;
                     let modify_t_reg = self.t.get_data();
-                    let modify_t_reg = modify_t_reg & !(0b1111_1110_0000_0000);
-                    let fine_y_nametable = fine_y_nametable << 9;
+                    let modify_t_reg = modify_t_reg & !(0b10_111111_00000000);
+                    let fine_y_nametable = fine_y_nametable << 8;
                     let modify_t_reg = modify_t_reg | fine_y_nametable;
                     self.t.set_data(modify_t_reg);
                     self.w = 1;
@@ -350,7 +377,8 @@ impl Ppu {
                 }
             }
             7 => {
-                self.ppu_write(self.v.get_data(), data); //write to memory
+                //println!("cpu_write({:4x}, {})", self.v.get_data() & 0x3FFF, data);
+                self.ppu_write(self.v.get_data() & 0x7FFF, data);
                 let v_addr = self.v.get_data();
                 let add_factor = if self.ppuctrl.contains(PPUCTRL::vram_increment) {
                     32
@@ -367,5 +395,29 @@ impl Ppu {
     }
 
     pub fn clock(&mut self) {
+        if self.scanline_counter > 261 {
+            self.scanline_counter = 0;
+        }
+        if self.cycle_counter == 341 {
+            self.cycle_counter = 0;
+            self.scanline_counter = self.scanline_counter.wrapping_add(1);
+        }
+        if self.scanline_counter == 241 && self.cycle_counter == 1 {
+            self.ppustatus.set(PPUSTATUS::vblank_flag, true);
+            if self.ppuctrl.contains(PPUCTRL::vblank_enable) {
+                self.nmi = true;
+                for i in 0..1024{
+                    if i % 32 == 0{
+                        println!("");
+                    }
+                    print!("{:#x}\t",self.ppu_read(0x2000 + i));
+                }
+                println!("");
+            }
+        }
+        if self.scanline_counter == 261 && self.cycle_counter == 1 {
+            self.ppustatus.set(PPUSTATUS::vblank_flag, false);
+        }
+        self.cycle_counter = self.cycle_counter.wrapping_add(1);
     }
 }

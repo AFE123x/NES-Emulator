@@ -442,10 +442,12 @@ impl Cpu {
         let hi = self.cpu_read((0x100 as u16).wrapping_add(self.sp as u16)) as u16;
         self.pc = (hi << 8) | lo;
         self.flags.set(Flags::Break, false);
+        println!("rti executed!");
     }
 
 
     pub fn nmi(&mut self){
+        println!("nmi initialized");
         let hi = (self.pc >> 8) & 0xFF;
         let lo = self.pc & 0xFF;
         let addr = 0x100 + self.sp as u16;

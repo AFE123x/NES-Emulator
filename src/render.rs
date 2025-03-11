@@ -61,13 +61,16 @@ pub fn gameloop(rom_file: &str, scale: u32) -> Result<(), Box<dyn Error>> {
         }
         bus.clock();
         
-        ppu.get_palette_table(&mut palette_frame);
-        palette_texture.update(None, &palette_frame.get_buf(), 256 * 3)?;
-        main_game_texture.update(None, &game_frame.get_buf(), 256 * 3)?;
-        game_canvas.clear();
-        game_canvas.copy(&palette_texture, None, Rect::new(256, 0, 256, 128))?;
-        game_canvas.copy(&main_game_texture, None, Rect::new(0, 0, 256, 240))?;
-        game_canvas.present();
+        if ppu.get_nmi(){
+            cpu.nmi();
+            ppu.get_palette_table(&mut palette_frame);
+            palette_texture.update(None, &palette_frame.get_buf(), 256 * 3)?;
+            main_game_texture.update(None, &game_frame.get_buf(), 256 * 3)?;
+            game_canvas.clear();
+            game_canvas.copy(&palette_texture, None, Rect::new(256, 0, 256, 128))?;
+            game_canvas.copy(&main_game_texture, None, Rect::new(0, 0, 256, 240))?;
+            game_canvas.present();
+        }
     }
 
     Ok(())
