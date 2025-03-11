@@ -460,9 +460,7 @@ impl Cpu {
         self.sp = self.sp.wrapping_sub(1);
         let lo = self.cpu_read(0xFFFA) as u16;
         let hi = self.cpu_read(0xFFFB) as u16;
-        //println!("PC BYTES: {:#x} {:#x}",hi,lo);
         self.pc = (hi << 8) | lo;
-        //println!("startin interrupt! at addr {:#x}",self.pc);
         self.cycles_left = 8;
     }
     pub fn reset(&mut self){

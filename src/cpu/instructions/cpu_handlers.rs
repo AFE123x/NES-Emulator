@@ -165,8 +165,7 @@ impl Cpu{
             0x14 => self.handle_operation(AddressMode::ZeroPageX, Instruction::NOP, 4),
             0x1a => self.handle_operation(AddressMode::Implicit, Instruction::NOP, 2),
             _ => {
-                println!("opcode {:#x} not implemented yet",opcode);
-                todo!()
+                panic!("opcode {:#x} not implemented yet",opcode);
             },
         };
     }

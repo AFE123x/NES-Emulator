@@ -7,7 +7,7 @@ edition = "2021"
 bitflags = "2.9.0"
 
 rand = "0.9.0"
-sdl2 = {version = "0.37.0"}
+sdl2 = {version = "0.37.0", features = ["ttf"]}
 
 [features]
 use_sdl2_mac_framework = ["sdl2/use_mac_framework"]

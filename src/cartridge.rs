@@ -25,6 +25,18 @@ pub enum Nametable {
 }
 
 impl Cartridge {
+
+    pub fn get_nametable(&self) -> Nametable{
+        let nameboi = match self.header.name_table_arrangement{
+            Nametable::Vertical => {
+                Nametable::Vertical
+            },
+            Nametable::Horizontal => {
+                Nametable::Horizontal
+            },
+        };
+        nameboi
+    }
     pub fn new(file_name: &str) -> Self {
         let buf = fs::read(file_name).expect("unable to open file!");
         let lobyte = buf[6] as u16;
@@ -74,9 +86,7 @@ impl Cartridge {
 
     pub fn cpu_read(&self, address: u16, byte: &mut u8) {
         let mut mapped_addr = address;
-        // println!("old addr: {:#x}",mapped_addr);
         self.mapper.cpu_read(&mut mapped_addr);
-        // println!("new addr: {:#x}",mapped_addr);
         *byte = self.prg_rom[mapped_addr as usize];
     }
 

@@ -22,14 +22,15 @@ impl Bus {
             data = self.memory[(address & 0x7FF) as usize];
         }
         else if address <= 0x3FFF{
-            data = unsafe { (*self.ppu).cpu_read(address)};
+            data = unsafe{(*self.ppu).cpu_read(address)};
         }
         else if address <= 0x4017{
-            //todo!()
+            // todo!()
             data = 0;
         }
         else if address <= 0x401F{
-            todo!();
+            // todo!();
+            data = 0;
         }
         else{
             unsafe{ (*self.cartridge).cpu_read(address, &mut data)};
@@ -64,17 +65,4 @@ impl Bus {
         }
     }
 
-}
-
-#[cfg(test)]
-mod debug{
-    use super::Bus;
-    impl Bus{
-        pub fn write_to_bus(&mut self,address: u16, byte: u8){
-            self.memory[address as usize] = byte;
-        }
-        pub fn read_from_bus(&mut self,address: u16) -> u8{
-            self.memory[address as usize]
-        }
-    }
 }
