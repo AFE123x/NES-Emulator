@@ -1,4 +1,4 @@
-use std::io::{self, Read};
+use std::{io::{self, Read}, thread, time::{self, Duration}};
 
 use frame::Frame;
 use rand::seq::index;
@@ -32,6 +32,7 @@ pub struct Ppu {
     palette_num: u8,
     cycle_counter: u16,
     scanline_counter: u16,
+    nmi_count: u8,
 }
 
 impl Ppu {
@@ -113,9 +114,6 @@ impl Ppu {
     }
     pub fn new(cartridge: &mut Cartridge) -> Self {
         let mut pal: Vec<u8> = vec![0; 0x20];
-        for i in 0..0x20 {
-            pal[i] = rand::random_range(0..0x20) as u8;
-        }
         Self {
             ppuctrl: PPUCTRL::empty(),
             ppumask: PPUMASK::empty(),
@@ -139,6 +137,7 @@ impl Ppu {
             palette_num: 0,
             cycle_counter: 0,
             scanline_counter: 0,
+            nmi_count: 0,
         }
     }
     pub fn get_palette(&mut self, palettenum: u8, paletteindex: u8) -> (u8, u8, u8) {
@@ -147,7 +146,7 @@ impl Ppu {
         let paletteinde = self.ppu_read(0x3F00 | final_index as u16);
         self.system_palette[paletteinde as usize]
     }
-    pub fn get_palette_table(&mut self, frame: &mut Frame) {
+    pub fn get_palette_table(&mut self, frame: &mut Frame, palette: u8) {
         for row in 0..16 {
             for col in 0..32 {
                 let mut address: u16 = 0;
@@ -175,32 +174,13 @@ impl Ppu {
                         hibyte = hibyte >> 1;
                         let xx = (col * 8) + (8 - x);
                         let y = (row * 8) + i;
-                        let color = self.get_palette(3, index_num);
+                        let color = self.get_palette(palette, index_num);
                         frame.drawpixel(xx - 1, y, color);
                     }
                 }
             }
         }
-        // std::process::exit(1);
     }
-    pub fn test_and_set_nmi(&self) -> (bool, bool) {
-        let tup = (self.nmi, self.ppustatus.contains(PPUSTATUS::vblank_flag));
-        tup
-    }
-    /*
-		else if (cart->mirror == Cartridge::MIRROR::HORIZONTAL)
-		{
-			// Horizontal
-			if (addr >= 0x0000 && addr <= 0x03FF)
-				data = tblName[0][addr & 0x03FF];
-			if (addr >= 0x0400 && addr <= 0x07FF)
-				data = tblName[0][addr & 0x03FF];
-			if (addr >= 0x0800 && addr <= 0x0BFF)
-				data = tblName[1][addr & 0x03FF];
-			if (addr >= 0x0C00 && addr <= 0x0FFF)
-				data = tblName[1][addr & 0x03FF];
-		}
-*/
 pub fn ppu_read(&mut self, address: u16) -> u8 {
     let mut byte = 0;
 
@@ -226,6 +206,7 @@ pub fn ppu_read(&mut self, address: u16) -> u8 {
                 self.vram[index as usize]
             }
         };
+        byte = self.vram[(address & 0x7FF) as usize];
     } else if address >= 0x3000 && address <= 0x3EFF {
         // Mirror of 0x2000 - 0x2EFF
         byte = self.ppu_read(address - 0x1000);
@@ -264,9 +245,10 @@ pub fn ppu_read(&mut self, address: u16) -> u8 {
                     self.vram[index as usize] = data;
                 }
             };
+            self.vram[(address & 0x7FF) as usize] = data;
         } else if address >= 0x3000 && address <= 0x3EFF {
             // Mirror of 0x2000 - 0x2EFF
-            self.ppu_write(address - 0x1000, data);
+            // self.ppu_write(address - 0x1000, data);
         } else if address >= 0x3F00 && address <= 0x3FFF {
             // Palette memory handling
             self.palette_memory[(address & 0x1F) as usize] = data;
@@ -288,14 +270,15 @@ pub fn ppu_read(&mut self, address: u16) -> u8 {
             }
             2 => {
                 data = self.ppustatus.bits();
+                self.ppustatus.set(PPUSTATUS::vblank_flag, false);
                 self.w = 0;
             }
             4 => {
-                todo!() //handle OAM reads
+                //todo!() //handle OAM reads
             }
             7 => {
                 data = self.internal_buffer;
-                self.internal_buffer = self.ppu_read(self.v.get_data() & 0x3FFF);
+                self.internal_buffer = self.ppu_read(self.v.get_data());
                 if address >= 0x3F00 && address <= 0x3FFF {
                     data = self.internal_buffer;
                 }
@@ -336,10 +319,10 @@ pub fn ppu_read(&mut self, address: u16) -> u8 {
                 self.ppumask = PPUMASK::from_bits_truncate(data);
             }
             3 => {
-                todo!()
+                //todo!()
             }
             4 => {
-                todo!()
+                //todo!()
             }
             5 => {
                 if self.w == 0 {
@@ -349,7 +332,7 @@ pub fn ppu_read(&mut self, address: u16) -> u8 {
                     self.t.set_coarse_xscroll(t_dest);
                     self.w = 1;
                 } else if self.w == 1 {
-                    let fine_y_dest = data;
+                    let fine_y_dest = data & 0x7;
                     self.t.set_fine_y(fine_y_dest);
                     let course_y_dest = data >> 3;
                     self.t.set_coarse_yscroll(course_y_dest);
@@ -358,27 +341,37 @@ pub fn ppu_read(&mut self, address: u16) -> u8 {
             }
             6 => {
                 if self.w == 0 {
+                    /*
+                    yyy NN YYYYY XXXXX
+                    ||| || ||||| +++++-- coarse X scroll
+                    ||| || +++++-------- coarse Y scroll
+                    ||| ++-------------- nametable select
+                    +++----------------- fine Y scroll
+                    */
+                    // println!("");
                     let fine_y_nametable = data & 0x3F;
                     let fine_y_nametable = fine_y_nametable as u16;
-                    let modify_t_reg = self.t.get_data();
-                    let modify_t_reg = modify_t_reg & !(0b10_111111_00000000);
+                    let temp_data = self.t.get_data();
+                    let temp_data_mask= !0b0_111111_00000000;
+                    let temp_data = temp_data & temp_data_mask;
                     let fine_y_nametable = fine_y_nametable << 8;
-                    let modify_t_reg = modify_t_reg | fine_y_nametable;
-                    self.t.set_data(modify_t_reg);
+                    let temp_data = temp_data | fine_y_nametable;
+                    let temp_data = temp_data & 0b0_0111111_11111111;
+                    self.t.set_data(temp_data);
                     self.w = 1;
                 } else if self.w == 1 {
                     let modify_t_reg = self.t.get_data();
-                    let modify_t_reg = modify_t_reg & !(0b10000000_11111111);
+                    let t_reg_mask = !0b0000000_11111111;
+                    let modify_t_reg = modify_t_reg & t_reg_mask;
                     let data = data as u16;
                     let modify_t_reg = modify_t_reg | data;
                     self.t.set_data(modify_t_reg);
-                    self.v.set_data(self.t.get_data());
+                    self.v.set_data(modify_t_reg);
                     self.w = 0;
                 }
             }
             7 => {
-                //println!("cpu_write({:4x}, {})", self.v.get_data() & 0x3FFF, data);
-                self.ppu_write(self.v.get_data() & 0x7FFF, data);
+                self.ppu_write(self.v.get_data(), data);
                 let v_addr = self.v.get_data();
                 let add_factor = if self.ppuctrl.contains(PPUCTRL::vram_increment) {
                     32
@@ -393,31 +386,48 @@ pub fn ppu_read(&mut self, address: u16) -> u8 {
             }
         }
     }
-
+    /*
+    yyy NN YYYYY XXXXX
+    ||| || ||||| +++++-- coarse X scroll
+    ||| || +++++-------- coarse Y scroll
+    ||| ++-------------- nametable select
+    +++----------------- fine Y scroll
+    */
     pub fn clock(&mut self) {
-        if self.scanline_counter > 261 {
-            self.scanline_counter = 0;
-        }
-        if self.cycle_counter == 341 {
-            self.cycle_counter = 0;
-            self.scanline_counter = self.scanline_counter.wrapping_add(1);
-        }
-        if self.scanline_counter == 241 && self.cycle_counter == 1 {
-            self.ppustatus.set(PPUSTATUS::vblank_flag, true);
-            if self.ppuctrl.contains(PPUCTRL::vblank_enable) {
-                self.nmi = true;
-                for i in 0..1024{
-                    if i % 32 == 0{
-                        println!("");
-                    }
-                    print!("{:#x}\t",self.ppu_read(0x2000 + i));
-                }
-                println!("");
+       let y_increment = | scroll: &mut vt_reg|{
+            let fine_y_value = scroll.get_fine_y();
+            if fine_y_value != 7{
+                scroll.set_fine_y(fine_y_value + 1);
             }
-        }
-        if self.scanline_counter == 261 && self.cycle_counter == 1 {
-            self.ppustatus.set(PPUSTATUS::vblank_flag, false);
-        }
-        self.cycle_counter = self.cycle_counter.wrapping_add(1);
+            else{
+                scroll.set_fine_y(0);
+                let coarse_y = scroll.get_coarse_yscroll();
+                if coarse_y == 29{
+                    scroll.set_coarse_yscroll(0);
+                    let vert_nametable = scroll.get_nametable();
+                    let vert_nametable = vert_nametable ^ 0x2;
+                    scroll.set_nametable(vert_nametable);
+                }
+                else if coarse_y == 31{
+                    scroll.set_coarse_yscroll(0);
+                }
+                else{
+                    scroll.set_coarse_yscroll(coarse_y + 1);
+                }
+            }
+       };
+
+
+       let coarse_x_increment = |scroll: &mut vt_reg| {
+            let coarse_x = scroll.get_coarse_xscroll();
+            if coarse_x == 31{
+                scroll.set_coarse_xscroll(0);
+                let nametable = scroll.get_nametable();
+                scroll.set_nametable(nametable ^ 1);
+            }
+            else{
+                scroll.set_coarse_xscroll(coarse_x + 1);
+            }
+       };
     }
 }

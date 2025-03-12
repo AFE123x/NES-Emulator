@@ -14,6 +14,7 @@ impl Cpu {
     }
     pub fn zeropage(&mut self) {
         self.addrabs = self.cpu_read(self.pc) as u16;
+        self.addrabs = self.addrabs & 0xFF;
         self.pc = self.pc.wrapping_add(1);
         self.immval = self.cpu_read(self.addrabs);
 
@@ -23,6 +24,7 @@ impl Cpu {
         self.addrabs = self.cpu_read(self.pc) as u16;
         self.pc = self.pc.wrapping_add(1);
         self.addrabs = self.addrabs.wrapping_add(self.x as u16);
+        self.addrabs = self.addrabs & 0xFF;
         self.immval = self.cpu_read(self.addrabs);
     }
 
@@ -30,6 +32,7 @@ impl Cpu {
         self.addrabs = self.cpu_read(self.pc) as u16;
         self.pc = self.pc.wrapping_add(1);
         self.addrabs = self.addrabs.wrapping_add(self.y as u16);
+        self.addrabs = self.addrabs & 0xFF;
         self.immval = self.cpu_read(self.addrabs);
     }
 
@@ -84,32 +87,35 @@ impl Cpu {
         let hi = self.cpu_read(self.pc) as u16;
         self.pc = self.pc.wrapping_add(1);
         self.addrabs = (hi << 8) | lo;
+    
+        // Read the low byte at the target address
         let lo = self.cpu_read(self.addrabs) as u16;
-        let hi = self.cpu_read(self.addrabs.wrapping_add(1)) as u16;
+    
+        // Simulate the page boundary wraparound bug of the 6502
+        let hi_location = (self.addrabs & 0xFF00) | ((self.addrabs + 1) & 0x00FF);
+        let hi = self.cpu_read(hi_location) as u16;
+    
         self.addrabs = (hi << 8) | lo;
+    
+        // Fetch the actual value from the calculated address
         self.immval = self.cpu_read(self.addrabs);
     }
+    
 
-    pub fn indexedindirect(&mut self) {
-        self.addrabs = self.cpu_read(self.pc) as u16;
+    pub fn idx(&mut self) {
+        let temp = self.cpu_read(self.pc) as u16;
         self.pc = self.pc.wrapping_add(1);
-        self.addrabs = self.addrabs.wrapping_add(self.x as u16);
-        self.addrabs = self.addrabs & 0xFF;
-        let lo = self.cpu_read(self.addrabs) as u16;
-        let hi = self.cpu_read(self.addrabs.wrapping_add(1)) as u16;
+        let lo = self.cpu_read((temp + (self.x as u16)) & 0xFF) as u16;
+        let hi = self.cpu_read((temp + (self.x as u16) + 1) & 0xFF) as u16;
         self.addrabs = (hi << 8) | lo;
-        self.immval = self.cpu_read(self.addrabs);
     }
-
-    pub fn indirectindexed(&mut self) {
-        self.addrabs = self.cpu_read(self.pc) as u16;
+    pub fn idy(&mut self) {
+        let temp = self.cpu_read(self.pc) as u16; //the byte from the zero page
         self.pc = self.pc.wrapping_add(1);
-        let lo = self.cpu_read(self.addrabs) as u16;
-        let hi = self.cpu_read(self.addrabs.wrapping_add(1)) as u16;
+        let lo = self.cpu_read(temp) as u16;
+        let hi = self.cpu_read(temp + 1) as u16;
         self.addrabs = (hi << 8) | lo;
-        let temp = self.addrabs;
         self.addrabs = self.addrabs.wrapping_add(self.y as u16);
-        self.addrabs = self.addrabs & 0xFF;
         self.immval = self.cpu_read(self.addrabs);
         if self.addrabs & 0xFF00 != temp & 0xFF00 {
             self.cycles_left = self.cycles_left.wrapping_add(1);

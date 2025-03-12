@@ -23,7 +23,7 @@ pub enum Instruction {
     // System Functions
     BRK, NOP, RTI,
 }
-
+#[derive(Debug)]
 pub enum AddressMode {
     Implicit,
     Accumulator,
@@ -36,6 +36,6 @@ pub enum AddressMode {
     AbsoluteX,
     AbsoluteY,
     Indirect,
-    IndexedIndirect,
-    IndirectIndexed,
+    IDX,
+    IDY,
 }

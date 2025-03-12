@@ -39,6 +39,7 @@ pub fn gameloop(rom_file: &str, scale: u32) -> Result<(), Box<dyn Error>> {
         text_creator.create_texture_target(PixelFormatEnum::RGB24, 256, 128)?;
     let mut pump = sdl_content.event_pump()?;
     let mut cont_game = true;
+    let mut palette_index = 0;
     /* initialize game frame! */
     let mut palette_frame = Frame::new(256, 128); //frame buffer for the palette data.
     let mut game_frame = Frame::new(256, 240); //frame buffer for the actual game.
@@ -55,7 +56,8 @@ pub fn gameloop(rom_file: &str, scale: u32) -> Result<(), Box<dyn Error>> {
                     ..
                 } => {
                     cont_game = false;
-                }
+                },
+                Event::KeyDown { keycode: Some(Keycode::P), ..} => {palette_index = (palette_index+ 1) % 8},
                 _ => {}
             }
         }
@@ -63,7 +65,7 @@ pub fn gameloop(rom_file: &str, scale: u32) -> Result<(), Box<dyn Error>> {
         
         if ppu.get_nmi(){
             cpu.nmi();
-            ppu.get_palette_table(&mut palette_frame);
+            ppu.get_palette_table(&mut palette_frame,palette_index);
             palette_texture.update(None, &palette_frame.get_buf(), 256 * 3)?;
             main_game_texture.update(None, &game_frame.get_buf(), 256 * 3)?;
             game_canvas.clear();

@@ -6,8 +6,8 @@ mod cpu;
 mod bus;
 mod ppu;
 fn main(){
-    // let args: Vec<String> = env::args().collect();
-    let status = render::gameloop("roms/nestest.nes",3);
+    let args: Vec<String> = env::args().collect();
+    let status = render::gameloop(&args[1],3);
     match status{
         Ok(_) => {},
         Err(e) => panic!("error: {}",e.to_string()),

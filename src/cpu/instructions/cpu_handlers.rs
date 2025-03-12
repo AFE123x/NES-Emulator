@@ -12,8 +12,8 @@ impl Cpu{
             0xAD => self.handle_operation(AddressMode::Absolute, Instruction::LDA, 4),
             0xBD => self.handle_operation(AddressMode::AbsoluteX, Instruction::LDA, 4),
             0xB9 => self.handle_operation(AddressMode::AbsoluteY, Instruction::LDA, 4),
-            0xA1 => self.handle_operation(AddressMode::IndexedIndirect, Instruction::LDA, 6),
-            0xB1 => self.handle_operation(AddressMode::IndirectIndexed, Instruction::LDA, 5),
+            0xA1 => self.handle_operation(AddressMode::IDX, Instruction::LDA, 6),
+            0xB1 => self.handle_operation(AddressMode::IDY, Instruction::LDA, 5),
             0xA2 => self.handle_operation(AddressMode::Immediate, Instruction::LDX, 2),
             0xA6 => self.handle_operation(AddressMode::ZeroPage, Instruction::LDX, 3),
             0xB6 => self.handle_operation(AddressMode::ZeroPageY, Instruction::LDX, 4),
@@ -29,8 +29,8 @@ impl Cpu{
             0x8D => self.handle_operation(AddressMode::Absolute, Instruction::STA, 4),
             0x9D => self.handle_operation(AddressMode::AbsoluteX, Instruction::STA, 5),
             0x99 => self.handle_operation(AddressMode::AbsoluteY, Instruction::STA, 5),
-            0x81 => self.handle_operation(AddressMode::IndexedIndirect, Instruction::STA, 6),
-            0x91 => self.handle_operation(AddressMode::IndirectIndexed, Instruction::STA, 6),
+            0x81 => self.handle_operation(AddressMode::IDX, Instruction::STA, 6),
+            0x91 => self.handle_operation(AddressMode::IDY, Instruction::STA, 6),
             0x86 => self.handle_operation(AddressMode::ZeroPage, Instruction::STX, 3),
             0x96 => self.handle_operation(AddressMode::ZeroPageY, Instruction::STX, 4),
             0x8E => self.handle_operation(AddressMode::Absolute, Instruction::STX, 4),
@@ -53,24 +53,24 @@ impl Cpu{
             0x2D => self.handle_operation(AddressMode::Absolute, Instruction::AND, 4),
             0x3D => self.handle_operation(AddressMode::AbsoluteX, Instruction::AND, 4),
             0x39 => self.handle_operation(AddressMode::AbsoluteY, Instruction::AND, 4),
-            0x21 => self.handle_operation(AddressMode::IndexedIndirect, Instruction::AND, 6),
-            0x31 => self.handle_operation(AddressMode::IndirectIndexed, Instruction::AND, 5),
+            0x21 => self.handle_operation(AddressMode::IDX, Instruction::AND, 6),
+            0x31 => self.handle_operation(AddressMode::IDY, Instruction::AND, 5),
             0x49 => self.handle_operation(AddressMode::Immediate, Instruction::EOR, 2),
             0x45 => self.handle_operation(AddressMode::ZeroPage, Instruction::EOR, 3),
             0x55 => self.handle_operation(AddressMode::ZeroPageX, Instruction::EOR, 4),
             0x4D => self.handle_operation(AddressMode::Absolute, Instruction::EOR, 4),
             0x5D => self.handle_operation(AddressMode::AbsoluteX, Instruction::EOR, 4),
             0x59 => self.handle_operation(AddressMode::AbsoluteY, Instruction::EOR, 4),
-            0x41 => self.handle_operation(AddressMode::IndexedIndirect, Instruction::EOR, 6),
-            0x51 => self.handle_operation(AddressMode::IndirectIndexed, Instruction::EOR, 5),
+            0x41 => self.handle_operation(AddressMode::IDX, Instruction::EOR, 6),
+            0x51 => self.handle_operation(AddressMode::IDY, Instruction::EOR, 5),
             0x09 => self.handle_operation(AddressMode::Immediate, Instruction::ORA, 2),
             0x05 => self.handle_operation(AddressMode::ZeroPage, Instruction::ORA, 3),
             0x15 => self.handle_operation(AddressMode::ZeroPageX, Instruction::ORA, 4),
             0x0D => self.handle_operation(AddressMode::Absolute, Instruction::ORA, 4),
             0x1D => self.handle_operation(AddressMode::AbsoluteX, Instruction::ORA, 4),
             0x19 => self.handle_operation(AddressMode::AbsoluteY, Instruction::ORA, 4),
-            0x01 => self.handle_operation(AddressMode::IndexedIndirect, Instruction::ORA, 6),
-            0x11 => self.handle_operation(AddressMode::IndirectIndexed, Instruction::ORA, 5),
+            0x01 => self.handle_operation(AddressMode::IDX, Instruction::ORA, 6),
+            0x11 => self.handle_operation(AddressMode::IDY, Instruction::ORA, 5),
             0x24 => self.handle_operation(AddressMode::ZeroPage, Instruction::BIT, 3),
             0x2C => self.handle_operation(AddressMode::Absolute, Instruction::BIT, 4),
             0x69 => self.handle_operation(AddressMode::Immediate, Instruction::ADC, 2),
@@ -79,24 +79,24 @@ impl Cpu{
             0x6D => self.handle_operation(AddressMode::Absolute, Instruction::ADC, 4),
             0x7D => self.handle_operation(AddressMode::AbsoluteX, Instruction::ADC, 4),
             0x79 => self.handle_operation(AddressMode::AbsoluteY, Instruction::ADC, 4),
-            0x61 => self.handle_operation(AddressMode::IndexedIndirect, Instruction::ADC, 6),
-            0x71 => self.handle_operation(AddressMode::IndirectIndexed, Instruction::ADC, 5),
+            0x61 => self.handle_operation(AddressMode::IDX, Instruction::ADC, 6),
+            0x71 => self.handle_operation(AddressMode::IDY, Instruction::ADC, 5),
             0xE9 => self.handle_operation(AddressMode::Immediate, Instruction::SBC, 2),
             0xE5 => self.handle_operation(AddressMode::ZeroPage, Instruction::SBC, 3),
             0xF5 => self.handle_operation(AddressMode::ZeroPageX, Instruction::SBC, 4),
             0xED => self.handle_operation(AddressMode::Absolute, Instruction::SBC, 4),
             0xFD => self.handle_operation(AddressMode::AbsoluteX, Instruction::SBC, 4),
             0xF9 => self.handle_operation(AddressMode::AbsoluteY, Instruction::SBC, 4),
-            0xE1 => self.handle_operation(AddressMode::IndexedIndirect, Instruction::SBC, 6),
-            0xF1 => self.handle_operation(AddressMode::IndirectIndexed, Instruction::SBC, 5),
+            0xE1 => self.handle_operation(AddressMode::IDX, Instruction::SBC, 6),
+            0xF1 => self.handle_operation(AddressMode::IDY, Instruction::SBC, 5),
             0xC9 => self.handle_operation(AddressMode::Immediate, Instruction::CMP, 2),
             0xC5 => self.handle_operation(AddressMode::ZeroPage, Instruction::CMP, 3),
             0xD5 => self.handle_operation(AddressMode::ZeroPageX, Instruction::CMP, 4),
             0xCD => self.handle_operation(AddressMode::Absolute, Instruction::CMP, 4),
             0xDD => self.handle_operation(AddressMode::AbsoluteX, Instruction::CMP, 4),
             0xD9 => self.handle_operation(AddressMode::AbsoluteY, Instruction::CMP, 4),
-            0xC1 => self.handle_operation(AddressMode::IndexedIndirect, Instruction::CMP, 6),
-            0xD1 => self.handle_operation(AddressMode::IndirectIndexed, Instruction::CMP, 5),
+            0xC1 => self.handle_operation(AddressMode::IDX, Instruction::CMP, 6),
+            0xD1 => self.handle_operation(AddressMode::IDY, Instruction::CMP, 5),
             0xE0 => self.handle_operation(AddressMode::Immediate, Instruction::CPX, 2),
             0xE4 => self.handle_operation(AddressMode::ZeroPage, Instruction::CPX, 3),
             0xEC => self.handle_operation(AddressMode::Absolute, Instruction::CPX, 4),
@@ -157,13 +157,6 @@ impl Cpu{
             0x00 => self.handle_operation(AddressMode::Implicit, Instruction::BRK, 7),
             0xEA => self.handle_operation(AddressMode::Implicit, Instruction::NOP, 2),
             0x40 => self.handle_operation(AddressMode::Implicit, Instruction::RTI, 6),
-            0xeb => self.handle_operation(AddressMode::Immediate, Instruction::SBC, 2),
-            0x04 => self.handle_operation(AddressMode::ZeroPage, Instruction::NOP, 3),
-            0x44 => self.handle_operation(AddressMode::ZeroPage, Instruction::NOP, 3),
-            0x64 => self.handle_operation(AddressMode::ZeroPage, Instruction::NOP, 3),
-            0xC => self.handle_operation(AddressMode::Absolute, Instruction::NOP, 4),
-            0x14 => self.handle_operation(AddressMode::ZeroPageX, Instruction::NOP, 4),
-            0x1a => self.handle_operation(AddressMode::Implicit, Instruction::NOP, 2),
             _ => {
                 panic!("opcode {:#x} not implemented yet",opcode);
             },
@@ -171,11 +164,12 @@ impl Cpu{
     }
     
     pub fn handle_operation(&mut self, addrmode: AddressMode, instruction: Instruction, cycles: u8) {
-        self.handle_addrmode(addrmode);
+        self.handle_addrmode(&addrmode);
+        self.print_state(&instruction, &addrmode);
         self.handle_instruction(instruction);
         self.cycles_left = self.cycles_left.wrapping_add(cycles);
     }
-    pub fn handle_addrmode(&mut self, addrmode: AddressMode) {
+    pub fn handle_addrmode(&mut self, addrmode: &AddressMode) {
         match addrmode {
             AddressMode::Implicit => self.implicit(),
             AddressMode::Accumulator => self.accumulator(),
@@ -187,11 +181,10 @@ impl Cpu{
             AddressMode::AbsoluteX => self.absolutex(),
             AddressMode::AbsoluteY => self.absolutey(),
             AddressMode::Indirect => self.indirect(),
-            AddressMode::IndexedIndirect => self.indexedindirect(),
-            AddressMode::IndirectIndexed => self.indirectindexed(),
+            AddressMode::IDX => self.idx(),
+            AddressMode::IDY => self.idy(),
             AddressMode::Immediate => self.immediate(),
         };
-        self.current_addrmode = Some(addrmode);
     }
     fn handle_instruction(&mut self, instruction: Instruction) {
         match instruction {
@@ -252,6 +245,5 @@ impl Cpu{
             Instruction::NOP => {}
             Instruction::RTI => self.rti(),
         };
-        self.current_instruction = Some(instruction);
     }
 }

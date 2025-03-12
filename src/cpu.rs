@@ -1,4 +1,6 @@
 mod mode;
+use std::{io::{self, stdin}, thread, time};
+
 use crate::bus::Bus;
 mod instructions;
 bitflags! {
@@ -29,8 +31,7 @@ pub struct Cpu {
     total_cycles: usize,
     bus: Option<*mut Bus>,
     opcode: u8,
-    current_instruction: Option<Instruction>,
-    current_addrmode: Option<AddressMode>,
+    oldpc: u16,
 }
 
 impl Cpu {
@@ -49,13 +50,12 @@ impl Cpu {
             cycles_left: 0,
             total_cycles: 0,
             opcode: 0,
-            current_instruction: None,
-            current_addrmode: None,
+            oldpc: 0,
         }
     }
 
-    fn print_state(&self){
-        println!("PC: {:#x}\tA: {:#x}\tX {:#x}\tY {:#x}\tSP {:#x}\tFLAGS {:08b}",self.pc,self.a,self.x,self.y,self.sp,self.flags.bits());
+    fn print_state(&self, instruction: &Instruction, addr_mode: &AddressMode){
+        println!("PC: {:#x}\tA: {:#x}\tX {:#x}\tY {:#x}\tSP {:#x}\tFLAGS {:08b}\t{:?}({:?})\tADDR: {:4x}\tIMMVAL: {:2x}\tOPCODE: {:2x}\tRELVAL: {:4x}",self.oldpc,self.a,self.x,self.y,self.sp,self.flags.bits(),instruction,addr_mode,self.addrabs,self.immval,self.opcode,self.relval);
     }
     pub fn linkbus(&mut self, bus: &mut Bus) {
         self.bus = Some(bus);
@@ -64,6 +64,7 @@ impl Cpu {
         unsafe { (*self.bus.unwrap()).cpu_read(address) }
     }
     fn cpu_write(&self, address: u16, byte: u8) {
+        println!("writing to address {:#x}: {:#x} ",address,byte);
         unsafe {
             (*self.bus.unwrap()).cpu_write(address, byte);
         };
@@ -72,10 +73,12 @@ impl Cpu {
         /* fetch our instruction */
         if self.cycles_left == 0 {
             let opcode = self.cpu_read(self.pc);
+            self.oldpc = self.pc;
             self.opcode = opcode;
             self.pc = self.pc.wrapping_add(1);
             self.handle_opcode(opcode);
-            // self.print_state();
+            let mut str = String::new();
+            // io::stdin().read_line(&mut str);
         }
         self.cycles_left = self.cycles_left.wrapping_sub(1);
         self.total_cycles = self.total_cycles.wrapping_add(1);

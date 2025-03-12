@@ -1,3 +1,5 @@
+
+
 use super::{Cpu, Flags};
 
 pub mod cpu_handlers;
@@ -172,25 +174,23 @@ impl Cpu {
     }
 
     pub fn cmp(&mut self) {
-        let temp = (self.a as u16).wrapping_sub(self.immval as u16);
-        self.flags.set(Flags::Carry, temp > 255);
-        let temp = (temp & 0xff) as u8;
+        let temp = (self.a).wrapping_sub(self.immval);
+        self.flags.set(Flags::Carry, self.a >= self.immval);
         self.flags.set(Flags::Zero, temp == 0);
         self.flags.set(Flags::Negative, temp & 0x80 != 0);
     }
 
     pub fn cpx(&mut self) {
-        let temp = (self.x as u16).wrapping_sub(self.immval as u16);
-        self.flags.set(Flags::Carry, temp > 255);
+        let temp = (self.x).wrapping_sub(self.immval);
+        self.flags.set(Flags::Carry, self.x >= self.immval);
         let temp = (temp & 0xff) as u8;
         self.flags.set(Flags::Zero, temp == 0);
         self.flags.set(Flags::Negative, temp & 0x80 != 0);
     }
 
     pub fn cpy(&mut self) {
-        let temp = (self.y as u16).wrapping_sub(self.immval as u16);
-        self.flags.set(Flags::Carry, temp > 255);
-        let temp = (temp & 0xff) as u8;
+        let temp = (self.y).wrapping_sub(self.immval);
+        self.flags.set(Flags::Carry, self.y >= self.immval);
         self.flags.set(Flags::Zero, temp == 0);
         self.flags.set(Flags::Negative, temp & 0x80 != 0);
     }
@@ -309,22 +309,53 @@ impl Cpu {
         let temp = self.pc - 1;
         let lo = (temp & 0xFF) as u8;
         let hi = (temp >> 8) as u8;
-        self.cpu_write(0x100 as u16 + self.sp as u16, hi);
+    
+        println!("JSR: Pushing lo {:#04x} and hi {:#04x} on the stack", lo, hi);
+    
+        // Push high byte to stack
+        let addr_hi = 0x100 + self.sp as u16;
+        self.cpu_write(addr_hi, hi);
+        println!("Writing {:#04x} to address {:#06x}", hi, addr_hi);
         self.sp = self.sp.wrapping_sub(1);
-        self.cpu_write(0x100 as u16 + self.sp as u16, lo);
+    
+        // Push low byte to stack
+        let addr_lo = 0x100 + self.sp as u16;
+        self.cpu_write(addr_lo, lo);
+        println!("Writing {:#04x} to address {:#06x}", lo, addr_lo);
         self.sp = self.sp.wrapping_sub(1);
+    
+        println!("JSR: New Stack Pointer = {:#04x}", self.sp);
+    
+        // Set program counter to target address (assuming self.addrabs is already set)
+        println!("JSR: Jumping to Address {:#06x}", self.addrabs);
         self.pc = self.addrabs;
     }
+    
+    
 
     pub fn rts(&mut self) {
+        // Increment stack pointer before reading low byte
         self.sp = self.sp.wrapping_add(1);
-        let lo = self.cpu_read(0x100 as u16 + self.sp as u16);
+        let addr_lo = 0x100 + self.sp as u16;
+        let lo = self.cpu_read(addr_lo) as u16;
+        println!("Reading {:#04x} from address {:#06x}", lo, addr_lo);
+    
+        // Increment stack pointer before reading high byte
         self.sp = self.sp.wrapping_add(1);
-        let hi = self.cpu_read(0x100 as u16 + self.sp as u16);
-        let temp = ((hi as u16) << 8) | (lo as u16);
-        let temp = temp + 1;
-        self.pc = temp;
+        let addr_hi = 0x100 + self.sp as u16;
+        let hi = self.cpu_read(addr_hi) as u16;
+        println!("Reading {:#04x} from address {:#06x}", hi, addr_hi);
+    
+        println!("RTS: New Stack Pointer = {:#04x}", self.sp);
+    
+        // Reconstruct program counter and increment by 1
+        let temp = (hi << 8) | lo;
+        self.pc = temp.wrapping_add(1);
+    
+        println!("RTS: Returning to Address {:#06x}", self.pc);
     }
+    
+    
 
     pub fn bcc(&mut self) {
         if !self.flags.contains(Flags::Carry) {
@@ -374,7 +405,7 @@ impl Cpu {
         if !self.flags.contains(Flags::Zero) {
             self.cycles_left = self.cycles_left.wrapping_add(1);
             let temp = self.pc.wrapping_add(self.relval);
-            if self.pc & 0xFF00 != temp & 0xFF {
+            if self.pc & 0xFF00 != temp & 0xFF00 {
                 self.cycles_left = self.cycles_left.wrapping_add(2);
             }
             self.pc = temp;
