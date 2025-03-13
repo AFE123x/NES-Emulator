@@ -44,6 +44,7 @@ pub struct Ppu {
     yscroll: u8,
     game_frame: *mut Frame,
     palette_boi: u8,
+    total_cycles: usize,
 }
 
 impl Ppu {
@@ -54,7 +55,6 @@ impl Ppu {
         toreturn[12] = (27, 63, 95);
         toreturn[13] = (0, 0, 0);
         toreturn[14] = (0, 0, 0);
-        toreturn[15] = (0, 0, 0);
         toreturn[16] = (188, 188, 188);
         toreturn[17] = (0, 115, 239);
         toreturn[18] = (35, 59, 239);
@@ -125,6 +125,10 @@ impl Ppu {
     }
     pub fn new(cartridge: &mut Cartridge, frame: &mut Frame) -> Self {
         let mut pal: Vec<u8> = vec![0; 0x20];
+        let mut vram: Vec<u8> = vec![0; 2048];
+        for i in &mut vram {
+            *i = rand::random_range(0..=0xFF);
+        }
         Self {
             ppuctrl: PPUCTRL::empty(),
             ppumask: PPUMASK::empty(),
@@ -139,7 +143,7 @@ impl Ppu {
             t: 0,
             w: 0,
             x: 0,
-            vram: vec![0; 2048],
+            vram: vram,
             internal_buffer: 0,
             nmi: false,
             cart: cartridge,
@@ -162,6 +166,7 @@ impl Ppu {
             xscroll: 0,
             yscroll: 0,
             palette_boi: 0,
+            total_cycles: 0,
         }
     }
     pub fn get_palette(&mut self, palettenum: u8, paletteindex: u8) -> (u8, u8, u8) {
@@ -273,6 +278,7 @@ impl Ppu {
         } else if address >= 0x3000 && address <= 0x3EFF {
         } else if address >= 0x3F00 && address <= 0x3FFF {
             self.palette_memory[(address & 0x1F) as usize] = data;
+            println!("writing {:2x} to {:4x}", data, address);
         } else {
             todo!()
         }
@@ -287,15 +293,15 @@ impl Ppu {
         match masked_address {
             0 | 1 | 3 | 5 | 6 => {
                 data = 0;
-            },
+            }
             2 => {
                 data = self.ppustatus.bits();
                 self.ppustatus.set(PPUSTATUS::vblank_flag, false);
                 self.w = 0;
-            },
+            }
             4 => {
                 //todo!() //handle OAM reads
-            },
+            }
             7 => {
                 data = self.internal_buffer;
                 self.internal_buffer = self.ppu_read(self.v);
@@ -303,7 +309,7 @@ impl Ppu {
                     data = self.internal_buffer;
                 }
                 /* We increment the v register by 32 or 1 depending on the PPUCTRL increment flag */
-                if rdonly{
+                if !rdonly {
                     let inc_addr = self.v;
                     let inc_factor = if self.ppuctrl.contains(PPUCTRL::vram_increment) {
                         32
@@ -313,7 +319,7 @@ impl Ppu {
                     let inc_addr = inc_addr.wrapping_add(inc_factor);
                     self.v = inc_addr;
                 }
-            },
+            }
             _ => {
                 panic!("cpu_read: Cannot read address");
             }
@@ -336,16 +342,16 @@ impl Ppu {
             0 => {
                 // self.t.set_nametable(data);
                 self.ppuctrl = PPUCTRL::from_bits_truncate(data);
-            },
+            }
             1 => {
                 self.ppumask = PPUMASK::from_bits_truncate(data);
-            },
+            }
             3 => {
-                //todo!()
-            },
+                todo!()
+            }
             4 => {
-                //todo!()
-            },
+                todo!()
+            }
             5 => {
                 if self.w == 0 {
                     self.xscroll = data;
@@ -354,7 +360,7 @@ impl Ppu {
                     self.yscroll = data;
                     self.w = 0;
                 }
-            },
+            }
             6 => {
                 if self.w == 0 {
                     let data = data as u16;
@@ -365,7 +371,7 @@ impl Ppu {
                     self.w = 0;
                 }
                 return;
-            },
+            }
             7 => {
                 self.ppu_write(self.v, data);
                 let v_addr = self.v;
@@ -376,53 +382,84 @@ impl Ppu {
                 };
                 let v_addr = v_addr.wrapping_add(add_factor);
                 self.v = v_addr;
-            },
+            }
             _ => {
                 panic!("cpu_write: Cannot write address");
             }
         }
     }
 
-    fn set_pixel(&mut self, x: u16, y: u16, palettenum: u8, paletteindex: u8) {
-        let color = self.get_palette(palettenum, paletteindex);
-        let color = match paletteindex{
-            0 => (128,0,0),
-            1 => (0,128,0),
-            2 => (0,0,128),
-            3 => (0,0,0),
-            _ => (128,128,128),
-
+    fn set_pixel(&mut self, x: u16, y: u16, paletteindex: u8) {
+        // let color = self.get_palette(palettenum, paletteindex);
+        let color = match paletteindex {
+            0 => (0, 0, 0),
+            1 => (255, 0, 0),
+            2 => (0, 255, 0),
+            3 => (0, 0, 255),
+            _ => (255, 255, 255),
         };
+        
+        if self.total_cycles >= 32870696{
+            println!("drawing {} to coordinate ({},{})",paletteindex,x,y);
+        }
         unsafe {
             (*self.game_frame).drawpixel(x, y, color);
         }
     }
     pub fn render_nametable(&mut self) {
-        let background_factor = if self.ppuctrl.contains(PPUCTRL::background_pattern_table_address) {0x1000} else {0x0}; 
-        for row in 0..30{
-            for col in 0..32{
+        let background_factor = if self
+            .ppuctrl
+            .contains(PPUCTRL::background_pattern_table_address)
+        {
+            0x1000
+        } else {
+            0x0
+        };
+        // let nametable_addr_lbit = if self.ppuctrl.contains(PPUCTRL::name_table_x) {1} else {0};
+        // let nametable_addr_rbit = if self.ppuctrl.contains(PPUCTRL::name_table_y) {1} else {0};
+        // println!("{}", self.total_cycles);
+
+        for row in 0..30 {
+            for col in 0..32 {
+                if self.total_cycles >= 32870696{
+                    if row == 1 && col == 10{
+                        println!("startin debug!");
+                    }
+                }
                 let index_num = (row * 32) + col;
                 let palette_index = self.ppu_read(0x2000 + index_num);
                 let address_palette = (palette_index as u16) << 4;
-                for i in 0..8{
+                for i in 0..8 {
                     let mut lo_byte = self.ppu_read(background_factor + address_palette + i); //gets the low byte.
                     let mut hi_byte = self.ppu_read(background_factor + address_palette + 8 + i); //gets high byte of palette row.
-                    for j in 0..8{
+                    for j in 0..8 {
                         let lo_bit = lo_byte & 0x1;
                         let hi_bit = hi_byte & 0x1;
                         let pixel_num = (hi_bit << 1) | lo_bit;
-                        self.set_pixel((col * 8) + (8 - j - 1),(row * 8) + (8 + i - 1), 1, pixel_num);
+                        if self.total_cycles >= 32870696{
+                        println!("calculated pixel_num {}",pixel_num);
+                        }
+                        
+                        let x = (col * 8) + (8 - j) - 1;
+                        let y = (row * 8) + (i);
+                        if self.total_cycles >= 32870696{
+                            println!("x: {}, y: {}",x,y);
+                        }
+                        self.set_pixel(
+                            x,
+                            y,
+                            pixel_num
+                        );
                         lo_byte >>= 1;
                         hi_byte >>= 1;
                     }
                 }
             }
         }
+        // println!("");
     }
     pub fn clock(&mut self) {
-
-        if self.scanline_counter == 240 && self.cycle_counter == 1 {
-        }
+        if self.scanline_counter == 240 && self.cycle_counter == 1 {}
 
         if self.scanline_counter == 241 && self.cycle_counter == 1 {
             self.ppustatus.set(PPUSTATUS::vblank_flag, true);
@@ -449,5 +486,6 @@ impl Ppu {
                 self.scanline_counter = 0;
             }
         }
+        self.total_cycles = self.total_cycles.wrapping_add(1);
     }
 }

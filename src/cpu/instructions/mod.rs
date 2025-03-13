@@ -83,14 +83,14 @@ impl Cpu {
 
     pub fn pla(&mut self) {
         self.sp = self.sp.wrapping_add(1);
-        self.a = self.cpu_read((0x100 as u16).wrapping_add(self.sp as u16));
+        self.a = self.cpu_read((0x100 as u16).wrapping_add(self.sp as u16),false);
         self.flags.set(Flags::Zero, self.a == 0);
         self.flags.set(Flags::Negative, self.a & 0x80 != 0);
     }
 
     pub fn plp(&mut self) {
         self.sp = self.sp.wrapping_add(1);
-        let temp = self.cpu_read((0x100 as u16).wrapping_add(self.sp as u16));
+        let temp = self.cpu_read((0x100 as u16).wrapping_add(self.sp as u16),false);
         self.flags = Flags::from_bits_truncate(temp);
     }
 
@@ -337,13 +337,13 @@ impl Cpu {
         // Increment stack pointer before reading low byte
         self.sp = self.sp.wrapping_add(1);
         let addr_lo = 0x100 + self.sp as u16;
-        let lo = self.cpu_read(addr_lo) as u16;
+        let lo = self.cpu_read(addr_lo,false) as u16;
         //println!("Reading {:#04x} from address {:#06x}", lo, addr_lo);
     
         // Increment stack pointer before reading high byte
         self.sp = self.sp.wrapping_add(1);
         let addr_hi = 0x100 + self.sp as u16;
-        let hi = self.cpu_read(addr_hi) as u16;
+        let hi = self.cpu_read(addr_hi,false) as u16;
         //println!("Reading {:#04x} from address {:#06x}", hi, addr_hi);
     
         //println!("RTS: New Stack Pointer = {:#04x}", self.sp);
@@ -459,26 +459,26 @@ impl Cpu {
         );
         self.sp = self.sp.wrapping_sub(1);
         self.flags.set(Flags::Break, true);
-        let lo = self.cpu_read(0xFFFE) as u16;
-        let hi = self.cpu_read(0xFFFF) as u16;
+        let lo = self.cpu_read(0xFFFE,false) as u16;
+        let hi = self.cpu_read(0xFFFF,false) as u16;
         self.pc = (hi << 8) | lo;
     }
     pub fn rti(&mut self) {
         self.sp = self.sp.wrapping_add(1);
-        let flag = self.cpu_read((0x100 as u16).wrapping_add(self.sp as u16));
+        let flag = self.cpu_read((0x100 as u16).wrapping_add(self.sp as u16),false);
         self.flags = Flags::from_bits_truncate(flag);
         self.sp = self.sp.wrapping_add(1);
-        let lo = self.cpu_read((0x100 as u16).wrapping_add(self.sp as u16)) as u16;
+        let lo = self.cpu_read((0x100 as u16).wrapping_add(self.sp as u16),false) as u16;
         self.sp = self.sp.wrapping_add(1);
-        let hi = self.cpu_read((0x100 as u16).wrapping_add(self.sp as u16)) as u16;
+        let hi = self.cpu_read((0x100 as u16).wrapping_add(self.sp as u16),false) as u16;
         self.pc = (hi << 8) | lo;
         self.flags.set(Flags::Break, false);
-        println!("rti executed!");
+        // println!("rti executed!");™
     }
 
 
     pub fn nmi(&mut self){
-        println!("nmi initialized");
+        // println!("nmi initialized");
         let hi = (self.pc >> 8) & 0xFF;
         let lo = self.pc & 0xFF;
         let addr = 0x100 + self.sp as u16;
@@ -491,14 +491,14 @@ impl Cpu {
         let addr = 0x100 + self.sp as u16;
         self.cpu_write(addr, self.flags.bits());
         self.sp = self.sp.wrapping_sub(1);
-        let lo = self.cpu_read(0xFFFA) as u16;
-        let hi = self.cpu_read(0xFFFB) as u16;
+        let lo = self.cpu_read(0xFFFA,false) as u16;
+        let hi = self.cpu_read(0xFFFB,false) as u16;
         self.pc = (hi << 8) | lo;
         self.cycles_left = 8;
     }
     pub fn reset(&mut self){
-        let lo = self.cpu_read(0xFFFC) as u16;
-        let hi = self.cpu_read(0xFFFD) as u16;
+        let lo = self.cpu_read(0xFFFC,false) as u16;
+        let hi = self.cpu_read(0xFFFD,false) as u16;
         self.pc = (hi << 8) | lo;
         self.a = 0;
         self.x = 0;

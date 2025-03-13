@@ -1,10 +1,11 @@
-use crate::{cartridge::Cartridge, cpu::Cpu, ppu::Ppu};
+use crate::{cartridge::Cartridge, controller::controller, cpu::Cpu, ppu::Ppu};
 
 pub struct Bus {
     memory: Vec<u8>,
     cpu: *mut Cpu,
     cartridge: *mut Cartridge,
-    ppu: *mut Ppu
+    ppu: *mut Ppu,
+    controller: controller,
 }
 
 impl Bus {
@@ -14,6 +15,7 @@ impl Bus {
             cpu,
             cartridge: cart,
             ppu: ppu,
+            controller: controller::new(),
         }
     }
     pub fn cpu_read(&self, address: u16, rdonly: bool) -> u8 {

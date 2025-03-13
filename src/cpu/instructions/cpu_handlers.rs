@@ -132,7 +132,7 @@ impl Cpu{
             0x3E => self.handle_operation(AddressMode::AbsoluteX, Instruction::ROL, 7),
             0x6A => self.handle_operation(AddressMode::Accumulator, Instruction::ROR, 2),
             0x66 => self.handle_operation(AddressMode::ZeroPage, Instruction::ROR, 5),
-            0x76 => self.handle_operation(AddressMode::ZeroPageX, Instruction::ROR, 6),
+            0x76 => self.handle_operation(AddressMode::ZeroPageX, Instruction::ROR,6),
             0x6E => self.handle_operation(AddressMode::Absolute, Instruction::ROR, 6),
             0x7E => self.handle_operation(AddressMode::AbsoluteX, Instruction::ROR, 7),
             0x4C => self.handle_operation(AddressMode::Absolute, Instruction::JMP, 3),
@@ -165,7 +165,7 @@ impl Cpu{
     
     pub fn handle_operation(&mut self, addrmode: AddressMode, instruction: Instruction, cycles: u8) {
         self.handle_addrmode(&addrmode);
-        self.print_state(&instruction, &addrmode);
+        // self.print_state(&instruction, &addrmode);
         self.handle_instruction(instruction);
         self.cycles_left = self.cycles_left.wrapping_add(cycles);
     }

@@ -60,8 +60,8 @@ impl Cpu {
     pub fn linkbus(&mut self, bus: &mut Bus) {
         self.bus = Some(bus);
     }
-    fn cpu_read(&self, address: u16) -> u8 {
-        unsafe { (*self.bus.unwrap()).cpu_read(address,false) }
+    fn cpu_read(&self, address: u16, rdonly: bool) -> u8 {
+        unsafe { (*self.bus.unwrap()).cpu_read(address,rdonly) }
     }
     fn cpu_write(&self, address: u16, byte: u8) {
         // println!("writing to address {:#x}: {:#x} ",address,byte);
@@ -72,7 +72,7 @@ impl Cpu {
     pub fn clock(&mut self) {
         /* fetch our instruction */
         if self.cycles_left == 0 {
-            let opcode = self.cpu_read(self.pc);
+            let opcode = self.cpu_read(self.pc,false);
             self.oldpc = self.pc;
             self.opcode = opcode;
             self.pc = self.pc.wrapping_add(1);
