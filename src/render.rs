@@ -19,7 +19,8 @@ pub fn gameloop(rom_file: &str, scale: u32) -> Result<(), Box<dyn Error>> {
     /* initialize peripherals */
     let mut cartridge = Cartridge::new(rom_file);
     let mut cpu = Cpu::new();
-    let mut ppu = Ppu::new(&mut cartridge);
+    let mut game_frame = Frame::new(256, 240); //frame buffer for the actual game.
+    let mut ppu = Ppu::new(&mut cartridge,&mut game_frame);
     let mut bus = Bus::new(&mut cpu, &mut cartridge, &mut ppu);
     cpu.linkbus(&mut bus);
     cpu.reset();
@@ -42,7 +43,6 @@ pub fn gameloop(rom_file: &str, scale: u32) -> Result<(), Box<dyn Error>> {
     let mut palette_index = 0;
     /* initialize game frame! */
     let mut palette_frame = Frame::new(256, 128); //frame buffer for the palette data.
-    let mut game_frame = Frame::new(256, 240); //frame buffer for the actual game.
 
     game_canvas.set_draw_color(Color::RGB(0, 0, 255));
 

@@ -14,6 +14,9 @@ impl Frame {
     }
 
     pub fn drawpixel(&mut self, x: u16, y: u16, color: (u8, u8, u8)){
+        if x >= self.width || y >= self.height{
+            return;
+        }
         let index = (y as usize * self.width as usize * 3) + (x as usize * 3);
         self.buffer[index] = color.0;
         self.buffer[index + 1] = color.1;

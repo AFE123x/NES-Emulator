@@ -149,6 +149,32 @@ impl vt_reg {
         self.data
     }
 
+    pub fn set_nametablex(&mut self, table: u8){
+        let table = table & 1;
+        let data = self.get_nametable();
+        let data = data & !(1);
+        let data = data | table;
+        self.set_nametable(data);
+    }
+
+    pub fn set_nametabley(&mut self, table: u8){
+        let table = table & 1;
+        let data = self.get_nametable();
+        let data = data & !(0b10);
+        let data = data | (table << 1);
+        self.set_nametable(data);
+    }
+
+    pub fn get_nametablex(&mut self) -> u8{
+        let data = self.get_nametable();
+        data & 1
+    }
+
+    pub fn get_nametabley(&mut self) -> u8{
+        let data = self.get_nametable();
+        data >> 1
+    }
+
 }
 
 #[cfg(test)]
@@ -156,6 +182,34 @@ impl vt_reg {
 /// - These are comprehensive tests to illustrate and prove it's functionatily and correctness
 mod vt_tests {
     use super::vt_reg;
+    #[test]
+    pub fn test11(){
+        let mut vt_reg = vt_reg::new();
+        vt_reg.set_nametablex(1);
+        assert_eq!(vt_reg.get_data(),0b0_000_01_00000_00000);
+    }
+
+    #[test]
+    pub fn test12(){
+        let mut vt_reg = vt_reg::new();
+        vt_reg.set_nametabley(1);
+        assert_eq!(vt_reg.get_data(),0b0_000_10_00000_00000);
+    }
+
+    pub fn test13(){
+        let mut vt_reg = vt_reg::new();
+        vt_reg.set_nametablex(1);
+        let x = vt_reg.get_nametablex();
+        assert_eq!(x,1);
+    }
+
+    #[test]
+    pub fn test14(){
+        let mut vt_reg = vt_reg::new();
+        vt_reg.set_nametabley(1);
+        let y = vt_reg.get_nametabley();
+        assert_eq!(y,1);
+    }
 
     #[test]
     ///

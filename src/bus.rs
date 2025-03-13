@@ -26,7 +26,7 @@ impl Bus {
         }
         else if address <= 0x4017{
             // todo!()
-            data = 0;
+            data = 1;
         }
         else if address <= 0x401F{
             // todo!();
