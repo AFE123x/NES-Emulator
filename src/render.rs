@@ -1,5 +1,4 @@
 use std::error::Error;
-
 use sdl2::{
     event::Event,
     keyboard::Keycode,

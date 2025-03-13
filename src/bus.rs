@@ -16,17 +16,17 @@ impl Bus {
             ppu: ppu,
         }
     }
-    pub fn cpu_read(&self, address: u16) -> u8 {
+    pub fn cpu_read(&self, address: u16, rdonly: bool) -> u8 {
         let mut data = 0;
         if address <= 0x1FFF{
             data = self.memory[(address & 0x7FF) as usize];
         }
         else if address <= 0x3FFF{
-            data = unsafe{(*self.ppu).cpu_read(address)};
+            data = unsafe{(*self.ppu).cpu_read(address, rdonly)};
         }
         else if address <= 0x4017{
             // todo!()
-            data = 1;
+            data = 0xFF;
         }
         else if address <= 0x401F{
             // todo!();

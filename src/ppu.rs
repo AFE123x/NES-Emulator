@@ -15,10 +15,12 @@ pub struct Ppu {
     ppuaddr: u8,          //ppuaddr register (mapped at address $2006)
     ppudata: u8,          //ppudata register (mapped at address $2007)
     oamdma: u8,           //oamdma register (mapped at address $4014)
-    v: vt_reg,            //holds Current VRAM address
-    t: vt_reg,            //holds temporary VRAM address
-    w: u8,                //toggle between first and second write
-    x: u8,                //fine x scroll
+    // v: vt_reg,            //holds Current VRAM address
+    // t: vt_reg,            //holds temporary VRAM address
+    v: u16,
+    t: u16,
+    w: u8, //toggle between first and second write
+    x: u8, //fine x scroll
     vram: Vec<u8>,
     internal_buffer: u8,
     nmi: bool,
@@ -28,18 +30,20 @@ pub struct Ppu {
     palette_num: u8,
     cycle_counter: u16,
     scanline_counter: u16,
-    nmi_count: u8,
     /* for rendering */
-    bg_next_tile_id: u8,
-    bg_next_tile_attrib: u8,
-    bg_next_tile_lsb: u8,
-    bg_next_tile_msb: u8,
-    bg_shifter_pattern_lo: u16,
-    bg_shifter_pattern_hi: u16,
-    bg_shifter_attrib_lo: u16,
-    bg_shifter_attrib_hi: u16,
-    fine_x: u8,
+    // bg_next_tile_id: u8,
+    // bg_next_tile_attrib: u8,
+    // bg_next_tile_lsb: u8,
+    // bg_next_tile_msb: u8,
+    // bg_shifter_pattern_lo: u16,
+    // bg_shifter_pattern_hi: u16,
+    // bg_shifter_attrib_lo: u16,
+    // bg_shifter_attrib_hi: u16,
+    // fine_x: u8,
+    xscroll: u8,
+    yscroll: u8,
     game_frame: *mut Frame,
+    palette_boi: u8,
 }
 
 impl Ppu {
@@ -119,7 +123,7 @@ impl Ppu {
         }
         data
     }
-    pub fn new(cartridge: &mut Cartridge, frame:&mut Frame) -> Self {
+    pub fn new(cartridge: &mut Cartridge, frame: &mut Frame) -> Self {
         let mut pal: Vec<u8> = vec![0; 0x20];
         Self {
             ppuctrl: PPUCTRL::empty(),
@@ -131,8 +135,8 @@ impl Ppu {
             ppuaddr: 0,
             ppudata: 0,
             oamdma: 0,
-            v: vt_reg::new(),
-            t: vt_reg::new(),
+            v: 0,
+            t: 0,
             w: 0,
             x: 0,
             vram: vec![0; 2048],
@@ -144,20 +148,24 @@ impl Ppu {
             palette_num: 0,
             cycle_counter: 0,
             scanline_counter: 0,
-            nmi_count: 0,
-            bg_next_tile_id: 0,
-            bg_next_tile_attrib: 0,
-            bg_next_tile_lsb: 0,
-            bg_next_tile_msb: 0,
-            bg_shifter_pattern_lo: 0,
-            bg_shifter_pattern_hi: 0,
-            bg_shifter_attrib_lo: 0,
-            bg_shifter_attrib_hi: 0,
-            fine_x: 0,
+            // nmi_count: 0,
+            // bg_next_tile_id: 0,
+            // bg_next_tile_attrib: 0,
+            // bg_next_tile_lsb: 0,
+            // bg_next_tile_msb: 0,
+            // bg_shifter_pattern_lo: 0,
+            // bg_shifter_pattern_hi: 0,
+            // bg_shifter_attrib_lo: 0,
+            // bg_shifter_attrib_hi: 0,
+            // fine_x: 0,
             game_frame: frame,
+            xscroll: 0,
+            yscroll: 0,
+            palette_boi: 0,
         }
     }
     pub fn get_palette(&mut self, palettenum: u8, paletteindex: u8) -> (u8, u8, u8) {
+        self.palette_boi = paletteindex;
         let palettenum = palettenum & 0x7;
         let final_index = (palettenum << 2) | paletteindex;
         let paletteinde = self.ppu_read(0x3F00 | final_index as u16);
@@ -223,7 +231,7 @@ impl Ppu {
                     self.vram[index as usize]
                 }
             };
-            byte = self.vram[(address & 0x7FF) as usize];
+            // byte = self.vram[(address & 0x7FF) as usize];
         } else if address >= 0x3000 && address <= 0x3EFF {
             // Mirror of 0x2000 - 0x2EFF
             byte = self.ppu_read(address - 0x1000);
@@ -242,6 +250,7 @@ impl Ppu {
         if address <= 0x1FFF {
             unsafe { (*self.cart).ppu_write(address, data) }; // writes to cartridge space
         } else if address >= 0x2000 && address <= 0x2FFF {
+            // println!("writing to address {:4x}: {:2x}", address,data);
             let nametable: Nametable = unsafe { (*self.cart).get_nametable() };
             match nametable {
                 Nametable::Vertical => {
@@ -261,12 +270,8 @@ impl Ppu {
                     self.vram[index as usize] = data;
                 }
             };
-            self.vram[(address & 0x7FF) as usize] = data;
         } else if address >= 0x3000 && address <= 0x3EFF {
-            // Mirror of 0x2000 - 0x2EFF
-            // self.ppu_write(address - 0x1000, data);
         } else if address >= 0x3F00 && address <= 0x3FFF {
-            // Palette memory handling
             self.palette_memory[(address & 0x1F) as usize] = data;
         } else {
             todo!()
@@ -276,37 +281,39 @@ impl Ppu {
     ///# cpu_read
     /// This function lets the cpu read from the PPU Address space.
     /// ## Addresses
-    pub fn cpu_read(&mut self, address: u16) -> u8 {
+    pub fn cpu_read(&mut self, address: u16, rdonly: bool) -> u8 {
         let masked_address = address & 0x7;
         let mut data = 0;
         match masked_address {
             0 | 1 | 3 | 5 | 6 => {
                 data = 0;
-            }
+            },
             2 => {
                 data = self.ppustatus.bits();
                 self.ppustatus.set(PPUSTATUS::vblank_flag, false);
                 self.w = 0;
-            }
+            },
             4 => {
                 //todo!() //handle OAM reads
-            }
+            },
             7 => {
                 data = self.internal_buffer;
-                self.internal_buffer = self.ppu_read(self.v.get_data());
+                self.internal_buffer = self.ppu_read(self.v);
                 if address >= 0x3F00 && address <= 0x3FFF {
                     data = self.internal_buffer;
                 }
                 /* We increment the v register by 32 or 1 depending on the PPUCTRL increment flag */
-                let inc_addr = self.v.get_data();
-                let inc_factor = if self.ppuctrl.contains(PPUCTRL::vram_increment) {
-                    32
-                } else {
-                    1
-                };
-                let inc_addr = inc_addr.wrapping_add(inc_factor);
-                self.v.set_data(inc_addr);
-            }
+                if rdonly{
+                    let inc_addr = self.v;
+                    let inc_factor = if self.ppuctrl.contains(PPUCTRL::vram_increment) {
+                        32
+                    } else {
+                        1
+                    };
+                    let inc_addr = inc_addr.wrapping_add(inc_factor);
+                    self.v = inc_addr;
+                }
+            },
             _ => {
                 panic!("cpu_read: Cannot read address");
             }
@@ -327,256 +334,113 @@ impl Ppu {
         let masked_address = address & 0x7;
         match masked_address {
             0 => {
-                self.t.set_nametable(data);
+                // self.t.set_nametable(data);
                 self.ppuctrl = PPUCTRL::from_bits_truncate(data);
-            }
+            },
             1 => {
                 self.ppumask = PPUMASK::from_bits_truncate(data);
-            }
+            },
             3 => {
                 //todo!()
-            }
+            },
             4 => {
                 //todo!()
-            }
+            },
             5 => {
                 if self.w == 0 {
-                    let x_dest = data & 0x7;
-                    self.x = x_dest;
-                    let t_dest = data >> 3;
-                    self.t.set_coarse_xscroll(t_dest);
+                    self.xscroll = data;
                     self.w = 1;
                 } else if self.w == 1 {
-                    let fine_y_dest = data & 0x7;
-                    self.t.set_fine_y(fine_y_dest);
-                    let course_y_dest = data >> 3;
-                    self.t.set_coarse_yscroll(course_y_dest);
+                    self.yscroll = data;
                     self.w = 0;
                 }
-            }
+            },
             6 => {
                 if self.w == 0 {
-                    /*
-                    yyy NN YYYYY XXXXX
-                    ||| || ||||| +++++-- coarse X scroll
-                    ||| || +++++-------- coarse Y scroll
-                    ||| ++-------------- nametable select
-                    +++----------------- fine Y scroll
-                    */
-                    // println!("");
-                    let fine_y_nametable = data & 0x3F;
-                    let fine_y_nametable = fine_y_nametable as u16;
-                    let temp_data = self.t.get_data();
-                    let temp_data_mask = !0b0_111111_00000000;
-                    let temp_data = temp_data & temp_data_mask;
-                    let fine_y_nametable = fine_y_nametable << 8;
-                    let temp_data = temp_data | fine_y_nametable;
-                    let temp_data = temp_data & 0b0_0111111_11111111;
-                    self.t.set_data(temp_data);
+                    let data = data as u16;
+                    self.v = data << 8;
                     self.w = 1;
                 } else if self.w == 1 {
-                    let modify_t_reg = self.t.get_data();
-                    let t_reg_mask = !0b0000000_11111111;
-                    let modify_t_reg = modify_t_reg & t_reg_mask;
-                    let data = data as u16;
-                    let modify_t_reg = modify_t_reg | data;
-                    self.t.set_data(modify_t_reg);
-                    self.v.set_data(modify_t_reg);
+                    self.v |= data as u16;
                     self.w = 0;
                 }
-            }
+                return;
+            },
             7 => {
-                self.ppu_write(self.v.get_data(), data);
-                let v_addr = self.v.get_data();
+                self.ppu_write(self.v, data);
+                let v_addr = self.v;
                 let add_factor = if self.ppuctrl.contains(PPUCTRL::vram_increment) {
                     32
                 } else {
                     1
                 };
                 let v_addr = v_addr.wrapping_add(add_factor);
-                self.v.set_data(v_addr);
-            }
+                self.v = v_addr;
+            },
             _ => {
                 panic!("cpu_write: Cannot write address");
             }
         }
     }
-    /*
-    yyy NN YYYYY XXXXX
-    ||| || ||||| +++++-- coarse X scroll
-    ||| || +++++-------- coarse Y scroll
-    ||| ++-------------- nametable select
-    +++----------------- fine Y scroll
-    */
 
-    fn update_shift_register(&mut self) {
-        if self.ppumask.contains(PPUMASK::enable_background_rendering) {
-            self.bg_shifter_pattern_lo <<= 1;
-            self.bg_shifter_pattern_hi <<= 1;
-            self.bg_shifter_attrib_lo <<= 1;
-            self.bg_shifter_attrib_hi <<= 1;
-        }
-    }
-
-    fn y_increment(&mut self) {
-        if self.ppumask.contains(PPUMASK::enable_background_rendering)
-            || self.ppumask.contains(PPUMASK::enable_sprite_rendering)
-        {
-            let fine_y_value = self.v.get_fine_y();
-            if fine_y_value != 7 {
-                self.v.set_fine_y(fine_y_value + 1);
-            } else {
-                self.v.set_fine_y(0);
-                let coarse_y = self.v.get_coarse_yscroll();
-                if coarse_y == 29 {
-                    self.v.set_coarse_yscroll(0);
-                    let vert_nametable = self.v.get_nametable();
-                    let vert_nametable = vert_nametable ^ 0x2;
-                    self.v.set_nametable(vert_nametable);
-                } else if coarse_y == 31 {
-                    self.v.set_coarse_yscroll(0);
-                } else {
-                    self.v.set_coarse_yscroll(coarse_y + 1);
-                }
-            }
-        }
-    }
-
-    fn x_increment(&mut self) {
-        if self.ppumask.contains(PPUMASK::enable_background_rendering)
-            || self.ppumask.contains(PPUMASK::enable_sprite_rendering)
-        {
-            let coarse_x = self.v.get_coarse_xscroll();
-            if coarse_x == 31 {
-                self.v.set_coarse_xscroll(0);
-                let nametable = self.v.get_nametable();
-                self.v.set_nametable(nametable ^ 1);
-            } else {
-                self.v.set_coarse_xscroll(coarse_x + 1);
-            }
-        }
-    }
-
-    fn transfervtx(&mut self) {
-        if self.ppumask.contains(PPUMASK::enable_background_rendering)
-            || self.ppumask.contains(PPUMASK::enable_sprite_rendering)
-        {
-            self.v.set_nametablex(self.t.get_nametablex());
-            self.v.set_coarse_xscroll(self.t.get_coarse_xscroll());
-        }
-    }
-    fn transfervty(&mut self) {
-        if self.ppumask.contains(PPUMASK::enable_background_rendering)
-            || self.ppumask.contains(PPUMASK::enable_sprite_rendering)
-        {
-            self.v.set_fine_y(self.t.get_fine_y());
-            self.v.set_nametabley(self.t.get_fine_y());
-            self.v.set_coarse_yscroll(self.t.get_coarse_yscroll());
-        }
-    }
-
-    fn load_shift_register(&mut self) {
-        self.bg_shifter_pattern_lo =
-            (self.bg_shifter_pattern_lo & 0xFF00) | self.bg_next_tile_lsb as u16;
-        self.bg_shifter_pattern_hi =
-            (self.bg_shifter_pattern_hi & 0xFF00) | self.bg_next_tile_msb as u16;
-        self.bg_shifter_attrib_lo = (self.bg_shifter_attrib_lo & 0xFF00)
-            | if self.bg_next_tile_attrib & 1 != 0 {
-                0xFF
-            } else {
-                0x00
-            };
-        self.bg_shifter_attrib_hi = (self.bg_shifter_attrib_hi & 0xFF00)
-            | if self.bg_next_tile_attrib & 2 != 0 {
-                0xFF
-            } else {
-                0x00
-            }
-    }
-    fn set_pixel(&mut self,x: u16,y: u16, palettenum: u8,paletteindex: u8){
-        println!("x: {}, y: {}",x,y);
+    fn set_pixel(&mut self, x: u16, y: u16, palettenum: u8, paletteindex: u8) {
         let color = self.get_palette(palettenum, paletteindex);
-        unsafe {(*self.game_frame).drawpixel(x, y, color);}
+        let color = match paletteindex{
+            0 => (128,0,0),
+            1 => (0,128,0),
+            2 => (0,0,128),
+            3 => (0,0,0),
+            _ => (128,128,128),
+
+        };
+        unsafe {
+            (*self.game_frame).drawpixel(x, y, color);
+        }
     }
-    
+    pub fn render_nametable(&mut self) {
+        let background_factor = if self.ppuctrl.contains(PPUCTRL::background_pattern_table_address) {0x1000} else {0x0}; 
+        for row in 0..30{
+            for col in 0..32{
+                let index_num = (row * 32) + col;
+                let palette_index = self.ppu_read(0x2000 + index_num);
+                let address_palette = (palette_index as u16) << 4;
+                for i in 0..8{
+                    let mut lo_byte = self.ppu_read(background_factor + address_palette + i); //gets the low byte.
+                    let mut hi_byte = self.ppu_read(background_factor + address_palette + 8 + i); //gets high byte of palette row.
+                    for j in 0..8{
+                        let lo_bit = lo_byte & 0x1;
+                        let hi_bit = hi_byte & 0x1;
+                        let pixel_num = (hi_bit << 1) | lo_bit;
+                        self.set_pixel((col * 8) + (8 - j - 1),(row * 8) + (8 + i - 1), 1, pixel_num);
+                        lo_byte >>= 1;
+                        hi_byte >>= 1;
+                    }
+                }
+            }
+        }
+    }
     pub fn clock(&mut self) {
-        if self.scanline_counter < 240 {
-            if self.scanline_counter == 0 && self.cycle_counter == 0 {
-                self.cycle_counter = 1;
-            }
-            if self.scanline_counter == 261 && self.cycle_counter == 1 {
-                self.ppustatus.set(PPUSTATUS::vblank_flag, false);
-            }
-            if (self.cycle_counter >= 2 && self.cycle_counter < 258)
-                || (self.cycle_counter >= 321 && self.cycle_counter < 338)
-            {
-                self.update_shift_register();
-                match (self.cycle_counter - 1) % 8 {
-                    0 => {
-                        self.load_shift_register();
-                        self.bg_next_tile_id = self.ppu_read(0x2000 | (self.v.get_data() & 0xFFF));
-                    },
-                    2 => {
-                        let addr = 0x23C0 | ((self.v.get_data() & 0x0C00)) | (((self.v.get_coarse_yscroll() as u16) >> 2) << 3) | ((self.v.get_coarse_xscroll() as u16) >> 2);
-                        self.bg_next_tile_attrib = self.ppu_read(addr);
-                        if (self.v.get_coarse_yscroll() & 0x2) != 0 { self.bg_next_tile_attrib >>= 4; }
-                        if (self.v.get_coarse_xscroll() & 0x2) != 0 { self.bg_next_tile_attrib >>= 2; }
-                        self.bg_next_tile_attrib &= 0x3;
-                    },
-                    4 => {
-                        let base = if self.ppuctrl.contains(PPUCTRL::background_pattern_table_address) { 0x1000 } else { 0x0000 };
-                        let addr = base + ((self.bg_next_tile_id as u16) << 4) + self.v.get_fine_y() as u16 + if (self.cycle_counter - 1) % 8 == 4 { 0 } else { 8 };
-                        if (self.cycle_counter - 1) % 8 == 4 {
-                            self.bg_next_tile_lsb = self.ppu_read(addr);
-                        } else {
-                            self.bg_next_tile_msb = self.ppu_read(addr);
-                        }
-                    },
-                    7 => {
-                        self.x_increment();
-                    },
-                    _ => {},
-                }
-            }
-            if self.cycle_counter == 256 {
-                self.y_increment();
-            }
-            if self.cycle_counter == 257 {
-                self.load_shift_register();
-                self.transfervtx();
-            }
-            if self.cycle_counter == 338 || self.cycle_counter == 340 {
-                self.bg_next_tile_id = self.ppu_read(0x2000 | (self.v.get_data() & 0xFFF));
-            }
-            if self.scanline_counter == 261 && self.cycle_counter >= 280 && self.cycle_counter < 305 {
-                self.transfervty();
+
+        if self.scanline_counter == 240 && self.cycle_counter == 1 {
+        }
+
+        if self.scanline_counter == 241 && self.cycle_counter == 1 {
+            self.ppustatus.set(PPUSTATUS::vblank_flag, true);
+            self.render_nametable();
+            if self.ppuctrl.contains(PPUCTRL::vblank_enable) {
+                self.nmi = true;
             }
         }
-    
-        if self.scanline_counter == 240 {}
-    
-        if self.scanline_counter >= 241 && self.scanline_counter < 261 {
-            if self.scanline_counter == 241 && self.cycle_counter == 1 {
-                self.ppustatus.set(PPUSTATUS::vblank_flag, true);
-                if self.ppuctrl.contains(PPUCTRL::vblank_enable) {
-                    self.nmi = true;
-                }
-            }
+        if self.cycle_counter > 340 {
+            self.cycle_counter = 0;
+            self.scanline_counter += 1;
         }
-    
-        if self.ppumask.contains(PPUMASK::enable_background_rendering) {
-            let bit_mux = 0x8000 >> self.fine_x;
-            let p0_pixel = ((self.bg_shifter_pattern_lo & bit_mux) > 0) as u8;
-            let p1_pixel = ((self.bg_shifter_pattern_hi & bit_mux) > 0) as u8;
-            let bg_pixel = (p1_pixel << 1) | p0_pixel;
-    
-            let bg_pal0 = ((self.bg_shifter_attrib_lo & bit_mux) > 0) as u8;
-            let bg_pal1 = ((self.bg_shifter_attrib_hi & bit_mux) > 0) as u8;
-            let bg_palette = (bg_pal1 << 1) | bg_pal0;
-    
-            self.set_pixel(self.cycle_counter, self.scanline_counter, bg_palette, bg_pixel);
+        if self.scanline_counter > 261 {
+            self.scanline_counter = 0;
         }
-    
+        if self.scanline_counter == 261 && self.cycle_counter == 1 {
+            self.ppustatus.set(PPUSTATUS::vblank_flag, false);
+        }
         self.cycle_counter += 1;
         if self.cycle_counter >= 341 {
             self.cycle_counter = 0;

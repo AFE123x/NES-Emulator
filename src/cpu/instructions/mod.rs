@@ -310,24 +310,24 @@ impl Cpu {
         let lo = (temp & 0xFF) as u8;
         let hi = (temp >> 8) as u8;
     
-        println!("JSR: Pushing lo {:#04x} and hi {:#04x} on the stack", lo, hi);
+        //println!("JSR: Pushing lo {:#04x} and hi {:#04x} on the stack", lo, hi);
     
         // Push high byte to stack
         let addr_hi = 0x100 + self.sp as u16;
         self.cpu_write(addr_hi, hi);
-        println!("Writing {:#04x} to address {:#06x}", hi, addr_hi);
+        //println!("Writing {:#04x} to address {:#06x}", hi, addr_hi);
         self.sp = self.sp.wrapping_sub(1);
     
         // Push low byte to stack
         let addr_lo = 0x100 + self.sp as u16;
         self.cpu_write(addr_lo, lo);
-        println!("Writing {:#04x} to address {:#06x}", lo, addr_lo);
+        //println!("Writing {:#04x} to address {:#06x}", lo, addr_lo);
         self.sp = self.sp.wrapping_sub(1);
     
-        println!("JSR: New Stack Pointer = {:#04x}", self.sp);
+        //println!("JSR: New Stack Pointer = {:#04x}", self.sp);
     
         // Set program counter to target address (assuming self.addrabs is already set)
-        println!("JSR: Jumping to Address {:#06x}", self.addrabs);
+        //println!("JSR: Jumping to Address {:#06x}", self.addrabs);
         self.pc = self.addrabs;
     }
     
@@ -338,21 +338,21 @@ impl Cpu {
         self.sp = self.sp.wrapping_add(1);
         let addr_lo = 0x100 + self.sp as u16;
         let lo = self.cpu_read(addr_lo) as u16;
-        println!("Reading {:#04x} from address {:#06x}", lo, addr_lo);
+        //println!("Reading {:#04x} from address {:#06x}", lo, addr_lo);
     
         // Increment stack pointer before reading high byte
         self.sp = self.sp.wrapping_add(1);
         let addr_hi = 0x100 + self.sp as u16;
         let hi = self.cpu_read(addr_hi) as u16;
-        println!("Reading {:#04x} from address {:#06x}", hi, addr_hi);
+        //println!("Reading {:#04x} from address {:#06x}", hi, addr_hi);
     
-        println!("RTS: New Stack Pointer = {:#04x}", self.sp);
+        //println!("RTS: New Stack Pointer = {:#04x}", self.sp);
     
         // Reconstruct program counter and increment by 1
         let temp = (hi << 8) | lo;
         self.pc = temp.wrapping_add(1);
     
-        println!("RTS: Returning to Address {:#06x}", self.pc);
+        //println!("RTS: Returning to Address {:#06x}", self.pc);
     }
     
     

@@ -61,10 +61,10 @@ impl Cpu {
         self.bus = Some(bus);
     }
     fn cpu_read(&self, address: u16) -> u8 {
-        unsafe { (*self.bus.unwrap()).cpu_read(address) }
+        unsafe { (*self.bus.unwrap()).cpu_read(address,false) }
     }
     fn cpu_write(&self, address: u16, byte: u8) {
-        println!("writing to address {:#x}: {:#x} ",address,byte);
+        // println!("writing to address {:#x}: {:#x} ",address,byte);
         unsafe {
             (*self.bus.unwrap()).cpu_write(address, byte);
         };

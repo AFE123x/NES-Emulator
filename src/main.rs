@@ -5,6 +5,7 @@ mod cartridge;
 mod cpu;
 mod bus;
 mod ppu;
+mod controller;
 fn main(){
     let args: Vec<String> = env::args().collect();
     let status = render::gameloop(&args[1],3);
