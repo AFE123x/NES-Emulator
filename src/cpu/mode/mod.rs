@@ -110,11 +110,15 @@ impl Cpu {
         self.addrabs = (hi << 8) | lo;
         self.immval = self.cpu_read(self.addrabs,true);
     }
+
+
     pub fn idy(&mut self) {
         let temp = self.cpu_read(self.pc,false) as u16; //the byte from the zero page
         self.pc = self.pc.wrapping_add(1);
-        let lo = self.cpu_read(temp,false) as u16;
-        let hi = self.cpu_read(temp + 1,false) as u16;
+        let t = temp & 0xFF;
+        let lo = self.cpu_read(t,false) as u16;
+        let t = (temp + 1) & 0xFF;
+        let hi = self.cpu_read(t,false) as u16;
         self.addrabs = (hi << 8) | lo;
         self.addrabs = self.addrabs.wrapping_add(self.y as u16);
         self.immval = self.cpu_read(self.addrabs,true);

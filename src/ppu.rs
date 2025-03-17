@@ -1,10 +1,10 @@
-use frame::Frame;
-use registers::{vt_reg, PPUCTRL, PPUMASK, PPUSTATUS};
+use registers::{PPUCTRL, PPUMASK, PPUSTATUS};
 
 use crate::cartridge::{Cartridge, Nametable};
 
-pub mod frame;
+pub mod Frame;
 mod registers;
+use crate::ppu::Frame::Frame as Fr;
 pub struct Ppu {
     ppuctrl: PPUCTRL,     //ppu control register (mapped at address $2000)
     ppumask: PPUMASK,     //ppu mask register (mapped at address $2001)
@@ -30,21 +30,14 @@ pub struct Ppu {
     palette_num: u8,
     cycle_counter: u16,
     scanline_counter: u16,
-    /* for rendering */
-    // bg_next_tile_id: u8,
-    // bg_next_tile_attrib: u8,
-    // bg_next_tile_lsb: u8,
-    // bg_next_tile_msb: u8,
-    // bg_shifter_pattern_lo: u16,
-    // bg_shifter_pattern_hi: u16,
-    // bg_shifter_attrib_lo: u16,
-    // bg_shifter_attrib_hi: u16,
-    // fine_x: u8,
+    frame_updated: bool,
     xscroll: u8,
     yscroll: u8,
-    game_frame: *mut Frame,
     palette_boi: u8,
     total_cycles: usize,
+    pattern_table: Vec<Vec<Vec<u8>>>,
+    pattern_cached: bool,
+    nametable_buffer: Option<*mut Fr>,
 }
 
 impl Ppu {
@@ -123,8 +116,8 @@ impl Ppu {
         }
         data
     }
-    pub fn new(cartridge: &mut Cartridge, frame: &mut Frame) -> Self {
-        let mut pal: Vec<u8> = vec![0; 0x20];
+    pub fn new(cartridge: &mut Cartridge) -> Self {
+        let pal: Vec<u8> = vec![0; 0x20];
         let mut vram: Vec<u8> = vec![0; 2048];
         for i in &mut vram {
             *i = rand::random_range(0..=0xFF);
@@ -152,22 +145,18 @@ impl Ppu {
             palette_num: 0,
             cycle_counter: 0,
             scanline_counter: 0,
-            // nmi_count: 0,
-            // bg_next_tile_id: 0,
-            // bg_next_tile_attrib: 0,
-            // bg_next_tile_lsb: 0,
-            // bg_next_tile_msb: 0,
-            // bg_shifter_pattern_lo: 0,
-            // bg_shifter_pattern_hi: 0,
-            // bg_shifter_attrib_lo: 0,
-            // bg_shifter_attrib_hi: 0,
-            // fine_x: 0,
-            game_frame: frame,
             xscroll: 0,
             yscroll: 0,
             palette_boi: 0,
             total_cycles: 0,
+            frame_updated: false,
+            pattern_table: vec![vec![vec![0; 128]; 128]; 2],
+            pattern_cached: false,
+            nametable_buffer: None,
         }
+    }
+    pub fn set_bg_palette_num(&mut self){
+        self.palette_num = (self.palette_num + 1) & 0xF;
     }
     pub fn get_palette(&mut self, palettenum: u8, paletteindex: u8) -> (u8, u8, u8) {
         self.palette_boi = paletteindex;
@@ -176,37 +165,50 @@ impl Ppu {
         let paletteinde = self.ppu_read(0x3F00 | final_index as u16);
         self.system_palette[paletteinde as usize]
     }
-    pub fn get_palette_table(&mut self, frame: &mut Frame, palette: u8) {
-        for row in 0..16 {
-            for col in 0..32 {
-                let mut address: u16 = 0;
-                let tile_index: u16 = row * 16 + (col % 16);
-                let table: u16 = if col > 15 { 0b01000000000000 } else { 0 };
-                address += table;
-                let tile_index_addr = tile_index << 4;
-                address |= tile_index_addr;
-                for i in 0..8 {
-                    let mut lobyte = self.ppu_read(address + i);
-                    let mut hibyte = self.ppu_read(address + 8 + i);
-                    for x in 0..8 {
-                        let lo = lobyte & 1;
-                        let hi = hibyte & 1;
-                        let color = (hi << 1) | (lo);
-                        let index_num = color;
-                        let color = match color {
-                            0 => self.system_palette[0x0a],
-                            1 => self.system_palette[0x1a],
-                            2 => self.system_palette[0x2a],
-                            3 => self.system_palette[0x3a],
-                            _ => self.system_palette[0x34],
-                        };
-                        lobyte = lobyte >> 1;
-                        hibyte = hibyte >> 1;
-                        let xx = (col * 8) + (8 - x);
-                        let y = (row * 8) + i;
-                        let color = self.get_palette(palette, index_num);
-                        frame.drawpixel(xx - 1, y, color);
+
+    pub fn linkpattern(&mut self, frame: &mut Fr) {
+        self.nametable_buffer = Some(frame);
+    }
+
+    pub fn get_pattern_table(&mut self, frame: &mut Fr, palette: u8) {
+        self.palette_boi = palette;
+        if !self.pattern_cached {
+            /* There's nothing in the palette_table memory */
+            /* filling first (and populating frame as well) */
+            for row in 0..0x20 {
+                for col in 0..0x10 {
+                    let table = if row < 16 { 0 } else { 0b0_1_00000000_0_000 }; //tells us which table to fill
+                    let tile_num = ((row & 0xF) * 16) + (col) as u16;
+                    let palette_address = table | (tile_num << 4);
+                    for i in 0..8 {
+                        let mut lo_byte = self.ppu_read(palette_address + i); /* get low byte of palette */
+                        let mut hi_byte = self.ppu_read(palette_address + 8 + i); /* get high byte of palette */
+                        for j in 0..8 {
+                            let lo_bit = lo_byte & 0x1;
+                            let hi_bit = hi_byte & 0x1;
+
+                            let pixel_num = (hi_bit << 1) | lo_bit;
+                            /* y = row * 8 + i, x = col * 8 */
+                            let x = (col * 8) + (7 - j);
+                            let y = ((row & 0xF) * 8) + i;
+                            let y = y as usize;
+
+                            let table_num = if row < 16 { 0 } else { 1 };
+                            self.pattern_table[table_num][x][y] = pixel_num;
+                            hi_byte = hi_byte >> 1;
+                            lo_byte = lo_byte >> 1;
+                        }
                     }
+                }
+            }
+            self.pattern_cached = true
+        } else {
+            for x in 0..256 {
+                for y in 0..128 {
+                    let table_index = if x > 127 { 1 } else { 0 };
+                    let index = self.pattern_table[table_index][x & 0x7F][y];
+                    let color = self.get_palette(self.palette_num, index);
+                    frame.drawpixel(x as u16, y as u16, color);
                 }
             }
         }
@@ -236,7 +238,6 @@ impl Ppu {
                     self.vram[index as usize]
                 }
             };
-            // byte = self.vram[(address & 0x7FF) as usize];
         } else if address >= 0x3000 && address <= 0x3EFF {
             // Mirror of 0x2000 - 0x2EFF
             byte = self.ppu_read(address - 0x1000);
@@ -254,8 +255,8 @@ impl Ppu {
     pub fn ppu_write(&mut self, address: u16, data: u8) {
         if address <= 0x1FFF {
             unsafe { (*self.cart).ppu_write(address, data) }; // writes to cartridge space
+            // self.pattern_cached = false;
         } else if address >= 0x2000 && address <= 0x2FFF {
-            // println!("writing to address {:4x}: {:2x}", address,data);
             let nametable: Nametable = unsafe { (*self.cart).get_nametable() };
             match nametable {
                 Nametable::Vertical => {
@@ -278,9 +279,8 @@ impl Ppu {
         } else if address >= 0x3000 && address <= 0x3EFF {
         } else if address >= 0x3F00 && address <= 0x3FFF {
             self.palette_memory[(address & 0x1F) as usize] = data;
-            println!("writing {:2x} to {:4x}", data, address);
         } else {
-            todo!()
+            // todo!()
         }
     }
 
@@ -296,11 +296,13 @@ impl Ppu {
             }
             2 => {
                 data = self.ppustatus.bits();
-                self.ppustatus.set(PPUSTATUS::vblank_flag, false);
-                self.w = 0;
+                if !rdonly {
+                    self.ppustatus.set(PPUSTATUS::vblank_flag, false);
+                    self.w = 0;
+                }
             }
             4 => {
-                //todo!() //handle OAM reads
+                todo!() //handle OAM reads
             }
             7 => {
                 data = self.internal_buffer;
@@ -340,17 +342,16 @@ impl Ppu {
         let masked_address = address & 0x7;
         match masked_address {
             0 => {
-                // self.t.set_nametable(data);
                 self.ppuctrl = PPUCTRL::from_bits_truncate(data);
             }
             1 => {
                 self.ppumask = PPUMASK::from_bits_truncate(data);
             }
             3 => {
-                todo!()
+                // todo!()
             }
             4 => {
-                todo!()
+                // todo!()
             }
             5 => {
                 if self.w == 0 {
@@ -389,102 +390,57 @@ impl Ppu {
         }
     }
 
-    fn set_pixel(&mut self, x: u16, y: u16, paletteindex: u8) {
-        // let color = self.get_palette(palettenum, paletteindex);
-        let color = match paletteindex {
-            0 => (0, 0, 0),
-            1 => (255, 0, 0),
-            2 => (0, 255, 0),
-            3 => (0, 0, 255),
-            _ => (255, 255, 255),
-        };
-        
-        if self.total_cycles >= 32870696{
-            println!("drawing {} to coordinate ({},{})",paletteindex,x,y);
-        }
-        unsafe {
-            (*self.game_frame).drawpixel(x, y, color);
-        }
-    }
-    pub fn render_nametable(&mut self) {
-        let background_factor = if self
+    pub fn update_block(&mut self, row: u16, col: u16) {
+        let background_index = if self
             .ppuctrl
             .contains(PPUCTRL::background_pattern_table_address)
         {
-            0x1000
+            1
         } else {
-            0x0
+            0
         };
-        // let nametable_addr_lbit = if self.ppuctrl.contains(PPUCTRL::name_table_x) {1} else {0};
-        // let nametable_addr_rbit = if self.ppuctrl.contains(PPUCTRL::name_table_y) {1} else {0};
-        // println!("{}", self.total_cycles);
+        let name_index = (row * 32) + col;
+        let name_table_index = self.ppu_read(0x2000 + name_index as u16);
+        let x_index = name_table_index & 0xF;
+        let y_index = name_table_index >> 4;
+        let x_index = x_index * 8;
+        let y_index = y_index * 8;
 
-        for row in 0..30 {
-            for col in 0..32 {
-                if self.total_cycles >= 32870696{
-                    if row == 1 && col == 10{
-                        println!("startin debug!");
-                    }
-                }
-                let index_num = (row * 32) + col;
-                let palette_index = self.ppu_read(0x2000 + index_num);
-                let address_palette = (palette_index as u16) << 4;
-                for i in 0..8 {
-                    let mut lo_byte = self.ppu_read(background_factor + address_palette + i); //gets the low byte.
-                    let mut hi_byte = self.ppu_read(background_factor + address_palette + 8 + i); //gets high byte of palette row.
-                    for j in 0..8 {
-                        let lo_bit = lo_byte & 0x1;
-                        let hi_bit = hi_byte & 0x1;
-                        let pixel_num = (hi_bit << 1) | lo_bit;
-                        if self.total_cycles >= 32870696{
-                        println!("calculated pixel_num {}",pixel_num);
-                        }
-                        
-                        let x = (col * 8) + (8 - j) - 1;
-                        let y = (row * 8) + (i);
-                        if self.total_cycles >= 32870696{
-                            println!("x: {}, y: {}",x,y);
-                        }
-                        self.set_pixel(
-                            x,
-                            y,
-                            pixel_num
-                        );
-                        lo_byte >>= 1;
-                        hi_byte >>= 1;
-                    }
-                }
+        for i in 0..8 {
+            for j in 0..8 {
+                let palette_index = self.pattern_table[background_index][(x_index + i) as usize]
+                    [(y_index + j) as usize];
+                let color = self.get_palette(self.palette_num, palette_index);
+                let x = (col * 8) + i as u16 as u16;
+                let y = ((row * 8) + j as u16) as u16;
+                unsafe {
+                    (*self.nametable_buffer.unwrap()).drawpixel(x, y, color);
+                };
             }
         }
-        // println!("");
     }
-    pub fn clock(&mut self) {
-        if self.scanline_counter == 240 && self.cycle_counter == 1 {}
 
-        if self.scanline_counter == 241 && self.cycle_counter == 1 {
-            self.ppustatus.set(PPUSTATUS::vblank_flag, true);
-            self.render_nametable();
-            if self.ppuctrl.contains(PPUCTRL::vblank_enable) {
-                self.nmi = true;
+    pub fn set_name_table(&mut self){
+        for col in 0..32{
+            for row in 0..30{
+                self.update_block(row, col);
             }
         }
+    }
+
+    pub fn clock(&mut self) {
+        self.cycle_counter += 1;
         if self.cycle_counter > 340 {
             self.cycle_counter = 0;
             self.scanline_counter += 1;
         }
-        if self.scanline_counter > 261 {
-            self.scanline_counter = 0;
-        }
-        if self.scanline_counter == 261 && self.cycle_counter == 1 {
+        if self.scanline_counter <= 239 {
+        } else if self.scanline_counter == 241 && self.cycle_counter == 1 {
+            self.ppustatus.set(PPUSTATUS::vblank_flag, true);
+            self.nmi = true;
+        } else if self.scanline_counter == 261 && self.cycle_counter == 1 {
             self.ppustatus.set(PPUSTATUS::vblank_flag, false);
-        }
-        self.cycle_counter += 1;
-        if self.cycle_counter >= 341 {
-            self.cycle_counter = 0;
-            self.scanline_counter += 1;
-            if self.scanline_counter > 261 {
-                self.scanline_counter = 0;
-            }
+            self.scanline_counter = 0;
         }
         self.total_cycles = self.total_cycles.wrapping_add(1);
     }

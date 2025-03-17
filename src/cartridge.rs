@@ -6,10 +6,10 @@ use mapper000::Mapper000;
 use mapper001::Mapper001;
 use std::fs;
 struct Header {
-    nes_constants: [u8; 4],
+    _nes_constants: [u8; 4],
     prg_rom_size: u8,
     chr_rom_size: u8,
-    mapper: u8,
+    _mapper: u8,
     name_table_arrangement: Nametable,
 }
 pub struct Cartridge {
@@ -59,10 +59,10 @@ impl Cartridge {
         };
         let training = if lobyte & 0x04 != 0 { 512 } else { 0 };
         let header = Header {
-            nes_constants: [buf[0], buf[1], buf[2], buf[3]],
+            _nes_constants: [buf[0], buf[1], buf[2], buf[3]],
             prg_rom_size: buf[4],
             chr_rom_size: buf[5],
-            mapper: mapper_num as u8,
+            _mapper: mapper_num as u8,
             name_table_arrangement: name_table_arrangement,
         };
         let chr_length = header.chr_rom_size as usize * 8192;

@@ -1,5 +1,4 @@
 mod mode;
-use std::{io::{self, stdin}, thread, time};
 
 use crate::bus::Bus;
 mod instructions;
@@ -9,6 +8,7 @@ bitflags! {
         const Overflow = 0b01000000;
         const Break = 0b00010000;
         const Decimal = 0b0000_1000;
+        const Unused = 0b0010_0000;
         const IDisable = 0b00000100;
         const Zero = 0b00000010;
         const Carry = 0b00000001;
@@ -35,9 +35,13 @@ pub struct Cpu {
 }
 
 impl Cpu {
+    
+
     pub fn new() -> Self {
+        let mut flags = Flags::empty();
+        flags.set(Flags::Unused, true);
         Self {
-            flags: Flags::empty(),
+            flags: flags,
             a: 0,
             x: 0,
             y: 0,
@@ -53,9 +57,20 @@ impl Cpu {
             oldpc: 0,
         }
     }
-
+    fn print_status_reg(&self) -> String{
+        let a = if self.flags.contains(Flags::Negative) {'N'} else {'-'};
+        let b = if self.flags.contains(Flags::Overflow) {'V'} else {'-'};
+        let c = if self.flags.contains(Flags::Unused) {'U'} else {'-'};
+        let d = if self.flags.contains(Flags::Break) {'B'} else {'-'};
+        let e = if self.flags.contains(Flags::Decimal) {'D'} else {'-'};
+        let f = if self.flags.contains(Flags::IDisable) {'I'} else {'-'};
+        let g = if self.flags.contains(Flags::Zero) {'Z'} else {'-'};
+        let h = if self.flags.contains(Flags::Carry) {'C'} else {'-'};
+        let string = format!("{}{}{}{}{}{}{}{}",a,b,c,d,e,f,g,h);
+        string
+    }
     fn print_state(&self, instruction: &Instruction, addr_mode: &AddressMode){
-        println!("PC: {:#x}\tA: {:#x}\tX {:#x}\tY {:#x}\tSP {:#x}\tFLAGS {:08b}\t{:?}({:?})\tADDR: {:4x}\tIMMVAL: {:2x}\tOPCODE: {:2x}\tRELVAL: {:4x}",self.oldpc,self.a,self.x,self.y,self.sp,self.flags.bits(),instruction,addr_mode,self.addrabs,self.immval,self.opcode,self.relval);
+        println!("PC: {:#x}\tA: {:#x}\tX {:#x}\tY {:#x}\tSP {:#x}\tFLAGS {}\t{:?}({:?})\t",self.oldpc,self.a,self.x,self.y,self.sp,self.print_status_reg(),instruction,addr_mode);
     }
     pub fn linkbus(&mut self, bus: &mut Bus) {
         self.bus = Some(bus);
@@ -64,7 +79,6 @@ impl Cpu {
         unsafe { (*self.bus.unwrap()).cpu_read(address,rdonly) }
     }
     fn cpu_write(&self, address: u16, byte: u8) {
-        // println!("writing to address {:#x}: {:#x} ",address,byte);
         unsafe {
             (*self.bus.unwrap()).cpu_write(address, byte);
         };
@@ -77,8 +91,6 @@ impl Cpu {
             self.opcode = opcode;
             self.pc = self.pc.wrapping_add(1);
             self.handle_opcode(opcode);
-            let mut str = String::new();
-            // io::stdin().read_line(&mut str);
         }
         self.cycles_left = self.cycles_left.wrapping_sub(1);
         self.total_cycles = self.total_cycles.wrapping_add(1);
