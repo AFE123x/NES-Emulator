@@ -170,6 +170,9 @@ impl Cpu {
         cycles: u8,
     ) {
         self.handle_addrmode(&addrmode);
+        // if self.total_cycles >= 27389{
+        //     self.print_state(&instruction, &addrmode);
+        // }
         self.handle_instruction(instruction);
         self.cycles_left = self.cycles_left.wrapping_add(cycles);
     }

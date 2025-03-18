@@ -1,5 +1,7 @@
 mod mode;
 
+use std::{thread, time::Duration};
+
 use crate::bus::Bus;
 mod instructions;
 bitflags! {
@@ -70,7 +72,8 @@ impl Cpu {
         string
     }
     fn print_state(&self, instruction: &Instruction, addr_mode: &AddressMode){
-        println!("PC: {:#x}\tA: {:#x}\tX {:#x}\tY {:#x}\tSP {:#x}\tFLAGS {}\t{:?}({:?})\t",self.oldpc,self.a,self.x,self.y,self.sp,self.print_status_reg(),instruction,addr_mode);
+        println!("PC: {:#x}\tA: {:#x}\tX {:#x}\tY {:#x}\tSP {:#x}\tFLAGS {}\t{:?}({:?}), cycles: {}\t",self.oldpc,self.a,self.x,self.y,self.sp,self.print_status_reg(),instruction,addr_mode,self.total_cycles);
+        thread::sleep(Duration::from_millis(10));
     }
     pub fn linkbus(&mut self, bus: &mut Bus) {
         self.bus = Some(bus);
