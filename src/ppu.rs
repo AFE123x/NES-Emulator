@@ -33,16 +33,16 @@ pub struct Ppu {
     pattern_table: Vec<Vec<Vec<u8>>>,
     pattern_cached: bool,
     nametable_buffer: Option<*mut Fr>,
-    /* background rendering */
-    bg_shifter_pattern_lo: u16,
-    bg_shifter_pattern_hi: u16,
-    bg_shifter_attrib_lo: u16,
-    bg_shifter_attrib_hi: u16,
-    /* holding the next nametable stuff */
-    bg_next_tile_id: u8,
-    bg_next_tile_attrib: u8,
-    bg_next_tile_lsb: u8,
-    bg_next_tile_msb: u8,
+    /* shift register */
+    attribute_lo_shiftreg: u16, /* Will hold the lo bit of the palette number */
+    attribute_hi_shiftreg: u16, /* Will hold the high bit of the palette number */
+    pattern_lo_shiftreg: u16, /* This will hold the lo bit of the pixel we want to draw */
+    pattern_hi_shiftreg: u16, /* This will hold the hi bit of the pixel we want to draw */
+    tile_lsb: u8,
+    tile_msb: u8,
+    name_table: u8, /* This will hold the actually nametable value */
+    attribute_table: u8, /* This will hold the attribute value */
+    pixel_index: u16,
 }
 
 impl Ppu {
@@ -155,14 +155,15 @@ impl Ppu {
             pattern_table: vec![vec![vec![0; 128]; 128]; 2],
             pattern_cached: false,
             nametable_buffer: None,
-            bg_shifter_pattern_lo: 0,
-            bg_shifter_pattern_hi: 0,
-            bg_shifter_attrib_lo: 0,
-            bg_shifter_attrib_hi: 0,
-            bg_next_tile_id: 0,
-            bg_next_tile_attrib: 0,
-            bg_next_tile_lsb: 0,
-            bg_next_tile_msb: 0,
+            attribute_lo_shiftreg: 0,
+            attribute_hi_shiftreg: 0,
+            pattern_lo_shiftreg: 0,
+            pattern_hi_shiftreg: 0,
+            tile_lsb: 0,
+            tile_msb: 0,
+            name_table: 0,
+            attribute_table: 0,
+            pixel_index: 0,
         }
     }
     pub fn set_bg_palette_num(&mut self) {
@@ -413,6 +414,15 @@ impl Ppu {
     }
 
     pub fn update_block(&mut self, row: u16, col: u16) {
+        let block_row = row / 4;
+        let block_col = col / 4;
+        let attribute_index = block_row * 8 + block_col;
+        let attribute_address = 0x23C0 + attribute_index;
+        let attribute_byte = self.ppu_read(attribute_address);
+        let quadrant = ((row % 4) / 2) * 2 + ((col % 4) / 2);
+        let palette_num = (attribute_byte >> (quadrant * 2)) & 0b11;
+
+
         let background_index = if self
             .ppuctrl
             .contains(PPUCTRL::background_pattern_table_address)
@@ -432,7 +442,7 @@ impl Ppu {
             for j in 0..8 {
                 let palette_index = self.pattern_table[background_index][(x_index + i) as usize]
                     [(y_index + j) as usize];
-                let color = self.get_palette(self.palette_num, palette_index);
+                let color = self.get_palette(palette_num, palette_index);
                 let x = (col * 8) + i as u16 as u16;
                 let y = ((row * 8) + j as u16) as u16;
                 unsafe {
@@ -449,83 +459,8 @@ impl Ppu {
             }
         }
     }
-    /*
-    yyy NN YYYYY XXXXX
-    ||| || ||||| +++++-- coarse X scroll
-    ||| || +++++-------- coarse Y scroll
-    ||| ++-------------- nametable select
-    +++----------------- fine Y scroll
-    */
-    fn coarsexincrement(&mut self) {
-        if self.v.get_coarse_xscroll() == 31 {
-            self.v.set_coarse_xscroll(0);
-            let nametable = self.v.get_nametable();
-            let nametable = nametable ^ 1;
-            self.v.set_nametable(nametable);
-        } else {
-            let coarsex = self.v.get_coarse_xscroll();
-            let coarsex = coarsex.wrapping_add(1) & 0x1F;
-            self.v.set_coarse_xscroll(coarsex);
-        }
-    }
+    
 
-    fn coarseyincrement(&mut self) {
-        if self.v.get_fine_y() < 7 {
-            let temp = self.v.get_fine_y();
-            self.v.set_fine_y(temp + 1);
-        } else {
-            self.v.set_fine_y(0);
-            if self.v.get_coarse_yscroll() == 29 {
-                self.v.set_coarse_yscroll(0);
-                let nametable = self.v.get_nametable();
-                let nametable = nametable ^ 2;
-                self.v.set_nametable(nametable);
-            } else if self.v.get_coarse_yscroll() == 32 {
-                self.v.set_coarse_yscroll(0);
-            } else {
-                let temp = self.v.get_coarse_yscroll();
-                self.v.set_coarse_yscroll(temp + 1);
-            }
-        }
-    }
-
-    fn transfer_coarsex(&mut self) {
-        self.v.set_coarse_xscroll(self.t.get_coarse_xscroll());
-        self.v.set_nametablex(self.t.get_nametablex());
-    }
-
-    fn transfer_coarsey(&mut self) {
-        self.v.set_coarse_yscroll(self.t.get_coarse_yscroll());
-        self.v.set_fine_y(self.t.get_fine_y());
-        self.v.set_nametabley(self.t.get_nametabley());
-    }
-    fn loadbackgroundshifters(&mut self) {
-        let bg_next_tile_lsb = self.bg_next_tile_lsb as u16;
-        self.bg_shifter_pattern_lo = (self.bg_shifter_pattern_lo & 0xFF00) | bg_next_tile_lsb;
-        let bg_next_tile_msb = self.bg_next_tile_msb as u16;
-        self.bg_shifter_pattern_hi = (self.bg_shifter_pattern_hi & 0xFF00) | bg_next_tile_msb;
-        let lo_temp = if self.bg_next_tile_attrib & 0x1 != 0 {
-            0xFF
-        } else {
-            0
-        } as u16;
-        self.bg_shifter_attrib_lo = (self.bg_shifter_attrib_lo & 0xFF00) | lo_temp;
-        let hi_temp = if self.bg_next_tile_attrib & 0x2 != 0 {
-            0xFF
-        } else {
-            0
-        } as u16;
-        self.bg_shifter_attrib_hi = (self.bg_shifter_attrib_hi & 0xFF00) | hi_temp;
-    }
-
-    fn updateshift_registers(&mut self) {
-        if self.ppumask.contains(PPUMASK::enable_background_rendering) {
-            self.bg_shifter_pattern_lo <<= 1;
-            self.bg_shifter_pattern_hi <<= 1;
-            self.bg_shifter_attrib_lo <<= 1;
-            self.bg_shifter_attrib_hi <<= 1;
-        }
-    }
     pub fn clock(&mut self) {
         /* Old approach */
         self.cycle_counter += 1;
@@ -539,9 +474,9 @@ impl Ppu {
             if self.ppuctrl.contains(PPUCTRL::vblank_enable){
                 self.nmi = true;
             }
-        } else if self.scanline_counter == 261 && self.cycle_counter == 1 {
+        } else if self.scanline_counter  == 261 && self.cycle_counter == 1 {
             self.ppustatus.set(PPUSTATUS::vblank_flag, false);
-            self.scanline_counter = 0;
+            self.scanline_counter = -1;
         }
         self.total_cycles = self.total_cycles.wrapping_add(1);
     }
