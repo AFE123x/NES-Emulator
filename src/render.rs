@@ -54,7 +54,7 @@ pub fn gameloop(rom_file: &str, scale: u32) -> Result<(), Box<dyn Error>> {
 
     /* Game loop */
     while cont_game {
-        if fps_timer.elapsed() >= Duration::from_millis(17) { //17
+        if fps_timer.elapsed() >= Duration::from_millis(17) {
             match pump.poll_event() {
                 Some(event) => match event {
                     Event::Quit { .. } | Event::KeyDown {keycode: Some(Keycode::ESCAPE),..} => cont_game = false,

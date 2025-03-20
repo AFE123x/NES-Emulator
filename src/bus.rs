@@ -51,11 +51,22 @@ impl Bus {
             unsafe {
                 (*self.ppu).cpu_write(address, byte);
             };
-        } else if address <= 0x4017 {
+        }
+        else if address == 0x4014{
+            // println!("write to 0x4014");
+            for i in 0..=0xFF{
+                let data = self.memory[((byte as usize) << 8) | i];
+                unsafe{
+                    (*self.ppu).oam_dma_write(i as u8, data);
+                }
+            }
+        }
+        else if address <= 0x4017 {
             if address == 0x4016 {
                 unsafe { (*self.controller.unwrap()).cpu_write(byte) };
             }
-        } else if address <= 0x401F {
+        } 
+        else if address <= 0x401F {
             // todo!()
         } else {
             unsafe {
