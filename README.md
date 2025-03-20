@@ -2,28 +2,75 @@
 
 ## Introduction
 
-- Ever since December 2023, I've always wanted to create an NES Emulator. It's a cool project that requires in-depth knowledge of computer architecture and the ability to read the documentation. This is also my first time implementing a GUI and using Rust (for a personal project)
+This is an NES Emulator Fully written in Rust. This has been a project I started in December of 2023, but I only gained enough will power and courage to complete it in March. This Emulator currently only supports Mapper 000, but I intend to add more later, which I will discuss later.
 
-## Why Rust?
+## Installation
 
-- There were two factors:
-    - My friend kinda talked me into it
-    - My dog was holding a toy crab; it was very cute.
+By the off chance that you are planning on using this, here is how you do it:
 
-- I read through all the chapters of The Rust book, even creating an Anki deck to know everything the language offers.
+### Step One
+- Install [rustup!](https://www.rust-lang.org)
 
-## The CPU
+### Step Two
 
-- The NES uses the 6502, a popular CPU created by MOS Technologies and copied by Ricoh. 
+- clone repository
 
-## Implementation of the CPU
+```bash
+git clone https://github.com/AFE123x/NES-Emulator
+```
 
-- I'm very accustomed to C/C++, which has the luxury of function pointers (I now know Rust has function pointers.)
-    - Instead, I took the cliche approach of using a lot of enums and match statements.
-    - I took inspiration from OneLoneCoder, specifically with his CPU clock implementation. Besides that, I was on my own.
+### Step Three
+- Run your program
 
-## PPU
+```bash
+cargo run <path-of-game> <scale>
+```
+- `path-of-game` denotes the path where your **legally backed up** rom is located.
+- `scale` denotes how big you want the window to be.
 
-- The next part of the project is implementing the Picture Processing Unit (PPU)
-    - I plan to use minifb, a rust library where you can draw pixels from a u32 buffer.
-    - I ultimately went with this since SDL2 sucks with Rust (linking is very convoluted.)
+- You may encounter issues with sdl2. In this case, you can modify the `cargo.toml` file as follows:
+
+```toml
+sdl2 = {version = "0.37.0" features=["bundled"]}
+```
+- This will compile sdl2 from source (it will take a minute).
+
+
+### Controls
+- I hardcoded the controls at the moment (they seem convoluted, Dvorak moment ;p)
+
+| Key | Button |
+| --- | --- |
+| Up | Up Button |
+| Down | Down Button |
+| Left | Left Button |
+| Right | Right Button |
+| A | A Button |
+| O | B Button |
+| E | Select Button |
+| U | Start Button |
+
+## Plans
+
+Ideally, this is not the end of the journey for my Emulator. Below are my plans. If you would like to contribute, feel free to make a pull request (there is much work to be done).
+
+- Optimize the PPU Background Rendering:
+    - Optimize PPU Scrolling by utilizing the loopy register mechanism.
+    - Troubleshoot nametable rendering (Super Mario Bros nametable does not seem to compile correctly (may also be a flag issue)).
+- Check CPU Instructions for correctness
+    - The nestest seems to fail a flag test.
+- Implement Other Mappers
+    - I hope to implement mapper 001, which should broaden the horizon for game compatability.
+- Audio
+    - This is a WHOLE can of worms.
+- Debugger
+    - Implement a debugger to view the assembly, palette table, foam attributes, etc.
+- Second controller support:
+    - This is self-explanatory
+- Network support
+    - Support wireless multiplayer (never done before).
+- AWS (I do not know; people are lowkey hyped about it.)
+
+## Contributions
+
+I love contributions; You are welcome to contribute to my lovely project.
