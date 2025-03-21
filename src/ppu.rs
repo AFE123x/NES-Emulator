@@ -1,10 +1,8 @@
 mod oam;
-use std::thread;
+mod loopy;
 
 use crate::ppu::oam::oam as Oam;
 use registers::{vt_reg, PPUCTRL, PPUMASK, PPUSTATUS};
-use sdl2::controller;
-use sdl2::libc::FSOPT_PACK_INVAL_ATTRS;
 
 use crate::cartridge::{Cartridge, Nametable};
 
@@ -190,8 +188,6 @@ impl Ppu {
         self.system_palette[paletteinde as usize]
     }
 
-
-
     pub fn linkpattern(&mut self, frame: &mut Fr) {
         self.nametable_buffer = Some(frame);
     }
@@ -249,18 +245,10 @@ impl Ppu {
             byte = match nametable {
                 Nametable::Vertical => {
                     let index = match address {
-                        0x2000..=0x23FF => {
-                            address & 0x3FF
-                        },
-                        0x2800..=0x2BFF => {
-                            address & 0x3FF
-                        },
-                        0x2400..=0x27FF => {
-                            0x400 + (address & 0x3FF)
-                        },
-                        0x2C00..=0x2FFF => {
-                            0x400 + (address & 0x3FF)
-                        },
+                        0x2000..=0x23FF => address & 0x3FF,
+                        0x2800..=0x2BFF => address & 0x3FF,
+                        0x2400..=0x27FF => 0x400 + (address & 0x3FF),
+                        0x2C00..=0x2FFF => 0x400 + (address & 0x3FF),
                         _ => panic!("Address out of range!"),
                     };
                     self.vram[index as usize]
@@ -303,26 +291,26 @@ impl Ppu {
                             /* nametable 0 */
                             let addr = address & 0x3FF;
                             self.vram[addr as usize] = data;
-                        },
+                        }
                         0x2800..=0x2BFF => {
                             /* nametable 1 */
                             // address & 0x3FF;
                             let addr = address & 0x3FF;
                             self.vram[addr as usize] = data;
-                        },
-                        0x2400..=0x27FF  => {
+                        }
+                        0x2400..=0x27FF => {
                             /* nametable 2 */
                             let addr = 0x400 + (address & 0x3FF);
                             self.vram[addr as usize] = data;
-                        },
+                        }
                         0x2C00..=0x2FFF => {
                             /* nametable 3 */
                             let addr = 0x400 + (address & 0x3FF);
                             self.vram[addr as usize] = data;
-                        },
+                        }
                         _ => panic!("Address out of range!"),
                     };
-                    
+
                     self.nametable_changed = true;
                 }
                 Nametable::Horizontal => {
@@ -460,215 +448,6 @@ impl Ppu {
         }
     }
 
-
-    fn increment_x(&mut self){
-        if self.v.get_coarse_xscroll() == 31{
-            self.v.set_coarse_xscroll(0);
-            let nametable = self.v.get_nametablex() ^ 1;
-            self.v.set_nametablex(nametable);
-        }
-        else{
-            let coarsex = self.v.get_coarse_xscroll();
-            self.v.set_coarse_xscroll(coarsex + 1);
-        }
-    }
-pub fn increment_y(&mut self) {
-    // Extract fine Y from v
-    let fine_y = self.v.get_fine_y();
-
-    if fine_y < 7 {
-        // Increment fine Y
-        self.v.set_fine_y(fine_y + 1);
-    } else {
-        // Reset fine Y
-        self.v.set_fine_y(0);
-
-        // Handle coarse Y increment
-        let coarse_y = self.v.get_coarse_yscroll();
-
-        if coarse_y == 29 {
-            // Reset coarse Y and toggle vertical nametable
-            self.v.set_coarse_yscroll(0);
-            let namy = self.v.get_nametabley() ^ 1;
-            self.v.set_nametabley(namy);
-        } else if coarse_y == 31 {
-            // Reset coarse Y without toggling nametable
-            self.v.set_coarse_yscroll(0);
-        } else {
-            // Simply increment coarse Y
-            self.v.set_coarse_yscroll(coarse_y + 1);
-        }
-    }
-}
-    fn print_address(&self) -> String{
-        let v = self.v.get_data();
-        let tile = 0x2000 | (v & 0xFFF);
-        let attrib = 0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x7);
-        format!("tile: {:4x}, attrib: {:4x}\t",tile,attrib)
-    }
-    fn get_tiles(&mut self) -> (u16, u16){
-        let v = self.v.get_data();
-        let tile = 0x2000 | (v & 0xFFF);
-        let attrib = 0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x7);
-        let nametable_tile = self.ppu_read(tile) as u16;
-        let attribute_tile = self.ppu_read(attrib) as u16;
-        (nametable_tile, attribute_tile)
-    }
-    fn get_second_tile(&mut self){
-        println!("x: {}, {} ,{}\t",self.x,self.print_address(),self.v.print_register());
-        /* Retrieve nametable and attribute table */
-        let (nametable_tile,attribute_tile) = self.get_tiles();
-        
-        /* Calculate address for pallette  */
-        let address = if self.ppuctrl.contains(PPUCTRL::background_pattern_table_address) {0x1000} else {0} as u16;
-        let address = address | (nametable_tile << 4) | (self.v.get_fine_y() as u16);
-
-        /* Retrieve palette bytes */
-
-        /* Hi byte */
-        let pattern_table_hibyte = self.ppu_read(address + 8) as u16;
-        self.pattern_hi_shift_register = (self.pattern_hi_shift_register & 0xFF00) |  pattern_table_hibyte;
-
-        /* Lo byte */
-        let pattern_table_lobyte = self.ppu_read(address) as u16;
-        self.pattern_lo_shift_register = (self.pattern_lo_shift_register & 0xFF00) |  pattern_table_lobyte;
-
-        /* Retrieve attribute table bytes */
-
-        let mut attribute_byte = self.ppu_read(attribute_tile);
-
-        /*
-            Retriving correct tile
-
-            given the attribute byte 0x76543210, it's represented in the following way
-              0    1
-            +----+----+
-            | 10 | 32 | 0
-            +----+----+
-            | 54 | 76 | 1
-            +----+----+
-            
-            To extract the correct 2 bits, we can use bit manipulation. Since we know coarse x and y, we can figure out the 2 bits.
-        */
-
-        if self.v.get_coarse_yscroll() % 2 != 0{
-            attribute_byte >>= 4; //This tells us our tile is on the bottom, so we get rid of the bottom 4 bits
-        }
-        if self.v.get_coarse_xscroll() % 2 != 0{
-            attribute_byte >>= 2; //This tells us that our tile is on the right, so we shift by two.
-        }
-        attribute_byte = attribute_byte & 3; //we mask our result in case none of the following are true.
-
-        /* Retrieve the low and high byte, then load it on the attribute shift register. */
-        let attribute_byte_lo = if attribute_byte & 1 != 0 {0xFF} else {0}; //the lsb is 1, so all the values in the shift register is 1.
-        let attribute_byte_hi = if attribute_byte & 2 != 0 {0xFF} else {0};
-        self.attribute_hi_shift_register = (self.attribute_hi_shift_register & 0xFF00) |  attribute_byte_hi;
-        self.attribute_lo_shift_register = (self.attribute_lo_shift_register & 0xFF00) | attribute_byte_lo;
-        self.increment_x();
-        
-    }
-
-    fn get_first_tile(&mut self){
-        /* Retrieve nametable and attribute table */
-        let (nametable_tile,attribute_tile) = self.get_tiles();
-        
-        /* Calculate address for pallette  */
-        let address = if self.ppuctrl.contains(PPUCTRL::background_pattern_table_address) {0x1000} else {0} as u16;
-        let address = address | (nametable_tile << 4) | (self.v.get_fine_y() as u16);
-
-        /* Retrieve palette bytes */
-
-        /* Hi byte */
-        let pattern_table_hibyte = self.ppu_read(address + 8) as u16;
-        self.pattern_hi_shift_register = pattern_table_hibyte << 8;
-
-        /* Lo byte */
-        let pattern_table_lobyte = self.ppu_read(address) as u16;
-        self.pattern_lo_shift_register = pattern_table_lobyte << 8;
-
-
-        /* Retrieve attribute table bytes */
-
-        let mut attribute_byte = self.ppu_read(attribute_tile);
-
-        /*
-            Retriving correct tile
-
-            given the attribute byte 0x76543210, it's represented in the following way
-              0    1
-            +----+----+
-            | 10 | 32 | 0
-            +----+----+
-            | 54 | 76 | 1
-            +----+----+
-            
-            To extract the correct 2 bits, we can use bit manipulation. Since we know coarse x and y, we can figure out the 2 bits.
-        */
-
-        if self.v.get_coarse_yscroll() & 2 != 0{
-            attribute_byte >>= 4; //This tells us our tile is on the bottom, so we get rid of the bottom 4 bits
-        }
-        if self.v.get_coarse_xscroll() & 2 != 0{
-            attribute_byte >>= 2; //This tells us that our tile is on the right, so we shift by two.
-        }
-        attribute_byte = attribute_byte & 3; //we mask our result in case none of the following are true.
-
-        /* Retrieve the low and high byte, then load it on the attribute shift register. */
-        let attribute_byte_lo = if attribute_byte & 1 != 0 {0xFF} else {0}; //the lsb is 1, so all the values in the shift register is 1.
-        let attribute_byte_hi = if attribute_byte & 2 != 0 {0xFF} else {0};
-        self.attribute_hi_shift_register = attribute_byte_hi << 8;
-        self.attribute_lo_shift_register = attribute_byte_lo << 8;
-        self.increment_x(); //we increment the x register to finish off.
-    }
-    fn prime_shift_registers(&mut self){
-        self.get_first_tile();
-        self.get_second_tile();
-    }
-    pub fn render_scanline(&mut self, scanline: u16){
-        self.prime_shift_registers(); //primes our shift register to do stuff
-        for x in 0..256{ //iterates through all horizontal pixels
-
-            /*
-                every 8th tick, we want to reload the next tile onto the shift register.
-                We would load the new tile, attribute table, and load the pattern stuff on
-                the shift register.
-            */
-            if x > 0 && x % 8 == 0{
-                self.get_second_tile(); //basically does the job for us.
-            }
-
-            /* Read the values from our shift registers for rendering */
-            let finex = (0x8000 >> self.x) as u16;
-            let pattern_lobit = if self.pattern_lo_shift_register & finex > 0 {1} else {0};
-            let pattern_hibit = if self.pattern_hi_shift_register & finex > 0 {1} else {0};
-            let attribute_lobit = if self.attribute_lo_shift_register & finex > 0 {1} else {0};
-            let attribute_hibit = if self.attribute_hi_shift_register > 0 {1} else {0};
-
-            /* Calculate the attribute bit */
-            let attribute_index = (attribute_hibit << 1) | attribute_lobit;
-            let pattern_index = (pattern_hibit << 1) | pattern_lobit;
-            unsafe{
-                (*self.nametable_buffer.unwrap()).drawpixel(x, scanline, self.get_fgpalette(attribute_index, pattern_index));
-            }
-            /* Update shift registers */
-            self.attribute_hi_shift_register <<= 1;
-            self.attribute_lo_shift_register <<= 1;
-            self.pattern_hi_shift_register <<= 1;
-            self.pattern_lo_shift_register <<= 1;
-        }
-        self.increment_y();
-    }
-
-    pub fn update_frame(&mut self){
-        self.v.set_data(self.t.get_data());
-        for i in 0..240{
-            self.render_scanline(i);
-            self.v.set_coarse_xscroll(self.t.get_coarse_xscroll());
-            self.v.set_nametablex(self.t.get_nametablex());
-        }
-
-    }
-
     pub fn render_88_sprite(&mut self, index: usize) {
         let oam_sprite = self.oam_table[index].clone();
         let x = oam_sprite.get_x_position() as usize;
@@ -685,39 +464,46 @@ pub fn increment_y(&mut self) {
         let y_pat = index >> 4;
         let y_pat = y_pat * 8;
         let x_pat = x_pat * 8;
-        let table_index = if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {1} else {0};
-        for i in 0..8{
-            for j in 0..8{
-                let pixel_num = self.pattern_table[table_index][x_pat as usize + i][y_pat as usize + j];
+        let table_index = if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {
+            1
+        } else {
+            0
+        };
+        for i in 0..8 {
+            for j in 0..8 {
+                let pixel_num =
+                    self.pattern_table[table_index][x_pat as usize + i][y_pat as usize + j];
                 let color = self.get_fgpalette(attrib_table & 3, pixel_num);
                 if x < 256 && y < 240 {
-                    let j_factor = if vertical_factor {7 - j} else {j as usize};
-                    let i_factor = if horizontal_factor {7 - i} else {i as usize}; /* x axis render */
+                    let j_factor = if vertical_factor { 7 - j } else { j as usize };
+                    let i_factor = if horizontal_factor { 7 - i } else { i as usize }; /* x axis render */
                     let y = y + j_factor + 2;
                     let x = x + i_factor;
-                    if pixel_num != 0{
-                        if self.whole_frame[x as usize][y as usize].1 != 0 && index == 0{
+                    if pixel_num != 0 {
+                        if self.whole_frame[x as usize][y as usize].1 != 0 && index == 0 {
                             self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
                         }
-                        unsafe {(*self.nametable_buffer.unwrap()).drawpixel(x as u16, y as u16, color)};
+                        unsafe {
+                            (*self.nametable_buffer.unwrap()).drawpixel(x as u16, y as u16, color)
+                        };
                     }
                 }
             }
         }
-
     }
     pub fn set_oam_table(&mut self) {
-        if self.ppuctrl.contains(PPUCTRL::sprite_size){
-
-        }
-        else{
+        if self.ppuctrl.contains(PPUCTRL::sprite_size) {
+        } else {
             for i in 0..64 {
                 self.render_88_sprite(i);
             }
         }
     }
     pub fn set_name_table(&mut self) {
-        self.update_frame();
+        // self.v.set_data(self.t.get_data());
+        for scanline in 0..240{
+            self.render_scanline(scanline);
+        }
         self.set_oam_table();
     }
 
@@ -735,10 +521,9 @@ pub fn increment_y(&mut self) {
             }
         } else if self.scanline_counter == 261 && self.cycle_counter == 1 {
             self.ppustatus.set(PPUSTATUS::vblank_flag, false);
-            self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag,false);
-            self.ppustatus.set(PPUSTATUS::sprite_overflow_flag,false);
+            self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, false);
+            self.ppustatus.set(PPUSTATUS::sprite_overflow_flag, false);
             self.scanline_counter = 0;
-
         }
         self.total_cycles = self.total_cycles.wrapping_add(1);
     }
