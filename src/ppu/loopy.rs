@@ -66,10 +66,10 @@ impl Ppu {
         /* Read the pattern bytes */
         let pattern_lo = self.ppu_read(pattern_table_address) as u16;
         let pattern_hi = self.ppu_read(pattern_table_address + 8) as u16;
-
-        /* Update shift registers */
-        self.pattern_lo_shift_register |= pattern_lo;
-        self.pattern_hi_shift_register |= pattern_hi;
+        println!("pattern_lo: {:4x}, pattern_hi: {:4x}",pattern_lo,pattern_hi);
+        /* Updateshift registers */
+        self.pattern_lo_shift_register =  (self.pattern_lo_shift_register & 0xFF00) | pattern_lo;
+        self.pattern_hi_shift_register = (self.pattern_hi_shift_register & 0xFF00) | pattern_hi;
 
         /* Read the attribute byte */
         let mut attribute_tile = self.ppu_read(attribute_address) as u16;
@@ -85,8 +85,8 @@ impl Ppu {
         /* Update shift registers */
         let attribute_lo = if attribute_tile & 1 != 0 { 0xFF } else { 0x00 };
         let attribute_hi = if attribute_tile & 2 != 0 { 0xFF } else { 0x00 };
-        self.attribute_hi_shift_register |= attribute_hi;
-        self.attribute_lo_shift_register |= attribute_lo;
+        self.attribute_hi_shift_register = (self.attribute_hi_shift_register & 0xFF00) | attribute_hi & 0xFF;
+        self.attribute_lo_shift_register = (self.attribute_lo_shift_register & 0xFF00) | attribute_lo & 0xFF;
 
         self.v.increment_x();
     }
@@ -110,50 +110,23 @@ impl Ppu {
     }
     pub fn render_scanline(&mut self, scanline: u16) {
         self.prime_shiftregister();
-        for x in 0..32 {
-            if x > 0 {
+        for x in 0..256{
+            if x > 0 && x % 8 == 0{
                 self.prime_steptile();
             }
-            let finex = self.x as u16;
-            let mux = 0x8000 >> finex;
-
-            /* get the attribute bytes */
-            for i in 0..8 {
-                let attribute_lobit = if self.attribute_lo_shift_register & mux > 0 {
-                    1
-                } else {
-                    0
-                } as u16;
-                let attribute_hibit = if self.attribute_hi_shift_register & mux > 0 {
-                    1
-                } else {
-                    0
-                };
-
-                let attribute_index = (attribute_hibit << 1) | attribute_lobit;
-                let attribute_index = attribute_index & 3;
-
-                /* Get our pixel number */
-                let pattern_lobit = if self.pattern_lo_shift_register & mux > 0 {
-                    1
-                } else {
-                    0
-                } as u16;
-                let pattern_hibit = if self.pattern_hi_shift_register & mux > 0 {
-                    1
-                } else {
-                    0
-                };
-                let pattern_index = (pattern_hibit << 1) | pattern_lobit;
-                self.shift_registers();
-                unsafe {
-                    (*self.nametable_buffer.unwrap()).drawpixel(
-                        (x * 8) + i,
-                        scanline as u16,
-                        self.get_fgpalette(attribute_index as u8, pattern_index as u8),
-                    );
-                }
+            let finex = 0x8000 >> (self.x as u16);
+            let pixel_lo = if self.pattern_lo_shift_register & finex != 0 {1} else {0};
+            let pixel_hi = if self.pattern_hi_shift_register & finex != 0 {1} else {0};
+            let attrib_lo = if self.attribute_lo_shift_register & finex != 0 {1} else {0};
+            let attrib_hi = if self.attribute_hi_shift_register & finex != 0 {1} else {0};
+            self.shift_registers();
+            let pixel_num = (pixel_hi << 1) | pixel_lo;
+            let attrib_num = (attrib_hi << 1) | attrib_lo;
+            unsafe{
+                (*self.nametable_buffer.unwrap()).drawpixel(x, scanline, self.get_fgpalette(attrib_num, pixel_num));
             }
         }
+        self.v.set_coarse_xscroll(self.t.get_coarse_xscroll());
+        self.v.set_nametablex(self.t.get_nametablex());
     }
 }

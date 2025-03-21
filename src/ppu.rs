@@ -500,10 +500,13 @@ impl Ppu {
         }
     }
     pub fn set_name_table(&mut self) {
-        // self.v.set_data(self.t.get_data());
         for scanline in 0..240{
             self.render_scanline(scanline);
         }
+        self.v.set_coarse_yscroll(self.t.get_coarse_yscroll());
+        self.v.set_fine_y(self.t.get_fine_y());
+        self.v.set_nametabley(self.t.get_nametabley());
+
         self.set_oam_table();
     }
 

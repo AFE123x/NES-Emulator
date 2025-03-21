@@ -81,7 +81,7 @@ pub struct vt_reg {
 
 impl vt_reg {
     pub fn print_register(&mut self) -> String{
-    format!("fine y: {}\tnametable: {}\ty_scroll: {}\tx_scroll: {}",self.get_fine_y(),self.get_nametable(),self.get_coarse_yscroll(),self.get_coarse_xscroll())
+    format!("fine y: {}\tnametable: {}\ty_scroll: {}\tx_scroll: {}\t",self.get_fine_y(),self.get_nametable(),self.get_coarse_yscroll(),self.get_coarse_xscroll())
     }
     /// This initializes the vt_reg structure
     pub fn new() -> Self {
