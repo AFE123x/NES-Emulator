@@ -43,6 +43,10 @@ pub struct Ppu {
     whole_frame: Vec<Vec<((u8, u8, u8), u8)>>,
     nametable_changed: bool,
     nametable_index: u8,
+    pattern_lo_shift_register: u16,
+    pattern_hi_shift_register: u16,
+    attribute_lo_shift_register: u16,
+    attribute_hi_shift_register: u16,
 }
 
 impl Ppu {
@@ -158,6 +162,10 @@ impl Ppu {
             y_scroll: 0,
             nametable_changed: true,
             nametable_index: 0,
+            pattern_lo_shift_register: 0,
+            pattern_hi_shift_register: 0,
+            attribute_lo_shift_register: 0,
+            attribute_hi_shift_register: 0,
         }
     }
     pub fn set_bg_palette_num(&mut self) {
@@ -231,7 +239,7 @@ impl Ppu {
             }
         }
     }
-    pub fn ppu_read(&mut self, address: u16) -> u8 {
+    pub fn ppu_read(&self, address: u16) -> u8 {
         let mut byte = 0;
 
         if address <= 0x1FFF {
@@ -282,7 +290,7 @@ impl Ppu {
 
     pub fn ppu_write(&mut self, address: u16, data: u8) {
         if address <= 0x1FFF {
-            unsafe { (*self.cart).ppu_write(address, data) }; // writes to cartridge space
+            // unsafe { (*self.cart).ppu_write(address, data) }; // writes to cartridge space
             self.pattern_cached = false;
         } else if address >= 0x2000 && address <= 0x2FFF {
             /* nametable writes */
@@ -295,40 +303,22 @@ impl Ppu {
                             /* nametable 0 */
                             let addr = address & 0x3FF;
                             self.vram[addr as usize] = data;
-                            let row = (addr / 32) % 30;
-                            let col = addr % 32;
-                            self.update_block(row, col, 0);
-                            self.update_block(row, col, 1);
                         },
                         0x2800..=0x2BFF => {
                             /* nametable 1 */
                             // address & 0x3FF;
                             let addr = address & 0x3FF;
                             self.vram[addr as usize] = data;
-                            let row = (addr / 32) % 30;
-                            let col = addr % 32;
-                            self.update_block(row, col, 1);
-                            self.update_block(row, col, 0);
                         },
                         0x2400..=0x27FF  => {
                             /* nametable 2 */
                             let addr = 0x400 + (address & 0x3FF);
                             self.vram[addr as usize] = data;
-                            let addr = addr & 0x3FF;
-                            let row = (addr / 32) % 30;
-                            let col = addr % 32;
-                            self.update_block(row, col, 2);
-                            self.update_block(row, col, 3);
                         },
                         0x2C00..=0x2FFF => {
                             /* nametable 3 */
                             let addr = 0x400 + (address & 0x3FF);
                             self.vram[addr as usize] = data;
-                            let addr = addr & 0x3FF;
-                            let row = (addr / 32) % 30;
-                            let col = addr % 32;
-                            self.update_block(row, col, 3);
-                            self.update_block(row, col, 2);
                         },
                         _ => panic!("Address out of range!"),
                     };
@@ -427,20 +417,17 @@ impl Ppu {
                 if self.w == 0 {
                     let temp_val = data >> 3;
                     self.t.set_coarse_xscroll(temp_val);
-                    self.x = data & 0b111;
+                    self.x = data & 3;
                     self.w = 1;
-                    self.x_scroll = data as u16;
                 } else if self.w == 1 {
-                    self.t.set_fine_y(data & 0b111);
+                    self.t.set_fine_y(data & 3);
                     self.t.set_coarse_yscroll(data >> 3);
                     self.w = 0;
-                    self.y_scroll = data as u16;
                 }
             }
             6 => {
                 if self.w == 0 {
-                    let temp_dat = data & 0b00111111;
-                    let temp_dat = temp_dat as u16;
+                    let temp_dat = data as u16;
                     let temp_val = self.t.get_data();
                     let temp_val = temp_val & 0b0000000_11111111;
                     let temp_val = temp_val | (temp_dat << 8);
@@ -452,7 +439,7 @@ impl Ppu {
                     let data = data as u16;
                     let temp_data = temp_data | data;
                     self.t.set_data(temp_data);
-                    self.v.set_data(temp_data);
+                    self.v.set_data(self.t.get_data());
                     self.w = 0;
                 }
             }
@@ -473,95 +460,215 @@ impl Ppu {
         }
     }
 
-    pub fn update_block(&mut self, row: u16, col: u16, table_num: u8) {
-        let block_row = row >> 2;
-        let block_col = col >> 2;
-        let attribute_index = (block_row << 3) + block_col;
-        let base_address = match table_num {
-            0 => 0x2000,
-            1 => 0x2400,
-            2 => 0x2800,
-            3 => 0x2C00,
-            _ => {
-                panic!("shouldn't exist!")
-            }
-        };
-        let x_offset = match table_num {
-            0 => 0,
-            1 => 256,
-            2 => 0,
-            3 => 256,
-            _ => {
-                panic!("shouldn't exist!")
-            }
-        };
 
-        let y_offset = match table_num {
-            0 => 0,
-            1 => 0,
-            2 => 240,
-            3 => 240,
-            _ => {
-                panic!("shouldn't exist!")
-            }
-        };
+    fn increment_x(&mut self){
+        if self.v.get_coarse_xscroll() == 31{
+            self.v.set_coarse_xscroll(0);
+            let nametable = self.v.get_nametablex() ^ 1;
+            self.v.set_nametablex(nametable);
+        }
+        else{
+            let coarsex = self.v.get_coarse_xscroll();
+            self.v.set_coarse_xscroll(coarsex + 1);
+        }
+    }
+pub fn increment_y(&mut self) {
+    // Extract fine Y from v
+    let fine_y = self.v.get_fine_y();
 
-        let attribute_address = base_address + 0x3C0 + attribute_index;
-        let attribute_byte = self.ppu_read(attribute_address);
-        let quadrant = ((row % 4) / 2) * 2 + ((col % 4) / 2);
-        let palette_num = (attribute_byte >> (quadrant * 2)) & 0b11;
+    if fine_y < 7 {
+        // Increment fine Y
+        self.v.set_fine_y(fine_y + 1);
+    } else {
+        // Reset fine Y
+        self.v.set_fine_y(0);
 
-        let background_index = if self
-            .ppuctrl
-            .contains(PPUCTRL::background_pattern_table_address)
-        {
-            1
+        // Handle coarse Y increment
+        let coarse_y = self.v.get_coarse_yscroll();
+
+        if coarse_y == 29 {
+            // Reset coarse Y and toggle vertical nametable
+            self.v.set_coarse_yscroll(0);
+            let namy = self.v.get_nametabley() ^ 1;
+            self.v.set_nametabley(namy);
+        } else if coarse_y == 31 {
+            // Reset coarse Y without toggling nametable
+            self.v.set_coarse_yscroll(0);
         } else {
-            0
-        };
-        let name_index = (row * 32) + col;
-        let name_table_index = self.ppu_read(base_address + name_index as u16);
-        let x_index = name_table_index & 0xF;
-        let y_index = name_table_index >> 4;
-        let x_index = x_index * 8;
-        let y_index = y_index * 8;
-
-        for i in 0..8 {
-            for j in 0..8 {
-                let palette_index = self.pattern_table[background_index][(x_index + i) as usize][(y_index + j) as usize];
-                let color = self.get_bgpalette(palette_num, palette_index);
-                let x = (col * 8) + i as u16;
-                let y = (row * 8) + j as u16;
-                self.whole_frame[((x_offset as u16) + x) as usize][((y_offset as u16) + y) as usize] = (color, palette_index);
-            }
+            // Simply increment coarse Y
+            self.v.set_coarse_yscroll(coarse_y + 1);
         }
     }
-
-    pub fn update_frame(&mut self) {
-        for i in 0..240 {
-            for j in 0..256 {
-                let x_offset = if self.ppuctrl.contains(PPUCTRL::name_table_x) {
-                    256
-                } else {
-                    0
-                };
-                let y_offset = if self.ppuctrl.contains(PPUCTRL::name_table_y) {
-                    240
-                } else {
-                    0
-                };
-                let x_offset = (x_offset + self.x_scroll + j) % 512;
-                let y_offset = (y_offset + self.y_scroll + i) % 480;
-                unsafe {
-                    (*self.nametable_buffer.unwrap()).drawpixel(
-                        j,
-                        i,
-                        self.whole_frame[x_offset as usize][y_offset as usize].0,
-                    );
-                }
-            }
-        }
+}
+    fn print_address(&self) -> String{
+        let v = self.v.get_data();
+        let tile = 0x2000 | (v & 0xFFF);
+        let attrib = 0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x7);
+        format!("tile: {:4x}, attrib: {:4x}\t",tile,attrib)
     }
+    fn get_tiles(&mut self) -> (u16, u16){
+        let v = self.v.get_data();
+        let tile = 0x2000 | (v & 0xFFF);
+        let attrib = 0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x7);
+        let nametable_tile = self.ppu_read(tile) as u16;
+        let attribute_tile = self.ppu_read(attrib) as u16;
+        (nametable_tile, attribute_tile)
+    }
+    fn get_second_tile(&mut self){
+        println!("x: {}, {} ,{}\t",self.x,self.print_address(),self.v.print_register());
+        /* Retrieve nametable and attribute table */
+        let (nametable_tile,attribute_tile) = self.get_tiles();
+        
+        /* Calculate address for pallette  */
+        let address = if self.ppuctrl.contains(PPUCTRL::background_pattern_table_address) {0x1000} else {0} as u16;
+        let address = address | (nametable_tile << 4) | (self.v.get_fine_y() as u16);
+
+        /* Retrieve palette bytes */
+
+        /* Hi byte */
+        let pattern_table_hibyte = self.ppu_read(address + 8) as u16;
+        self.pattern_hi_shift_register = (self.pattern_hi_shift_register & 0xFF00) |  pattern_table_hibyte;
+
+        /* Lo byte */
+        let pattern_table_lobyte = self.ppu_read(address) as u16;
+        self.pattern_lo_shift_register = (self.pattern_lo_shift_register & 0xFF00) |  pattern_table_lobyte;
+
+        /* Retrieve attribute table bytes */
+
+        let mut attribute_byte = self.ppu_read(attribute_tile);
+
+        /*
+            Retriving correct tile
+
+            given the attribute byte 0x76543210, it's represented in the following way
+              0    1
+            +----+----+
+            | 10 | 32 | 0
+            +----+----+
+            | 54 | 76 | 1
+            +----+----+
+            
+            To extract the correct 2 bits, we can use bit manipulation. Since we know coarse x and y, we can figure out the 2 bits.
+        */
+
+        if self.v.get_coarse_yscroll() % 2 != 0{
+            attribute_byte >>= 4; //This tells us our tile is on the bottom, so we get rid of the bottom 4 bits
+        }
+        if self.v.get_coarse_xscroll() % 2 != 0{
+            attribute_byte >>= 2; //This tells us that our tile is on the right, so we shift by two.
+        }
+        attribute_byte = attribute_byte & 3; //we mask our result in case none of the following are true.
+
+        /* Retrieve the low and high byte, then load it on the attribute shift register. */
+        let attribute_byte_lo = if attribute_byte & 1 != 0 {0xFF} else {0}; //the lsb is 1, so all the values in the shift register is 1.
+        let attribute_byte_hi = if attribute_byte & 2 != 0 {0xFF} else {0};
+        self.attribute_hi_shift_register = (self.attribute_hi_shift_register & 0xFF00) |  attribute_byte_hi;
+        self.attribute_lo_shift_register = (self.attribute_lo_shift_register & 0xFF00) | attribute_byte_lo;
+        self.increment_x();
+        
+    }
+
+    fn get_first_tile(&mut self){
+        /* Retrieve nametable and attribute table */
+        let (nametable_tile,attribute_tile) = self.get_tiles();
+        
+        /* Calculate address for pallette  */
+        let address = if self.ppuctrl.contains(PPUCTRL::background_pattern_table_address) {0x1000} else {0} as u16;
+        let address = address | (nametable_tile << 4) | (self.v.get_fine_y() as u16);
+
+        /* Retrieve palette bytes */
+
+        /* Hi byte */
+        let pattern_table_hibyte = self.ppu_read(address + 8) as u16;
+        self.pattern_hi_shift_register = pattern_table_hibyte << 8;
+
+        /* Lo byte */
+        let pattern_table_lobyte = self.ppu_read(address) as u16;
+        self.pattern_lo_shift_register = pattern_table_lobyte << 8;
+
+
+        /* Retrieve attribute table bytes */
+
+        let mut attribute_byte = self.ppu_read(attribute_tile);
+
+        /*
+            Retriving correct tile
+
+            given the attribute byte 0x76543210, it's represented in the following way
+              0    1
+            +----+----+
+            | 10 | 32 | 0
+            +----+----+
+            | 54 | 76 | 1
+            +----+----+
+            
+            To extract the correct 2 bits, we can use bit manipulation. Since we know coarse x and y, we can figure out the 2 bits.
+        */
+
+        if self.v.get_coarse_yscroll() & 2 != 0{
+            attribute_byte >>= 4; //This tells us our tile is on the bottom, so we get rid of the bottom 4 bits
+        }
+        if self.v.get_coarse_xscroll() & 2 != 0{
+            attribute_byte >>= 2; //This tells us that our tile is on the right, so we shift by two.
+        }
+        attribute_byte = attribute_byte & 3; //we mask our result in case none of the following are true.
+
+        /* Retrieve the low and high byte, then load it on the attribute shift register. */
+        let attribute_byte_lo = if attribute_byte & 1 != 0 {0xFF} else {0}; //the lsb is 1, so all the values in the shift register is 1.
+        let attribute_byte_hi = if attribute_byte & 2 != 0 {0xFF} else {0};
+        self.attribute_hi_shift_register = attribute_byte_hi << 8;
+        self.attribute_lo_shift_register = attribute_byte_lo << 8;
+        self.increment_x(); //we increment the x register to finish off.
+    }
+    fn prime_shift_registers(&mut self){
+        self.get_first_tile();
+        self.get_second_tile();
+    }
+    pub fn render_scanline(&mut self, scanline: u16){
+        self.prime_shift_registers(); //primes our shift register to do stuff
+        for x in 0..256{ //iterates through all horizontal pixels
+
+            /*
+                every 8th tick, we want to reload the next tile onto the shift register.
+                We would load the new tile, attribute table, and load the pattern stuff on
+                the shift register.
+            */
+            if x > 0 && x % 8 == 0{
+                self.get_second_tile(); //basically does the job for us.
+            }
+
+            /* Read the values from our shift registers for rendering */
+            let finex = (0x8000 >> self.x) as u16;
+            let pattern_lobit = if self.pattern_lo_shift_register & finex > 0 {1} else {0};
+            let pattern_hibit = if self.pattern_hi_shift_register & finex > 0 {1} else {0};
+            let attribute_lobit = if self.attribute_lo_shift_register & finex > 0 {1} else {0};
+            let attribute_hibit = if self.attribute_hi_shift_register > 0 {1} else {0};
+
+            /* Calculate the attribute bit */
+            let attribute_index = (attribute_hibit << 1) | attribute_lobit;
+            let pattern_index = (pattern_hibit << 1) | pattern_lobit;
+            unsafe{
+                (*self.nametable_buffer.unwrap()).drawpixel(x, scanline, self.get_fgpalette(attribute_index, pattern_index));
+            }
+            /* Update shift registers */
+            self.attribute_hi_shift_register <<= 1;
+            self.attribute_lo_shift_register <<= 1;
+            self.pattern_hi_shift_register <<= 1;
+            self.pattern_lo_shift_register <<= 1;
+        }
+        self.increment_y();
+    }
+
+    pub fn update_frame(&mut self){
+        self.v.set_data(self.t.get_data());
+        for i in 0..240{
+            self.render_scanline(i);
+            self.v.set_coarse_xscroll(self.t.get_coarse_xscroll());
+            self.v.set_nametablex(self.t.get_nametablex());
+        }
+
+    }
+
     pub fn render_88_sprite(&mut self, index: usize) {
         let oam_sprite = self.oam_table[index].clone();
         let x = oam_sprite.get_x_position() as usize;
@@ -610,11 +717,6 @@ impl Ppu {
         }
     }
     pub fn set_name_table(&mut self) {
-        for i in 0..32{
-            for j in 0..30{
-                self.update_block(j, i, 0);
-            }
-        }
         self.update_frame();
         self.set_oam_table();
     }

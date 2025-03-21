@@ -80,6 +80,9 @@ pub struct vt_reg {
 }
 
 impl vt_reg {
+    pub fn print_register(&mut self) -> String{
+    format!("fine y: {}\tnametable: {}\ty_scroll: {}\tx_scroll: {}",self.get_fine_y(),self.get_nametable(),self.get_coarse_yscroll(),self.get_coarse_xscroll())
+    }
     /// This initializes the vt_reg structure
     pub fn new() -> Self {
         Self { data: 0 }
@@ -101,7 +104,7 @@ impl vt_reg {
     ///this will set the bits in the nametable section
     pub fn set_nametable(&mut self, input: u8) {
         let input = input & 0x3;
-        self.data &= !0b1000110000000000;
+        self.data &= !(3 << 10);
         let mut temp = input as u16;
         temp <<= 10;
         self.data |= temp;
@@ -174,6 +177,7 @@ impl vt_reg {
         let data = self.get_nametable();
         data >> 1
     }
+    
 
 }
 

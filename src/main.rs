@@ -13,6 +13,7 @@ fn main(){
     }
     let scale: u8 = args[2].parse().unwrap();
     let status = render::gameloop(&args[1],scale as u32);
+    // let status = render::gameloop("roms/donkey.nes", 1);
     match status{
         Ok(_) => {},
         Err(e) => panic!("error: {}",e.to_string()),
