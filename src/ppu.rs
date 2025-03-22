@@ -1,5 +1,5 @@
-mod oam;
 mod loopy;
+mod oam;
 
 use crate::ppu::oam::oam as Oam;
 use registers::{vt_reg, PPUCTRL, PPUMASK, PPUSTATUS};
@@ -32,9 +32,8 @@ pub struct Ppu {
     scanline_counter: i16,
     palette_boi: u8,
     total_cycles: usize,
-    pattern_table: Vec<Vec<Vec<u8>>>,
-    pattern_cached: bool,
-    nametable_buffer: Option<*mut Fr>,
+    nametable_frame: Option<*mut Fr>,
+    frame_array: Vec<Vec<u8>>,
     oam_table: Vec<Oam>,
     pattern_lo_shift_register: u16,
     pattern_hi_shift_register: u16,
@@ -146,14 +145,13 @@ impl Ppu {
             scanline_counter: 0,
             palette_boi: 0,
             total_cycles: 0,
-            pattern_table: vec![vec![vec![0; 128]; 128]; 2],
-            pattern_cached: false,
-            nametable_buffer: None,
+            nametable_frame: None,
             oam_table: vec![Oam::new(); 64],
             pattern_lo_shift_register: 0,
             pattern_hi_shift_register: 0,
             attribute_lo_shift_register: 0,
             attribute_hi_shift_register: 0,
+            frame_array: vec![vec![0; 240]; 256],
         }
     }
     pub fn set_bg_palette_num(&mut self) {
@@ -178,53 +176,34 @@ impl Ppu {
     }
 
     pub fn linkpattern(&mut self, frame: &mut Fr) {
-        self.nametable_buffer = Some(frame);
+        self.nametable_frame = Some(frame);
     }
 
-    pub fn get_pattern_table(&mut self, frame: &mut Fr, palette: u8) {
-        self.palette_boi = palette;
-        if !self.pattern_cached {
-            /* There's nothing in the palette_table memory */
-            /* filling first (and populating frame as well) */
-            for row in 0..0x20 {
-                for col in 0..0x10 {
-                    let table = if row < 16 { 0 } else { 0b0_1_00000000_0_000 }; //tells us which table to fill
-                    let tile_num = ((row & 0xF) * 16) + (col) as u16;
-                    let palette_address = table | (tile_num << 4);
-                    for i in 0..8 {
-                        let mut lo_byte = self.ppu_read(palette_address + i); /* get low byte of palette */
-                        let mut hi_byte = self.ppu_read(palette_address + 8 + i); /* get high byte of palette */
-                        for j in 0..8 {
-                            let lo_bit = lo_byte & 0x1;
-                            let hi_bit = hi_byte & 0x1;
-
-                            let pixel_num = (hi_bit << 1) | lo_bit;
-                            /* y = row * 8 + i, x = col * 8 */
-                            let x = (col * 8) + (7 - j);
-                            let y = ((row & 0xF) * 8) + i;
-                            let y = y as usize;
-
-                            let table_num = if row < 16 { 0 } else { 1 };
-                            self.pattern_table[table_num][x][y] = pixel_num;
-                            hi_byte = hi_byte >> 1;
-                            lo_byte = lo_byte >> 1;
-                        }
+    pub fn get_pattern_table(&mut self, frame: &mut Fr) {
+        for coarse_y in 0..0x10 {
+            for coarse_x in 0..0x20 {
+                let pattern_address = if coarse_x >= 0x10 { 0x1000 } else { 0 };
+                let nametable_location = coarse_y << 4 | (coarse_x & 0xF);
+                for fine_y in 0..8 {
+                    let address = pattern_address | (nametable_location << 4) | fine_y;
+                    let mut pattern_lo = self.ppu_read(address);
+                    let mut pattern_hi = self.ppu_read(address + 8);
+                    for fine_x in 0..8 {
+                        let bitlo = if pattern_lo & 0x80 > 0 { 1 } else { 0 };
+                        let bithi = if pattern_hi & 0x80 > 0 { 1 } else { 0 };
+                        let pattern_number = (bitlo << 1) | bithi;
+                        let x = (coarse_x << 3) + fine_x;
+                        let y = (coarse_y << 3) + fine_y;
+                        frame.drawpixel(x, y, self.get_bgpalette(self.palette_num, pattern_number));
+                        pattern_lo <<= 1;
+                        pattern_hi <<= 1;
                     }
-                }
-            }
-            self.pattern_cached = true
-        } else {
-            for x in 0..256 {
-                for y in 0..128 {
-                    let table_index = if x > 127 { 1 } else { 0 };
-                    let index = self.pattern_table[table_index][x & 0x7F][y];
-                    let color = self.get_bgpalette(self.palette_num, index);
-                    frame.drawpixel(x as u16, y as u16, color);
                 }
             }
         }
     }
-    pub fn ppu_read(&self, address: u16) -> u8 {
+
+    fn ppu_read(&self, address: u16) -> u8 {
         let mut byte = 0;
 
         if address <= 0x1FFF {
@@ -265,10 +244,9 @@ impl Ppu {
         byte
     }
 
-    pub fn ppu_write(&mut self, address: u16, data: u8) {
+    fn ppu_write(&mut self, address: u16, data: u8) {
         if address <= 0x1FFF {
             // unsafe { (*self.cart).ppu_write(address, data) }; // writes to cartridge space
-            self.pattern_cached = false;
         } else if address >= 0x2000 && address <= 0x2FFF {
             /* nametable writes */
             let nametable: Nametable = unsafe { (*self.cart).get_nametable() };
@@ -299,7 +277,6 @@ impl Ppu {
                         }
                         _ => panic!("Address out of range!"),
                     };
-
                 }
                 Nametable::Horizontal => {
                     let index = match address {
@@ -321,6 +298,9 @@ impl Ppu {
     ///# cpu_read
     /// This function lets the cpu read from the PPU Address space.
     /// ## Addresses
+    /// 2: Read from the PPU Status Register
+    /// 4: Read oam data
+    /// 7: read value from ppu from ppu address set in the PPUADDR Register
     pub fn cpu_read(&mut self, address: u16, rdonly: bool) -> u8 {
         let masked_address = address & 0x7;
         let mut data = 0;
@@ -329,6 +309,7 @@ impl Ppu {
                 data = 0;
             }
             2 => {
+                self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag,!self.ppustatus.contains(PPUSTATUS::sprite_0_hit_flag));
                 data = self.ppustatus.bits();
                 if !rdonly {
                     self.ppustatus.set(PPUSTATUS::vblank_flag, false);
@@ -435,10 +416,10 @@ impl Ppu {
         }
     }
 
-    pub fn render_88_sprite(&mut self, index: usize) {
+    pub fn render_816_sprite(&mut self, index: usize) {
         let oam_sprite = self.oam_table[index].clone();
-        let x = oam_sprite.get_x_position() as usize;
-        let mut y = oam_sprite.get_y_position() as usize;
+        let x = oam_sprite.get_x_position();
+        let mut y = oam_sprite.get_y_position();
         if y != 0 {
             y = y - 1;
         }
@@ -447,29 +428,105 @@ impl Ppu {
         let horizontal_factor = attribute & 0x40 > 0;
         let vertical_factor = attribute & 0x80 > 0;
         let attrib_table = attribute & 0x3;
-        let x_pat = index & 0xF;
-        let y_pat = index >> 4;
-        let y_pat = y_pat * 8;
-        let x_pat = x_pat * 8;
         let table_index = if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {
-            1
+            0x1000
+        } else {
+            0
+        };
+        for i in 0..16 {
+            let pattern_address = (table_index | (index << 4)) + i;
+            let mut pattern_lo = self.ppu_read(pattern_address);
+            let mut pattern_hi = self.ppu_read(pattern_address + 8);
+            for j in 0..8 {
+                let pattern_bit_lo = if pattern_lo & 0x80 != 0 { 1 } else { 0 };
+                let pattern_bit_hi = if pattern_hi & 0x80 != 0 { 1 } else { 0 };
+                let pixel_num = (pattern_bit_hi << 1) | pattern_bit_lo;
+                pattern_lo <<= 1;
+                pattern_hi <<= 1;
+                let color = self.get_fgpalette(attrib_table & 3, pixel_num);
+                if x < 241 && y < 231 {
+                    let j = if horizontal_factor { 7 - j } else { j };
+                    let i = if vertical_factor { 7 - i } else { i };
+                    let x = x + j;
+                    let y = y + i;
+                    if index == 0 && self.frame_array[x as usize][y as usize] != 0 {
+                        self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
+                    }
+                    let priority = attribute & 0x20 > 0; //if it's one, we render the sprite behind the background
+                    if priority {
+                        if self.frame_array[x as usize][y as usize] == 0 {
+                            if pixel_num != 0 {
+                                unsafe {
+                                    (*self.nametable_frame.unwrap())
+                                        .drawpixel(x as u16, y as u16, color)
+                                };
+                            }
+                        }
+                    } else {
+                        if pixel_num != 0 {
+                            unsafe {
+                                (*self.nametable_frame.unwrap())
+                                    .drawpixel(x as u16, y as u16, color)
+                            };
+                        }
+                    }
+                }
+            }
+        }
+    }
+    pub fn render_88_sprite(&mut self, index: usize) {
+        let oam_sprite = self.oam_table[index].clone();
+        let x = oam_sprite.get_x_position();
+        let mut y = oam_sprite.get_y_position();
+        if y > 1 {
+            y = y - 1;
+        }
+        let index = oam_sprite.get_index_number() as u16;
+        let attribute = oam_sprite.get_attribute();
+        let horizontal_factor = attribute & 0x40 > 0;
+        let vertical_factor = attribute & 0x80 > 0;
+        let attrib_table = attribute & 0x3;
+        let table_index = if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {
+            0x1000
         } else {
             0
         };
         for i in 0..8 {
+            let pattern_address = (table_index | (index << 4)) + i;
+            let mut pattern_lo = self.ppu_read(pattern_address);
+            let mut pattern_hi = self.ppu_read(pattern_address + 8);
             for j in 0..8 {
-                let pixel_num =
-                    self.pattern_table[table_index][x_pat as usize + i][y_pat as usize + j];
+                let pattern_bit_lo = if pattern_lo & 0x80 != 0 { 1 } else { 0 };
+                let pattern_bit_hi = if pattern_hi & 0x80 != 0 { 1 } else { 0 };
+                let pixel_num = (pattern_bit_hi << 1) | pattern_bit_lo;
+                pattern_lo <<= 1;
+                pattern_hi <<= 1;
                 let color = self.get_fgpalette(attrib_table & 3, pixel_num);
-                if x < 256 && y < 240 {
-                    let j_factor = if vertical_factor { 7 - j } else { j as usize };
-                    let i_factor = if horizontal_factor { 7 - i } else { i as usize }; /* x axis render */
-                    let y = y + j_factor + 2;
-                    let x = x + i_factor;
-                    if pixel_num != 0 {
-                        unsafe {
-                            (*self.nametable_buffer.unwrap()).drawpixel(x as u16, y as u16, color)
-                        };
+                if x < 241 && y < 231 {
+                    let j = if horizontal_factor { 7 - j } else { j };
+                    let i = if vertical_factor { 7 - i } else { i };
+                    let x = x + j;
+                    let y = y + i;
+                    if index == 0 && self.frame_array[x as usize][y as usize] != 0 {
+                        self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
+                    }
+                    let priority = attribute & 0x20 > 0; //if it's one, we render the sprite behind the background
+                    if priority {
+                        if self.frame_array[x as usize][y as usize] == 0 {
+                            if pixel_num != 0 {
+                                unsafe {
+                                    (*self.nametable_frame.unwrap())
+                                        .drawpixel(x as u16, y as u16, color)
+                                };
+                            }
+                        }
+                    } else {
+                        if pixel_num != 0 {
+                            unsafe {
+                                (*self.nametable_frame.unwrap())
+                                    .drawpixel(x as u16, y as u16, color)
+                            };
+                        }
                     }
                 }
             }
@@ -477,6 +534,9 @@ impl Ppu {
     }
     pub fn set_oam_table(&mut self) {
         if self.ppuctrl.contains(PPUCTRL::sprite_size) {
+            for i in 0..64 {
+                self.render_816_sprite(i);
+            }
         } else {
             for i in 0..64 {
                 self.render_88_sprite(i);

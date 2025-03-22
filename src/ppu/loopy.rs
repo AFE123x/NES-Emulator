@@ -148,8 +148,9 @@ impl Ppu {
             /* Draw the graphics to pixel */
             if self.ppumask.contains(PPUMASK::enable_background_rendering){
                 unsafe{
-                    (*self.nametable_buffer.unwrap()).drawpixel(x, scanline, self.get_bgpalette(attribute_index, pattern_index));
+                    (*self.nametable_frame.unwrap()).drawpixel(x, scanline, self.get_bgpalette(attribute_index, pattern_index));
                 }
+                self.frame_array[x as usize][scanline as usize] = pattern_index;
             }
 
         }
