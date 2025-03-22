@@ -18,8 +18,6 @@ pub struct Ppu {
     oamdata: u8,          //oamdata register (mapped at address $2004)
     oamdma: u8,           //oamdma register (mapped at address $4014)
     v: vt_reg,
-    x_scroll: u16,
-    y_scroll: u16,
     t: vt_reg,
     w: u8, //toggle between first and second write
     x: u8, //fine x scroll
@@ -38,8 +36,6 @@ pub struct Ppu {
     pattern_cached: bool,
     nametable_buffer: Option<*mut Fr>,
     oam_table: Vec<Oam>,
-    nametable_changed: bool,
-    nametable_index: u8,
     pattern_lo_shift_register: u16,
     pattern_hi_shift_register: u16,
     attribute_lo_shift_register: u16,
@@ -154,10 +150,6 @@ impl Ppu {
             pattern_cached: false,
             nametable_buffer: None,
             oam_table: vec![Oam::new(); 64],
-            x_scroll: 0,
-            y_scroll: 0,
-            nametable_changed: true,
-            nametable_index: 0,
             pattern_lo_shift_register: 0,
             pattern_hi_shift_register: 0,
             attribute_lo_shift_register: 0,
@@ -170,7 +162,6 @@ impl Ppu {
     pub fn oam_dma_write(&mut self, address: u8, data: u8) {
         let index = address / 4;
         self.oam_table[index as usize].set_byte(address, data);
-        self.nametable_changed = true;
     }
     pub fn get_bgpalette(&mut self, palettenum: u8, paletteindex: u8) -> (u8, u8, u8) {
         let palettenum = palettenum & 0x1F;
@@ -309,7 +300,6 @@ impl Ppu {
                         _ => panic!("Address out of range!"),
                     };
 
-                    self.nametable_changed = true;
                 }
                 Nametable::Horizontal => {
                     let index = match address {
@@ -318,7 +308,6 @@ impl Ppu {
                         _ => panic!("Address out of range!"),
                     };
                     self.vram[index as usize] = data;
-                    self.nametable_changed = true;
                 }
             };
         } else if address >= 0x3000 && address <= 0x3EFF {

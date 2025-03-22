@@ -1,3 +1,5 @@
+use crate::cartridge::Nametable;
+
 use super::{registers::{PPUCTRL, PPUMASK}, Ppu};
 
 impl Ppu {
@@ -15,6 +17,7 @@ impl Ppu {
             0
         };
         let finey = self.v.get_fine_y() as u16;
+        let nametable_address = self.ppu_read(nametable_address) as u16;
         let pattern_address = pattern_address | (nametable_address << 4) | finey;
         let pattern_lo = self.ppu_read(pattern_address) as u16;
         let pattern_hi = self.ppu_read(pattern_address + 8) as u16;
@@ -53,6 +56,7 @@ impl Ppu {
             0
         };
         let finey = self.v.get_fine_y() as u16;
+        let nametable_address = self.ppu_read(nametable_address) as u16;
         let pattern_address = pattern_address | (nametable_address << 4) | finey;
         let pattern_lo = self.ppu_read(pattern_address) as u16;
         let pattern_hi = self.ppu_read(pattern_address + 8) as u16;
@@ -152,9 +156,7 @@ impl Ppu {
         self.v.increment_y();
     }
     pub fn render_nametable(&mut self) {
-        self.v.set_fine_y(self.t.get_fine_y());
-        self.v.set_coarse_yscroll(self.t.get_coarse_yscroll());
-        self.v.set_nametabley(self.t.get_nametabley());
+        self.v.set_data(self.t.get_data());
         for i in 0..240 {
             self.render_scanline(i);
             self.v.set_coarse_xscroll(self.t.get_coarse_xscroll());
