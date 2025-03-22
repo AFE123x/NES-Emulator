@@ -38,7 +38,6 @@ pub struct Ppu {
     pattern_cached: bool,
     nametable_buffer: Option<*mut Fr>,
     oam_table: Vec<Oam>,
-    whole_frame: Vec<Vec<((u8, u8, u8), u8)>>,
     nametable_changed: bool,
     nametable_index: u8,
     pattern_lo_shift_register: u16,
@@ -155,7 +154,6 @@ impl Ppu {
             pattern_cached: false,
             nametable_buffer: None,
             oam_table: vec![Oam::new(); 64],
-            whole_frame: vec![vec![((0, 0, 0), 0); 480]; 512],
             x_scroll: 0,
             y_scroll: 0,
             nametable_changed: true,
@@ -480,9 +478,6 @@ impl Ppu {
                     let y = y + j_factor + 2;
                     let x = x + i_factor;
                     if pixel_num != 0 {
-                        if self.whole_frame[x as usize][y as usize].1 != 0 && index == 0 {
-                            self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
-                        }
                         unsafe {
                             (*self.nametable_buffer.unwrap()).drawpixel(x as u16, y as u16, color)
                         };
@@ -500,13 +495,7 @@ impl Ppu {
         }
     }
     pub fn set_name_table(&mut self) {
-        for scanline in 0..240{
-            self.render_scanline(scanline);
-        }
-        self.v.set_coarse_yscroll(self.t.get_coarse_yscroll());
-        self.v.set_fine_y(self.t.get_fine_y());
-        self.v.set_nametabley(self.t.get_nametabley());
-
+        self.render_nametable();
         self.set_oam_table();
     }
 
