@@ -40,9 +40,10 @@ impl Cartridge {
     pub fn new(file_name: &str) -> Self {
         let buf = fs::read(file_name).expect("unable to open file!");
         let lobyte = buf[6] as u16;
+
         let hibyte = buf[7] as u16;
-        let flag = (hibyte << 8) | lobyte;
-        let name_table_arrangement = if flag & 1 != 0 {
+        let flag = (hibyte & 0xF0) | (lobyte >> 4);
+        let name_table_arrangement = if lobyte & 1 == 0 {
             Nametable::Horizontal
         } else {
             Nametable::Vertical

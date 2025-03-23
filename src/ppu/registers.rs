@@ -87,66 +87,61 @@ impl vt_reg {
     pub fn new() -> Self {
         Self { data: 0 }
     }
+
     /// This sets the fine_y bits to whatever specified
     pub fn set_fine_y(&mut self, input: u8) {
-        let input = input & 0x7;
-        self.data &= !0b1111000000000000;
-        let mut temp = input as u16;
-        temp <<= 12;
-        self.data |= temp;
+        let mask = 7 << 12;
+        self.data &= !mask;
+        let input = input & 7;
+        let input = input as u16;
+        self.data |= input << 12;
     }
     ///This retrieves the bits stored in the fine_y section
     pub fn get_fine_y(&mut self) -> u8 {
-        let temp = (self.data >> 12) & 0x7;
-        let temp = temp as u8;
-        temp
+        let temp = self.data >> 12;
+        (temp & 7) as u8
     }
     ///this will set the bits in the nametable section
     pub fn set_nametable(&mut self, input: u8) {
-        let input = input & 0x3;
-        self.data &= !(3 << 10);
-        let mut temp = input as u16;
-        temp <<= 10;
-        self.data |= temp;
+        let input = input & 3;
+        self.data &= 0x73FF;
+        let input = input as u16;
+        self.data |= input << 10;
     }
     ///this will retrieve the bits in the nametable
     pub fn get_nametable(&mut self) -> u8 {
-        let temp = (self.data >> 10) & 0x3;
-        let temp = temp as u8;
-        temp
+        let nametable = (self.data >> 10) & 3;
+        nametable as u8
     }
     ///This will set the bits for the coarse y scroll.
     pub fn set_coarse_yscroll(&mut self, input: u8){
         let input = input & 0x1F;
-        self.data &= !(0b1_000_00_11111_00000);
+        let mask = 0x1F << 5;
+        self.data &= !mask;
         let input = input as u16;
         let input = input << 5;
         self.data |= input;
     }
     ///this will set the bits in the coarse y scroll
     pub fn get_coarse_yscroll(&mut self) -> u8{
-        let input = self.data >> 5;
-        let input = input & 0x1F;
-        let input = input as u8;
-        input
+        ((self.data >> 5) & 0x1F) as u8
     }
+
     ///This will set the bits in the x scroll
     pub fn set_coarse_xscroll(&mut self, input: u8){
         let input = input & 0x1F;
-        self.data &= !(0b1_000_00_00000_11111);
         let input = input as u16;
+        self.data &= !(0x1F);
         self.data |= input;
     }
     ///This will retrieve the bits in the x scroll
     pub fn get_coarse_xscroll(&mut self) -> u8{
-        let input = self.data & 0x1F;
-        let input = input as u8;
-        input
+        let toreturn = self.data & 0x1F;
+        toreturn as u8
     }
     ///this will set the raw bits of the vt_register (we ignore the msb of the u16)
     pub fn set_data(&mut self, val: u16){
-        let val = val & 0x7FFF;
-        self.data = val;
+        self.data = val & 0x7FFF;
     }
     ///this will set the raw bits of the vt_register
     pub fn get_data(&self) -> u16{
@@ -155,28 +150,26 @@ impl vt_reg {
 
     pub fn set_nametablex(&mut self, table: u8){
         let table = table & 1;
-        let data = self.get_nametable();
-        let data = data & 2;
-        let data = data | table;
-        self.set_nametable(data);
+        let table = table as u16;
+        let temp = 1 << 10;
+        self.data &= !temp;
+        self.data |= table << 10;
     }
 
     pub fn set_nametabley(&mut self, table: u8){
         let table = table & 1;
-        let data = self.get_nametable();
-        let data = data & 1;
-        let data = data | (table << 1);
-        self.set_nametable(data);
+        let table = table as u16;
+        let temp = 1 << 11;
+        self.data &= !temp;
+        self.data |= table << 11;  
     }
 
     pub fn get_nametablex(&mut self) -> u8{
-        let data = self.get_nametable();
-        data & 1
+        (((self.data)>> 10) & 1) as u8
     }
 
     pub fn get_nametabley(&mut self) -> u8{
-        let data = self.get_nametable();
-        data >> 1
+        (((self.data)>> 11) & 1) as u8
     }
 
     pub fn increment_x(&mut self){

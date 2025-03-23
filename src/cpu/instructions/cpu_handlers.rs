@@ -1,9 +1,30 @@
 use crate::cpu::Cpu;
-
 use super::inst_enum::{AddressMode, Instruction};
 use crate::cpu::Flags;
+mod loadstore;
+mod registertransfer;
+mod stackoperations;
+mod logical;
+mod arithmetic;
+mod incdec;
+mod shifts;
+mod jumpcall;
+mod branches;
+mod systemfunctions;
+
 
 impl Cpu {
+
+    pub fn push(&mut self,byte: u8){
+        let address = 0x100 + (self.sp as u16);
+        self.sp = self.sp.wrapping_sub(1);
+        self.cpu_write(address, byte);
+    }
+    pub fn pop(&mut self) -> u8{
+        self.sp = self.sp.wrapping_add(1);
+        let address = 0x100 + (self.sp as u16);
+        self.cpu_read(address, false)
+    }
     pub fn handle_opcode(&mut self, opcode: u8) {
         match opcode {
             0xA9 => self.handle_operation(AddressMode::Immediate, Instruction::LDA, 2),
@@ -170,6 +191,7 @@ impl Cpu {
         cycles: u8,
     ) {
         self.handle_addrmode(&addrmode);
+        // self.print_state(&instruction, &addrmode);
         self.handle_instruction(instruction);
         self.cycles_left = self.cycles_left.wrapping_add(cycles);
     }

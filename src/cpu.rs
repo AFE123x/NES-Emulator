@@ -26,7 +26,6 @@ pub struct Cpu {
     y: u8,
     pc: u16,
     sp: u8,
-    immval: u8,
     addrabs: u16,
     relval: u16,
     cycles_left: u8,
@@ -49,7 +48,6 @@ impl Cpu {
             y: 0,
             pc: 0x8000,
             sp: 0xFD,
-            immval: 0,
             bus: None,
             addrabs: 0,
             relval: 0,
@@ -97,43 +95,5 @@ impl Cpu {
         }
         self.cycles_left = self.cycles_left.wrapping_sub(1);
         self.total_cycles = self.total_cycles.wrapping_add(1);
-    }
-}
-
-#[cfg(test)]
-impl Cpu {
-    pub fn get_a(&self) -> u8 {
-        self.a
-    }
-
-    pub fn get_x(&self) -> u8 {
-        self.x
-    }
-
-    pub fn get_y(&self) -> u8 {
-        self.y
-    }
-
-    pub fn get_flag(&self) -> u8 {
-        self.flags.bits()
-    }
-
-    pub fn set_a(&mut self, val: u8) {
-        self.a = val;
-    }
-
-    pub fn set_x(&mut self, val: u8) {
-        self.x = val;
-    }
-
-    pub fn set_y(&mut self, val: u8) {
-        self.y = val;
-    }
-    pub fn set_immval(&mut self, val: u8) {
-        self.immval = val;
-    }
-
-    pub fn set_flags(&mut self, val: u8) {
-        self.flags = Flags::from_bits_truncate(val);
     }
 }

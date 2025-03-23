@@ -23,8 +23,8 @@ impl oam{
     pub fn new() -> Self{
         Self { y_position: 0, index_number: 0, attribute: 0, x_position: 0 }
     }
-    pub fn print_oam(&mut self){
-        println!("y_pos: {}, index: {:2x}, attribute: {:2x}, x_pos: {}",self.y_position,self.index_number,self.attribute,self.x_position);
+    pub fn print_oam(&mut self) -> String{
+        format!("y_pos: {}, index: {:2x}, attribute: {:2x}, x_pos: {}",self.y_position,self.index_number,self.attribute,self.x_position)
     }
 
     pub fn get_y_position(&self) -> u16{

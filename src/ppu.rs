@@ -309,7 +309,6 @@ impl Ppu {
                 data = 0;
             }
             2 => {
-                self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag,!self.ppustatus.contains(PPUSTATUS::sprite_0_hit_flag));
                 data = self.ppustatus.bits();
                 if !rdonly {
                     self.ppustatus.set(PPUSTATUS::vblank_flag, false);
@@ -358,7 +357,7 @@ impl Ppu {
         match masked_address {
             0 => {
                 self.ppuctrl = PPUCTRL::from_bits_truncate(data);
-                self.t.set_nametable(data & 0b11);
+                self.t.set_nametable(data);
             }
             1 => {
                 self.ppumask = PPUMASK::from_bits_truncate(data);
@@ -373,10 +372,10 @@ impl Ppu {
                 if self.w == 0 {
                     let temp_val = data >> 3;
                     self.t.set_coarse_xscroll(temp_val);
-                    self.x = data & 3;
+                    self.x = data & 7;
                     self.w = 1;
                 } else if self.w == 1 {
-                    self.t.set_fine_y(data & 3);
+                    self.t.set_fine_y(data & 7);
                     self.t.set_coarse_yscroll(data >> 3);
                     self.w = 0;
                 }
@@ -385,13 +384,13 @@ impl Ppu {
                 if self.w == 0 {
                     let temp_dat = data as u16;
                     let temp_val = self.t.get_data();
-                    let temp_val = temp_val & 0b0000000_11111111;
+                    let temp_val = temp_val & 0x00FF;
                     let temp_val = temp_val | (temp_dat << 8);
                     self.t.set_data(temp_val);
                     self.w = 1;
                 } else if self.w == 1 {
                     let temp_data = self.t.get_data();
-                    let temp_data = temp_data & 0b11111111_00000000;
+                    let temp_data = temp_data & 0xFF00;
                     let data = data as u16;
                     let temp_data = temp_data | data;
                     self.t.set_data(temp_data);
@@ -478,7 +477,7 @@ impl Ppu {
         let oam_sprite = self.oam_table[index].clone();
         let x = oam_sprite.get_x_position();
         let mut y = oam_sprite.get_y_position();
-        if y > 1 {
+        if y > 0{
             y = y - 1;
         }
         let index = oam_sprite.get_index_number() as u16;
@@ -551,6 +550,7 @@ impl Ppu {
     pub fn clock(&mut self) {
         self.cycle_counter += 1;
         if self.cycle_counter > 340 {
+
             self.cycle_counter = 0;
             self.scanline_counter += 1;
         }
