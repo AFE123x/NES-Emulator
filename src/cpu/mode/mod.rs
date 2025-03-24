@@ -102,8 +102,11 @@ impl Cpu {
     pub fn absolutex(&mut self) {
         let lobyte = self.fetch() as u16;
         let hibyte = self.fetch() as u16;
-        self.addrabs = (hibyte << 8) | lobyte;
-        self.addrabs = self.addrabs.wrapping_add(self.x as u16);
+        let temp = (hibyte << 8) | lobyte;
+        self.addrabs = temp.wrapping_add(self.x as u16);
+        if self.addrabs & 0xFF00 != temp & 0xFF00{
+            self.cycles_left = self.cycles_left.wrapping_add(1);
+        }
     }
     ///# Absolute,Y
     /// The Y register indexed absolute addressing mode is the same as the previous mode only with the contents of the Y register added to the 16 bit address from the instruction.
@@ -114,8 +117,11 @@ impl Cpu {
     pub fn absolutey(&mut self) {
         let lobyte = self.fetch() as u16;
         let hibyte = self.fetch() as u16;
-        self.addrabs = (hibyte << 8) | lobyte;
-        self.addrabs = self.addrabs.wrapping_add(self.y as u16);
+        let temp = (hibyte << 8) | lobyte;
+        self.addrabs = temp.wrapping_add(self.y as u16);
+        if self.addrabs & 0xFF00 != temp & 0xFF00{
+            self.cycles_left = self.cycles_left.wrapping_add(1);
+        }
     }
 
     ///Indirect

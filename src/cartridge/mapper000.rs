@@ -24,8 +24,10 @@ impl Mapper for Mapper000{
 
     fn ppu_read(&self, address: &mut u16) -> bool {
         if *address <= 0x1FFF {
-            *address = *address;
-            return true;
+            if self.n_prg > 0{
+                *address = *address;
+                return true;
+            }
         }
         false
     }

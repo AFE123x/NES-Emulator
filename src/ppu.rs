@@ -194,7 +194,8 @@ impl Ppu {
                         let pattern_number = (bitlo << 1) | bithi;
                         let x = (coarse_x << 3) + fine_x;
                         let y = (coarse_y << 3) + fine_y;
-                        frame.drawpixel(x, y, self.get_bgpalette(self.palette_num, pattern_number));
+                        let color = self.get_bgpalette(self.palette_num, pattern_number);
+                        frame.drawpixel(x, y, color);
                         pattern_lo <<= 1;
                         pattern_hi <<= 1;
                     }
@@ -246,7 +247,7 @@ impl Ppu {
 
     fn ppu_write(&mut self, address: u16, data: u8) {
         if address <= 0x1FFF {
-            // unsafe { (*self.cart).ppu_write(address, data) }; // writes to cartridge space
+            unsafe { (*self.cart).ppu_write(address, data) }; // writes to cartridge space
         } else if address >= 0x2000 && address <= 0x2FFF {
             /* nametable writes */
             let nametable: Nametable = unsafe { (*self.cart).get_nametable() };
@@ -553,6 +554,9 @@ impl Ppu {
 
             self.cycle_counter = 0;
             self.scanline_counter += 1;
+        }
+        if self.scanline_counter == 60 && self.cycle_counter == 30{
+            self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag,true);
         }
         if self.scanline_counter <= 239 {
         } else if self.scanline_counter == 241 && self.cycle_counter == 1 {

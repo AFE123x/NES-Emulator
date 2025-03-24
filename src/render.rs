@@ -51,10 +51,9 @@ pub fn gameloop(rom_file: &str, scale: u32) -> Result<(), Box<dyn Error>> {
     /* FPS Measurement */
 
     let mut fps_timer = Instant::now();
-    let mut fps_regulator = Instant::now();
     /* Game loop */
     while cont_game {
-        if fps_timer.elapsed() >= Duration::from_millis(17) {
+        if fps_timer.elapsed() >= Duration::from_millis(10) {
             match pump.poll_event() {
                 Some(event) => match event {
                     Event::Quit { .. } | Event::KeyDown {keycode: Some(Keycode::ESCAPE),..} => cont_game = false,
@@ -96,13 +95,8 @@ pub fn gameloop(rom_file: &str, scale: u32) -> Result<(), Box<dyn Error>> {
         }
 
         bus.clock();
-
         if ppu.get_nmi() {
             cpu.nmi();
-            while fps_regulator.elapsed() < Duration::from_millis(16){
-
-            }
-            fps_regulator = Instant::now();
             ppu.set_name_table();
             ppu.get_pattern_table(&mut pattern_frame);
             palette_texture.update(None, &pattern_frame.get_buf(), 256 * 3)?;
