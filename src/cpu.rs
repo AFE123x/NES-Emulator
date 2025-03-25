@@ -87,6 +87,7 @@ impl Cpu {
     pub fn clock(&mut self) {
         /* fetch our instruction */
         if self.cycles_left == 0 {
+            self.flags.set(Flags::Unused,true);
             let opcode = self.cpu_read(self.pc,false);
             self.oldpc = self.pc;
             self.opcode = opcode;
