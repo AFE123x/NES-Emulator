@@ -159,6 +159,12 @@ impl Ppu {
     }
     pub fn oam_dma_write(&mut self, address: u8, data: u8) {
         let index = address / 4;
+        if index == 5 {
+            if address % 4 == 3 && data == 0 && self.total_cycles > 30000000 {
+                // todo!();
+            }
+            // println!("{} write {}",address % 4,data);
+        }
         self.oam_table[index as usize].set_byte(address, data);
     }
     pub fn get_bgpalette(&mut self, palettenum: u8, paletteindex: u8) -> (u8, u8, u8) {
@@ -478,7 +484,7 @@ impl Ppu {
         let oam_sprite = self.oam_table[index].clone();
         let x = oam_sprite.get_x_position();
         let mut y = oam_sprite.get_y_position();
-        if y > 0{
+        if y > 0 {
             y = y - 1;
         }
         let index = oam_sprite.get_index_number() as u16;
@@ -547,11 +553,16 @@ impl Ppu {
         self.render_nametable();
         self.set_oam_table();
     }
-
+    pub fn eval_sprite_0(&mut self) {
+        let y = self.oam_table[0].get_y_position();
+        if (y as i16) == self.scanline_counter {
+            // self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
+        }
+    }
     pub fn clock(&mut self) {
         self.cycle_counter += 1;
         if self.cycle_counter > 340 {
-
+            self.eval_sprite_0();
             self.cycle_counter = 0;
             self.scanline_counter += 1;
         }

@@ -23,7 +23,9 @@ pub fn gameloop(rom_file: &str, scale: u32) -> Result<(), Box<dyn Error>> {
     let mut cpu = Cpu::new();
     let mut game_frame = Frame::new(256, 240); //frame buffer for the actual game.
     let mut ppu = Ppu::new(&mut cartridge);
-    let mut bus = Bus::new(&mut cpu, &mut cartridge, &mut ppu);
+    let mut bus = Bus::new(&mut cpu);
+    bus.link_cartridge(&mut cartridge);
+    bus.link_ppu(&mut ppu);
     cpu.linkbus(&mut bus);
     cpu.reset();
     let mut controller = controller::Controller::new();
@@ -51,6 +53,7 @@ pub fn gameloop(rom_file: &str, scale: u32) -> Result<(), Box<dyn Error>> {
     /* FPS Measurement */
 
     let mut fps_timer = Instant::now();
+    let mut reg = Instant::now();
     /* Game loop */
     while cont_game {
         if fps_timer.elapsed() >= Duration::from_millis(10) {
@@ -96,6 +99,8 @@ pub fn gameloop(rom_file: &str, scale: u32) -> Result<(), Box<dyn Error>> {
 
         bus.clock();
         if ppu.get_nmi() {
+            while reg.elapsed() < Duration::from_millis(11){}
+            reg = Instant::now();
             cpu.nmi();
             ppu.set_name_table();
             ppu.get_pattern_table(&mut pattern_frame);

@@ -193,7 +193,7 @@ impl Cpu {
         self.handle_addrmode(&addrmode);
         // self.print_state(&instruction, &addrmode);
         self.handle_instruction(instruction);
-        self.cycles_left = self.cycles_left.wrapping_add(cycles);
+        self.cycles_left = self.cycles_left.wrapping_add(cycles as u16);
     }
     pub fn handle_addrmode(&mut self, addrmode: &AddressMode) {
         match addrmode {

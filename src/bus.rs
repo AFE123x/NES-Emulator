@@ -3,22 +3,28 @@ use crate::{cartridge::Cartridge, controller::Controller, cpu::Cpu, ppu::Ppu};
 pub struct Bus {
     memory: Vec<u8>,
     cpu: *mut Cpu,
-    cartridge: *mut Cartridge,
-    ppu: *mut Ppu,
+    cartridge: Option<*mut Cartridge>,
+    ppu: Option<*mut Ppu>,
     controller: Option<*mut Controller>,
     total_cycles: usize,
 }
 
 impl Bus {
-    pub fn new(cpu: &mut Cpu, cart: &mut Cartridge, ppu: &mut Ppu) -> Self {
+    pub fn new(cpu: &mut Cpu) -> Self {
         Self {
             memory: vec![0; 2048],
             cpu,
-            cartridge: cart,
-            ppu: ppu,
+            cartridge: None,
             controller: None,
+            ppu: None,
             total_cycles: 0,
         }
+    }
+    pub fn link_cartridge(&mut self, cart: &mut Cartridge){
+        self.cartridge = Some(cart);
+    }
+    pub fn link_ppu(&mut self, ppu: &mut Ppu){
+        self.ppu = Some(ppu);
     }
 
     pub fn link_controller(&mut self, controller: &mut Controller) {
@@ -29,7 +35,7 @@ impl Bus {
         if address <= 0x1FFF {
             data = self.memory[(address & 0x7FF) as usize];
         } else if address <= 0x3FFF {
-            data = unsafe { (*self.ppu).cpu_read(address, rdonly) };
+            data = unsafe { (*self.ppu.unwrap()).cpu_read(address, rdonly) };
         } else if address <= 0x4017 {
             if address == 0x4016 {
                 data = unsafe { (*self.controller.unwrap()).cpu_read() };
@@ -38,7 +44,7 @@ impl Bus {
             // todo!();
             data = 0;
         } else {
-            unsafe { (*self.cartridge).cpu_read(address, &mut data) };
+            unsafe { (*self.cartridge.unwrap()).cpu_read(address, &mut data) };
         }
 
         data
@@ -49,15 +55,16 @@ impl Bus {
             self.memory[(address & 0x7FF) as usize] = byte;
         } else if address <= 0x3FFF {
             unsafe {
-                (*self.ppu).cpu_write(address, byte);
+                (*self.ppu.unwrap()).cpu_write(address, byte);
             };
         }
         else if address == 0x4014{
-            // println!("write to 0x4014");
+            let byte = byte as usize;
+            let byte = byte << 8;
             for i in 0..=0xFF{
-                let data = self.memory[((byte as usize) << 8) | i];
+                let data = self.memory[byte | i];
                 unsafe{
-                    (*self.ppu).oam_dma_write(i as u8, data);
+                    (*self.ppu.unwrap()).oam_dma_write(i as u8, data);
                 }
             }
         }
@@ -70,16 +77,16 @@ impl Bus {
             // todo!()
         } else {
             unsafe {
-                (*self.cartridge).cpu_write(address, byte);
+                (*self.cartridge.unwrap()).cpu_write(address, byte);
             }
         }
     }
 
     pub fn clock(&mut self) {
         unsafe {
-            (*self.ppu).clock();
-            (*self.ppu).clock();
-            (*self.ppu).clock();
+            (*self.ppu.unwrap()).clock();
+            (*self.ppu.unwrap()).clock();
+            (*self.ppu.unwrap()).clock();
             (*self.cpu).clock();
         }
         self.total_cycles += 1;

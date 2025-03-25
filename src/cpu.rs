@@ -28,7 +28,7 @@ pub struct Cpu {
     sp: u8,
     addrabs: u16,
     relval: u16,
-    cycles_left: u8,
+    cycles_left: u16,
     total_cycles: usize,
     bus: Option<*mut Bus>,
     opcode: u8,
@@ -71,7 +71,6 @@ impl Cpu {
     }
     fn print_state(&self, instruction: &Instruction, addr_mode: &AddressMode){
         println!("PC: {:#x}\tA: {:#x}\tX {:#x}\tY {:#x}\tSP {:#x}\tFLAGS {}\t{:?}({:?}), cycles: {}\t",self.oldpc,self.a,self.x,self.y,self.sp,self.print_status_reg(),instruction,addr_mode,self.total_cycles);
-        // thread::sleep(Duration::from_millis(5));
     }
     pub fn linkbus(&mut self, bus: &mut Bus) {
         self.bus = Some(bus);
@@ -87,7 +86,7 @@ impl Cpu {
     pub fn clock(&mut self) {
         /* fetch our instruction */
         if self.cycles_left == 0 {
-            self.flags.set(Flags::Unused,true);
+            // self.flags.set(Flags::Unused,true);
             let opcode = self.cpu_read(self.pc,false);
             self.oldpc = self.pc;
             self.opcode = opcode;
