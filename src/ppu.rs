@@ -555,9 +555,6 @@ impl Ppu {
             self.cycle_counter = 0;
             self.scanline_counter += 1;
         }
-        if self.scanline_counter == 60 && self.cycle_counter == 30{
-            self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag,true);
-        }
         if self.scanline_counter <= 239 {
         } else if self.scanline_counter == 241 && self.cycle_counter == 1 {
             self.ppustatus.set(PPUSTATUS::vblank_flag, true);
