@@ -4,9 +4,11 @@
 mod mapper;
 mod mapper000;
 mod mapper001;
+mod mapper002;
 use mapper::Mapper;
 use mapper000::Mapper000;
-use mapper001::Mapper001;
+use mapper002::Mapper002;
+
 use std::fs;
 #[derive(Debug)]
 struct Header {
@@ -85,8 +87,9 @@ impl Cartridge {
             _mapper: mapper,
             name_table_arrangement: nametable_arrangement,
         };
-        let mapper = match mapper{
+        let mapper: Box<dyn Mapper> = match mapper{
             0 => Box::new(Mapper000 { n_chr: chr_rom_size as u8, n_prg: prg_rom_size as u8 }),
+            2 => Box::new(Mapper002::new(prg_rom_size as u8, chr_rom_size as u8)),
             _ => panic!("mapper {} not supported",mapper),
         };
         println!("{:?}",header);
@@ -99,24 +102,24 @@ impl Cartridge {
     }
 
     pub fn cpu_read(&self, address: u16, byte: &mut u8) {
-        let mut mapped_addr = address;
-        let res = self.mapper.cpu_read(&mut mapped_addr);
+        let mut mapped_addr = address as u32;
+        let res = self.mapper.cpu_read(address,&mut mapped_addr,*byte);
         if res {
             *byte = self.prg_rom[mapped_addr as usize];
         }
     }
 
     pub fn cpu_write(&mut self, address: u16, byte: u8) {
-        let mut mapped_address = address;
-        let res = self.mapper.cpu_write(&mut mapped_address);
+        let mut mapped_address = address as u32;
+        let res = self.mapper.cpu_write(address,&mut mapped_address,byte);
         if res {
             self.prg_rom[mapped_address as usize] = byte;
         }
     }
 
     pub fn ppu_read(&self, address: u16, byte: &mut u8) {
-        let mut mapped_addr = address;
-        let res = self.mapper.ppu_read(&mut mapped_addr);
+        let mut mapped_addr = address as u32;
+        let res = self.mapper.ppu_read(address,&mut mapped_addr,*byte);
         if res {
             
             *byte = self.chr_rom[mapped_addr as usize];
@@ -124,8 +127,8 @@ impl Cartridge {
     }
 
     pub fn ppu_write(&mut self, address: u16, byte: u8) {
-        let mut mapped_address = address;
-        let res = self.mapper.ppu_write(&mut mapped_address);
+        let mut mapped_address = address as u32;
+        let res = self.mapper.ppu_write(address,&mut mapped_address,byte);
         if res {
             self.chr_rom[mapped_address as usize] = byte;
         }
