@@ -556,7 +556,7 @@ impl Ppu {
     pub fn eval_sprite_0(&mut self) {
         let y = self.oam_table[0].get_y_position();
         if (y as i16) == self.scanline_counter {
-            // self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
+            self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
         }
     }
     pub fn clock(&mut self) {
