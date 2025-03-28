@@ -515,6 +515,7 @@ impl Ppu {
                     let y = y + i;
                     if index == 0 && self.frame_array[x as usize][y as usize] != 0 {
                         self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
+                        
                     }
                     let priority = attribute & 0x20 > 0; //if it's one, we render the sprite behind the background
                     if priority {
@@ -556,7 +557,7 @@ impl Ppu {
     pub fn eval_sprite_0(&mut self) {
         let y = self.oam_table[0].get_y_position();
         if (y as i16) == self.scanline_counter {
-            // self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
+            self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
         }
     }
     pub fn clock(&mut self) {
@@ -565,6 +566,9 @@ impl Ppu {
             self.eval_sprite_0();
             self.cycle_counter = 0;
             self.scanline_counter += 1;
+        }
+        if self.cycle_counter == 30 && self.scanline_counter == 60{
+            self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag,true);
         }
         if self.scanline_counter <= 239 {
         } else if self.scanline_counter == 241 && self.cycle_counter == 1 {

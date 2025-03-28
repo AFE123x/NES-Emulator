@@ -1,10 +1,10 @@
 mod mode;
 
-use std::{thread, time::Duration};
 
 use crate::bus::Bus;
 mod instructions;
 bitflags! {
+    // Define CPU status flags as a bitfield structure
     pub struct Flags: u8 {
         const Negative = 0b10000000;
         const Overflow = 0b01000000;
@@ -19,25 +19,25 @@ bitflags! {
 use bitflags::bitflags;
 use instructions::inst_enum::{AddressMode, Instruction};
 
+/// Representation of the CPU state
 pub struct Cpu {
-    flags: Flags,
-    a: u8,
-    x: u8,
-    y: u8,
-    pc: u16,
-    sp: u8,
-    addrabs: u16,
-    relval: u16,
-    cycles_left: u16,
-    total_cycles: usize,
-    bus: Option<*mut Bus>,
-    opcode: u8,
-    oldpc: u16,
+    flags: Flags,    // Processor status flags
+    a: u8,          // Accumulator register
+    x: u8,          // X register
+    y: u8,          // Y register
+    pc: u16,        // Program counter
+    sp: u8,         // Stack pointer
+    addrabs: u16,   // Absolute memory address
+    relval: u16,    // Relative value for branch instructions
+    cycles_left: u16, // Remaining cycles for the current instruction
+    total_cycles: usize, // Total executed cycles
+    bus: Option<*mut Bus>, // Pointer to the system bus
+    opcode: u8,      // Current opcode being executed
+    oldpc: u16,      // Previous program counter value
 }
 
 impl Cpu {
-    
-
+    /// Constructor to initialize CPU state
     pub fn new() -> Self {
         let mut flags = Flags::empty();
         flags.set(Flags::Unused, true);
@@ -46,8 +46,8 @@ impl Cpu {
             a: 0,
             x: 0,
             y: 0,
-            pc: 0x8000,
-            sp: 0xFD,
+            pc: 0x8000, // Typically the reset vector address
+            sp: 0xFD, // Stack starts near the top of memory
             bus: None,
             addrabs: 0,
             relval: 0,
@@ -57,6 +57,8 @@ impl Cpu {
             oldpc: 0,
         }
     }
+    
+    /// Returns a string representation of the CPU status flags
     fn print_status_reg(&self) -> String{
         let a = if self.flags.contains(Flags::Negative) {'N'} else {'-'};
         let b = if self.flags.contains(Flags::Overflow) {'V'} else {'-'};
@@ -69,30 +71,43 @@ impl Cpu {
         let string = format!("{}{}{}{}{}{}{}{}",a,b,c,d,e,f,g,h);
         string
     }
+    
+    /// Prints the current CPU state and instruction being executed
     fn print_state(&self, instruction: &Instruction, addr_mode: &AddressMode){
-        println!("PC: {:#x}\tA: {:#x}\tX {:#x}\tY {:#x}\tSP {:#x}\tFLAGS {}\t{:?}({:?}), cycles: {}\t",self.oldpc,self.a,self.x,self.y,self.sp,self.print_status_reg(),instruction,addr_mode,self.total_cycles);
+        println!("PC: {:#x}\tA: {:#x}\tX {:#x}\tY {:#x}\tSP {:#x}\tFLAGS {}\t{:?}({:?}), cycles: {}\t",
+            self.oldpc, self.a, self.x, self.y, self.sp, self.print_status_reg(), instruction, addr_mode, self.total_cycles);
     }
+    
+    /// Links the CPU to a system bus
     pub fn linkbus(&mut self, bus: &mut Bus) {
         self.bus = Some(bus);
     }
+    
+    /// Reads a byte from memory via the system bus
     fn cpu_read(&self, address: u16, rdonly: bool) -> u8 {
-        unsafe { (*self.bus.unwrap()).cpu_read(address,rdonly) }
+        unsafe { (*self.bus.unwrap()).cpu_read(address, rdonly) }
     }
+    
+    /// Writes a byte to memory via the system bus
     fn cpu_write(&self, address: u16, byte: u8) {
         unsafe {
             (*self.bus.unwrap()).cpu_write(address, byte);
         };
     }
+    
+    /// Advances the CPU clock cycle, fetching and executing an instruction if needed
     pub fn clock(&mut self) {
-        /* fetch our instruction */
+        // Fetch the next instruction if there are no remaining cycles
         if self.cycles_left == 0 {
             self.flags.set(Flags::Unused,true);
             let opcode = self.cpu_read(self.pc,false);
             self.oldpc = self.pc;
             self.opcode = opcode;
             self.pc = self.pc.wrapping_add(1);
-            self.handle_opcode(opcode);
+            self.handle_opcode(opcode); // Execute instruction
         }
+        
+        // Decrement cycle count and increment total executed cycles
         self.cycles_left = self.cycles_left.wrapping_sub(1);
         self.total_cycles = self.total_cycles.wrapping_add(1);
     }
