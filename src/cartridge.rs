@@ -42,19 +42,6 @@ impl Cartridge {
     pub fn new(file_name: &str) -> Self {
         let buf = fs::read(file_name).expect("unable to open file!");
         let header = &buf[0..16];
-
-        /*
-        ines header:
-        bytes 0-3: Constant with NES
-        bytes 4: Size of program rom in 16 kb unit
-        bytes 5: Size of character rom in 8kb unit
-        bytes 6: flag 6
-        bytes 7: flag 7
-        bytes 8: Program ram size
-        bytes 9: TV System
-        byte 10: TV System, PRG-RAM Presence (unofficial)
-        bytes 11-15: Unused padding.
-         */
         let prg_rom_size = header[4] as usize;
         let chr_rom_size = header[5] as usize;
         let prg_rom_len = prg_rom_size * 16 * 1024;
