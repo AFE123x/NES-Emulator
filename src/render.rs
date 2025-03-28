@@ -24,6 +24,7 @@ pub fn gameloop(rom_file: &str, scale: u32) -> Result<(), Box<dyn Error>> {
     let mut game_frame = Frame::new(256, 240); //frame buffer for the actual game.
     let mut ppu = Ppu::new(&mut cartridge);
     let mut bus = Bus::new(&mut cpu);
+    let mut pause = false;
     bus.link_cartridge(&mut cartridge);
     bus.link_ppu(&mut ppu);
     cpu.linkbus(&mut bus);
@@ -78,7 +79,7 @@ pub fn gameloop(rom_file: &str, scale: u32) -> Result<(), Box<dyn Error>> {
                     },
                     Event::KeyUp { keycode, .. } => match keycode{
                         Some(kcode) => match kcode{
-                                Keycode::UP => controller.set_button(Buttons::Up, false),
+                                Keycode::UP => controller.set_button(Buttons::Up, false), 
                                 Keycode::DOWN => controller.set_button(Buttons::Down, false),
                                 Keycode::LEFT => controller.set_button(Buttons::Left, false),
                                 Keycode::RIGHT => controller.set_button(Buttons::Right, false),
@@ -86,6 +87,7 @@ pub fn gameloop(rom_file: &str, scale: u32) -> Result<(), Box<dyn Error>> {
                                 Keycode::O => controller.set_button(Buttons::B, false),
                                 Keycode::E => controller.set_button(Buttons::Select, false),
                                 Keycode::U => controller.set_button(Buttons::Start, false),
+                                Keycode::Space => {pause = !pause;},
                                 _ => {}
                         },
                         None => {},
@@ -97,7 +99,9 @@ pub fn gameloop(rom_file: &str, scale: u32) -> Result<(), Box<dyn Error>> {
             fps_timer = Instant::now();
         }
 
-        bus.clock();
+        if !pause{
+            bus.clock();
+        }
         if ppu.get_nmi() {
             while reg.elapsed() < Duration::from_millis(11){}
             reg = Instant::now();
