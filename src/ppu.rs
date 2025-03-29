@@ -15,8 +15,6 @@ pub struct Ppu {
     ppumask: PPUMASK,     //ppu mask register (mapped at address $2001)
     ppustatus: PPUSTATUS, //ppu status register (mapped at address $2002)
     oamaddr: u8,          //oamaddr register (mapped at address $2003)
-    oamdata: u8,          //oamdata register (mapped at address $2004)
-    oamdma: u8,           //oamdma register (mapped at address $4014)
     v: vt_reg,
     t: vt_reg,
     w: u8, //toggle between first and second write
@@ -30,7 +28,7 @@ pub struct Ppu {
     palette_num: u8,
     cycle_counter: u16,
     scanline_counter: i16,
-    palette_boi: u8,
+
     total_cycles: usize,
     nametable_frame: Option<*mut Fr>,
     frame_array: Vec<Vec<u8>>,
@@ -128,8 +126,6 @@ impl Ppu {
             ppumask: PPUMASK::empty(),
             ppustatus: PPUSTATUS::empty(),
             oamaddr: 0,
-            oamdata: 0,
-            oamdma: 0,
             v: vt_reg::new(),
             t: vt_reg::new(),
             w: 0,
@@ -143,7 +139,6 @@ impl Ppu {
             palette_num: 0,
             cycle_counter: 0,
             scanline_counter: 0,
-            palette_boi: 0,
             total_cycles: 0,
             nametable_frame: None,
             oam_table: vec![Oam::new(); 64],
@@ -159,12 +154,6 @@ impl Ppu {
     }
     pub fn oam_dma_write(&mut self, address: u8, data: u8) {
         let index = address / 4;
-        if index == 5 {
-            if address % 4 == 3 && data == 0 && self.total_cycles > 30000000 {
-                // todo!();
-            }
-            // println!("{} write {}",address % 4,data);
-        }
         self.oam_table[index as usize].set_byte(address, data);
     }
     pub fn get_bgpalette(&mut self, palettenum: u8, paletteindex: u8) -> (u8, u8, u8) {
@@ -368,7 +357,8 @@ impl Ppu {
             }
             1 => {
                 self.ppumask = PPUMASK::from_bits_truncate(data);
-            }
+            },
+            2 => {}
             3 => {
                 self.oamaddr = data;
             }
@@ -415,7 +405,7 @@ impl Ppu {
                 self.ppu_write(address, data);
                 let address = address.wrapping_add(increment_factor) & 0x3FFF;
                 self.v.set_data(address);
-            }
+            },
             _ => {
                 panic!("cpu_write: Cannot write address");
             }
@@ -484,9 +474,9 @@ impl Ppu {
         let oam_sprite = self.oam_table[index].clone();
         let x = oam_sprite.get_x_position();
         let mut y = oam_sprite.get_y_position();
-        if y > 0 {
-            y = y - 1;
-        }
+        //if y > 2 {
+        //    y = y - 3;
+        //}
         let index = oam_sprite.get_index_number() as u16;
         let attribute = oam_sprite.get_attribute();
         let horizontal_factor = attribute & 0x40 > 0;

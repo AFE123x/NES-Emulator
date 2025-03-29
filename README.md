@@ -23,18 +23,10 @@ git clone https://github.com/AFE123x/NES-Emulator
 - Run your program
 
 ```bash
-cargo run <path-of-game> <scale>
+cargo run <path-of-game>
 ```
 - `path-of-game` denotes the path where your **legally backed up** rom is located.
 - `scale` denotes how big you want the window to be.
-
-- You may encounter issues with sdl2. In this case, you can modify the `cargo.toml` file as follows:
-
-```toml
-sdl2 = {version = "0.37.0" features=["bundled"]}
-```
-- This will compile sdl2 from source (it will take a minute).
-
 
 ### Controls
 - I hardcoded the controls at the moment (they seem convoluted, Dvorak moment ;p)
@@ -54,6 +46,7 @@ sdl2 = {version = "0.37.0" features=["bundled"]}
 
 Ideally, this is not the end of the journey for my Emulator. Below are my plans. If you would like to contribute, feel free to make a pull request (there is much work to be done).
 
+- ~~Replace SDl2 Implementation with MiniFB~~
 - Optimize the PPU Background Rendering:
     - Optimize PPU Scrolling by utilizing the loopy register mechanism.
     - Troubleshoot nametable rendering (Super Mario Bros nametable does not seem to compile correctly (may also be a flag issue)).

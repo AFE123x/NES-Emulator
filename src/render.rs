@@ -17,9 +17,7 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
     let mut ppu = Ppu::new(&mut cartridge);
     let mut bus = Bus::new(&mut cpu);
     let mut controller = controller::Controller::new();
-    
-    let mut pause = false;
-    
+
     // Link components
     ppu.linkpattern(&mut game_frame);
     bus.link_cartridge(&mut cartridge);
@@ -27,14 +25,20 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
     bus.link_controller(&mut controller);
     cpu.linkbus(&mut bus);
     cpu.reset();
-
-    let windowoption = WindowOptions{
+    let windowoption = WindowOptions {
+        resize: false,
+        scale: Scale::X2,
+        ..Default::default()
+    };
+    let mut pattern_window = Window::new("Pattern Table", 256, 128, windowoption)?;
+    let windowoption = WindowOptions {
         resize: false,
         scale: Scale::X4,
         ..Default::default()
     };
-    let mut window = Window::new("NES Emulator", 256, 240, windowoption )?;
-    window.set_target_fps(80);
+    let mut window = Window::new("NES Emulator", 256, 240, windowoption)?;
+    let mut pattern_frame: Frame = Frame::new(256, 128);
+    window.set_target_fps(60);
     while window.is_open() && !window.is_key_down(Key::Escape) {
         controller.set_button(Buttons::A, window.is_key_down(Key::A));
         controller.set_button(Buttons::B, window.is_key_down(Key::S));
@@ -44,16 +48,21 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
         controller.set_button(Buttons::Down, window.is_key_down(Key::Down));
         controller.set_button(Buttons::Left, window.is_key_down(Key::Left));
         controller.set_button(Buttons::Right, window.is_key_down(Key::Right));
-        if !pause {
-            bus.clock();
+        if window.is_key_pressed(Key::R, minifb::KeyRepeat::No) {
+            ppu.set_bg_palette_num();
         }
+
+        bus.clock();
 
         // Only update the window when a new frame is ready
         if ppu.get_nmi() {
             cpu.nmi();
             ppu.set_name_table();
+            ppu.get_pattern_table(&mut pattern_frame);
             window.update_with_buffer(game_frame.get_buf().as_slice(), 256, 240)?;
+            pattern_window.update_with_buffer(pattern_frame.get_buf().as_slice(), 256, 128)?;
         }
+        
     }
     Ok(())
 }
