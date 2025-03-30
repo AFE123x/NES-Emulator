@@ -25,12 +25,12 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
     bus.link_controller(&mut controller);
     cpu.linkbus(&mut bus);
     cpu.reset();
-    // let windowoption = WindowOptions {
-    //     resize: false,
-    //     scale: Scale::X2,
-    //     ..Default::default()
-    // };
-    // let mut pattern_window = Window::new("Pattern Table", 256, 128, windowoption)?;
+    let windowoption = WindowOptions {
+        resize: false,
+        scale: Scale::X2,
+        ..Default::default()
+    };
+    let mut pattern_window = Window::new("Pattern Table", 256, 128, windowoption)?;
     let windowoption = WindowOptions {
         resize: false,
         scale: Scale::X4,
@@ -63,7 +63,7 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
             ppu.set_name_table();
             ppu.get_pattern_table(&mut pattern_frame);
             window.update_with_buffer(game_frame.get_buf().as_slice(), 256, 240)?;
-            // pattern_window.update_with_buffer(pattern_frame.get_buf().as_slice(), 256, 128)?;
+            pattern_window.update_with_buffer(pattern_frame.get_buf().as_slice(), 256, 128)?;
         }
         
     }

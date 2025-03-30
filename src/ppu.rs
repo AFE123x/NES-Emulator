@@ -167,6 +167,7 @@ impl Ppu {
         }
     }
     pub fn set_bg_palette_num(&mut self) {
+        
         self.palette_num = (self.palette_num + 1) & 0xF;
     }
     pub fn oam_dma_write(&mut self, address: u8, data: u8) {
@@ -176,7 +177,13 @@ impl Ppu {
     pub fn get_bgpalette(&mut self, palettenum: u8, paletteindex: u8) -> (u8, u8, u8) {
         let palettenum = palettenum & 0x1F;
         let final_index = (palettenum << 2) | paletteindex;
-        let paletteinde = self.ppu_read(0x3F00 | final_index as u16);
+        let palleteindex = if paletteindex == 0{
+            0x3F00
+        }
+        else{
+            0x3F00 | (final_index as u16)
+        };
+        let paletteinde = self.ppu_read(palleteindex as u16);
         self.system_palette[paletteinde as usize]
     }
 
@@ -206,7 +213,7 @@ impl Ppu {
                         let pattern_number = (bitlo << 1) | bithi;
                         let x = (coarse_x << 3) + fine_x;
                         let y = (coarse_y << 3) + fine_y;
-                        let color = self.get_bgpalette(self.palette_num, pattern_number);
+                        let color = self.get_bgpalette(3, pattern_number);
                         frame.drawpixel(x, y, color);
                         pattern_lo <<= 1;
                         pattern_hi <<= 1;
@@ -252,6 +259,7 @@ impl Ppu {
             if addr == 0x0014 {addr = 0x0004;}
             if addr == 0x0018 {addr = 0x0008;}
             if addr == 0x001C {addr = 0x000C;}
+        
             byte = self.palette_memory[addr as usize];
         } else {
             // Open bus or undefined memory area
@@ -562,6 +570,7 @@ impl Ppu {
                         let hi_address = self.get_pattern_address() + 8;
                         self.next_pattern_hi = self.ppu_read(hi_address) as u16;
                         self.next_attribute_hi = if self.next_attribute_tile & 2 > 0 {0xFF} else {0x00};
+                        // println!("{:4x} hi: {:08b} lo: {:08b}",self.v.get_nametable_address(),self.next_pattern_hi,self.next_attribute_lo);
                     },
                     7 => {
                         self.increment_x();
@@ -589,8 +598,10 @@ impl Ppu {
             let pattern = (attrib_hi << 1) | (attrib_lo);
             self.shift();
             if self.cycle_counter < 256 && self.scanline_counter > 0 && self.scanline_counter < 240{
+                let color = self.get_bgpalette(pattern & 3, pixel);
+                self.frame_array[self.cycle_counter as usize][self.scanline_counter as usize] = pixel;
                 unsafe{
-                    (*self.nametable_frame.unwrap()).drawpixel(self.cycle_counter, self.scanline_counter as u16, self.get_bgpalette(pattern & 3, pixel));
+                    (*self.nametable_frame.unwrap()).drawpixel(self.cycle_counter, self.scanline_counter as u16, color);
                 }
             }
         }
@@ -602,8 +613,7 @@ impl Ppu {
             self.cycle_counter = 0;
             self.scanline_counter += 1;
         }
-        if self.scanline_counter == 64 && self.cycle_counter == 2{
-            println!("{}",self.oam_table[0].print_oam());
+        if self.scanline_counter == self.oam_table[0].get_y_position().wrapping_add(8) as i16 && self.cycle_counter == self.oam_table[0].get_x_position() as u16{
             self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag,true);
         }
         if self.scanline_counter <= 239 {
