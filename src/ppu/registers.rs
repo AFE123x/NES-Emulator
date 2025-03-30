@@ -97,7 +97,7 @@ impl vt_reg {
         self.data |= input << 12;
     }
     ///This retrieves the bits stored in the fine_y section
-    pub fn get_fine_y(&mut self) -> u8 {
+    pub fn get_fine_y(&self) -> u8 {
         let temp = self.data >> 12;
         (temp & 7) as u8
     }
@@ -109,7 +109,7 @@ impl vt_reg {
         self.data |= input << 10;
     }
     ///this will retrieve the bits in the nametable
-    pub fn get_nametable(&mut self) -> u8 {
+    pub fn get_nametable(&self) -> u8 {
         let nametable = (self.data >> 10) & 3;
         nametable as u8
     }
@@ -123,7 +123,7 @@ impl vt_reg {
         self.data |= input;
     }
     ///this will set the bits in the coarse y scroll
-    pub fn get_coarse_yscroll(&mut self) -> u8{
+    pub fn get_coarse_yscroll(&self) -> u8{
         ((self.data >> 5) & 0x1F) as u8
     }
 
@@ -135,7 +135,7 @@ impl vt_reg {
         self.data |= input;
     }
     ///This will retrieve the bits in the x scroll
-    pub fn get_coarse_xscroll(&mut self) -> u8{
+    pub fn get_coarse_xscroll(&self) -> u8{
         let toreturn = self.data & 0x1F;
         toreturn as u8
     }
@@ -164,11 +164,11 @@ impl vt_reg {
         self.data |= table << 11;  
     }
 
-    pub fn get_nametablex(&mut self) -> u8{
+    pub fn get_nametablex(&self) -> u8{
         (((self.data)>> 10) & 1) as u8
     }
 
-    pub fn get_nametabley(&mut self) -> u8{
+    pub fn get_nametabley(&self) -> u8{
         (((self.data)>> 11) & 1) as u8
     }
 
@@ -183,7 +183,6 @@ impl vt_reg {
             self.set_coarse_xscroll(v + 1);
         }
     }
-
     pub fn increment_y(&mut self){
         let finey = self.get_fine_y();
         if finey < 7{
@@ -210,10 +209,11 @@ impl vt_reg {
         let v = self.get_data();
         0x2000 | (v & 0xFFF)
     }
-
+    // attribute address = 0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07)
     pub fn get_attribute_address(&self) -> u16{
-        let v = self.get_data();
-        0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07)
+        let v = self.get_data() & 0x3FFF;
+        let address = 0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07);
+        address
     }
 
 }

@@ -1,6 +1,9 @@
 mod loopy;
 mod oam;
 
+use core::panic;
+use std::iter::Cycle;
+
 use crate::ppu::oam::oam as Oam;
 use registers::{vt_reg, PPUCTRL, PPUMASK, PPUSTATUS};
 
@@ -33,10 +36,19 @@ pub struct Ppu {
     nametable_frame: Option<*mut Fr>,
     frame_array: Vec<Vec<u8>>,
     oam_table: Vec<Oam>,
+    /* Shift registers */
     pattern_lo_shift_register: u16,
     pattern_hi_shift_register: u16,
     attribute_lo_shift_register: u16,
     attribute_hi_shift_register: u16,
+
+    /* Holding attribute and pattern bytes */
+    next_pattern_lo: u16,
+    next_pattern_hi: u16,
+    next_attribute_lo: u16,
+    next_attribute_hi: u16,
+    next_nametable_tile: u16,
+    next_attribute_tile: u16,
 }
 
 impl Ppu {
@@ -147,6 +159,12 @@ impl Ppu {
             attribute_lo_shift_register: 0,
             attribute_hi_shift_register: 0,
             frame_array: vec![vec![0; 240]; 256],
+            next_pattern_lo: 0,
+            next_pattern_hi: 0,
+            next_attribute_lo: 0,
+            next_attribute_hi: 0,
+            next_nametable_tile: 0,
+            next_attribute_tile: 0,
         }
     }
     pub fn set_bg_palette_num(&mut self) {
@@ -413,70 +431,12 @@ impl Ppu {
     }
 
     pub fn render_816_sprite(&mut self, index: usize) {
-        let oam_sprite = self.oam_table[index].clone();
-        let x = oam_sprite.get_x_position();
-        let mut y = oam_sprite.get_y_position();
-        if y != 0 {
-            y = y - 1;
-        }
-        let index = oam_sprite.get_index_number() as u16;
-        let attribute = oam_sprite.get_attribute();
-        let horizontal_factor = attribute & 0x40 > 0;
-        let vertical_factor = attribute & 0x80 > 0;
-        let attrib_table = attribute & 0x3;
-        let table_index = if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {
-            0x1000
-        } else {
-            0
-        };
-        for i in 0..16 {
-            let pattern_address = (table_index | (index << 4)) + i;
-            let mut pattern_lo = self.ppu_read(pattern_address);
-            let mut pattern_hi = self.ppu_read(pattern_address + 8);
-            for j in 0..8 {
-                let pattern_bit_lo = if pattern_lo & 0x80 != 0 { 1 } else { 0 };
-                let pattern_bit_hi = if pattern_hi & 0x80 != 0 { 1 } else { 0 };
-                let pixel_num = (pattern_bit_hi << 1) | pattern_bit_lo;
-                pattern_lo <<= 1;
-                pattern_hi <<= 1;
-                let color = self.get_fgpalette(attrib_table & 3, pixel_num);
-                if x < 241 && y < 231 {
-                    let j = if horizontal_factor { 7 - j } else { j };
-                    let i = if vertical_factor { 7 - i } else { i };
-                    let x = x + j;
-                    let y = y + i;
-                    if index == 0 && self.frame_array[x as usize][y as usize] != 0 {
-                        self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
-                    }
-                    let priority = attribute & 0x20 > 0; //if it's one, we render the sprite behind the background
-                    if priority {
-                        if self.frame_array[x as usize][y as usize] == 0 {
-                            if pixel_num != 0 {
-                                unsafe {
-                                    (*self.nametable_frame.unwrap())
-                                        .drawpixel(x as u16, y as u16, color)
-                                };
-                            }
-                        }
-                    } else {
-                        if pixel_num != 0 {
-                            unsafe {
-                                (*self.nametable_frame.unwrap())
-                                    .drawpixel(x as u16, y as u16, color)
-                            };
-                        }
-                    }
-                }
-            }
-        }
+        todo!()
     }
     pub fn render_88_sprite(&mut self, index: usize) {
         let oam_sprite = self.oam_table[index].clone();
         let x = oam_sprite.get_x_position();
-        let mut y = oam_sprite.get_y_position();
-        //if y > 2 {
-        //    y = y - 3;
-        //}
+        let y = oam_sprite.get_y_position() + 1;
         let index = oam_sprite.get_index_number() as u16;
         let attribute = oam_sprite.get_attribute();
         let horizontal_factor = attribute & 0x40 > 0;
@@ -541,24 +501,98 @@ impl Ppu {
         }
     }
     pub fn set_name_table(&mut self) {
-        self.render_nametable();
+        // self.render_nametable();
         self.set_oam_table();
     }
-    pub fn eval_sprite_0(&mut self) {
-        let y = self.oam_table[0].get_y_position();
-        if (y as i16) == self.scanline_counter {
-            self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
-        }
+    fn get_pattern_address(&self) -> u16{
+        let toreturn = if self.ppuctrl.contains(PPUCTRL::background_pattern_table_address){0x1000} else {0x0000};
+        let finey = self.v.get_fine_y() as u16;
+        let toreturn = toreturn | (self.next_nametable_tile << 4) | finey;
+        toreturn
     }
     pub fn clock(&mut self) {
+
+        /* Background Rendering */
+        if self.scanline_counter >= -1 && self.scanline_counter < 240{ /* Pre Render and Visible Scanlines */
+            
+            if self.cycle_counter == 0{
+                self.cycle_counter = 1; /* We skip this cycle */
+            }
+            if (self.cycle_counter >= 1 && self.cycle_counter < 256) || (self.cycle_counter >= 321 && self.cycle_counter <= 338) {
+                match (self.cycle_counter - 1) % 8 {
+                    0 => {
+                        self.loadregisters();
+                        self.next_nametable_tile = self.ppu_read(self.v.get_nametable_address()) as u16;
+                    },
+                    1 => {},
+                    2 => {
+                        // Fetch attribute byte
+                        let attr_byte = self.ppu_read(self.v.get_attribute_address());
+                        self.next_attribute_tile = attr_byte as u16;
+                        
+                        // Select correct 2-bit palette group
+    
+                        // Calculate quadrant selection (0-3)
+                        if self.v.get_coarse_yscroll() & 2 != 0{
+                            self.next_attribute_tile >>= 4;
+                        }
+                        if self.v.get_coarse_xscroll() & 2 != 0{
+                            self.next_attribute_tile >>= 2;
+                        }
+                        self.next_attribute_tile &= 3;
+                    },
+                    3 => {},
+                    4 => {
+                        // Fetch pattern LSB
+                        let lo_address = self.get_pattern_address();
+                        self.next_pattern_lo = self.ppu_read(lo_address) as u16;
+                        self.next_attribute_lo = if self.next_attribute_tile & 1 > 0 {0xFF} else {0x00};
+                    },
+                    5 => {},
+                    6 => {
+                        // Fetch pattern MSB
+                        let hi_address = self.get_pattern_address() + 8;
+                        self.next_pattern_hi = self.ppu_read(hi_address) as u16;
+                        self.next_attribute_hi = if self.next_attribute_tile & 2 > 0 {0xFF} else {0x00};
+                    },
+                    7 => {
+                        self.increment_x();
+                    },
+                    _ => unreachable!(),
+                }
+            }
+            if self.cycle_counter == 256{
+                self.increment_y();
+                self.transfer_x();
+            }
+        }
+        if self.scanline_counter == -1 && self.cycle_counter >= 280 && self.cycle_counter <= 304{
+            self.transfer_y(); /* We transfer the vertical factor from the T register here. */
+        }
+
+        
+        if self.ppumask.contains(PPUMASK::enable_background_rendering) || self.ppumask.contains(PPUMASK::enable_sprite_rendering){
+            let mux = 0x8000 >> (self.x as u16); /* Our multiplexer to select the bit */
+            let pixel_lo = if self.pattern_lo_shift_register & mux != 0 {1} else {0};
+            let pixel_hi = if self.pattern_hi_shift_register & mux != 0 {1} else {0};
+            let attrib_lo = if self.attribute_lo_shift_register & mux != 0 {1} else {0};
+            let attrib_hi = if self.attribute_hi_shift_register & mux != 0 {1} else {0};
+            let pixel = (pixel_hi << 1) | (pixel_lo);
+            let pattern = (attrib_hi << 1) | (attrib_lo);
+            self.shift();
+            if self.cycle_counter < 256 && self.scanline_counter > 0 && self.scanline_counter < 240{
+                unsafe{
+                    (*self.nametable_frame.unwrap()).drawpixel(self.cycle_counter, self.scanline_counter as u16, self.get_bgpalette(pattern & 3, pixel));
+                }
+            }
+        }
+
+        /* Incrementing Logic */
         self.cycle_counter += 1;
         if self.cycle_counter > 340 {
-            self.eval_sprite_0();
+
             self.cycle_counter = 0;
             self.scanline_counter += 1;
-        }
-        if self.cycle_counter == 30 && self.scanline_counter == 60{
-            self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag,true);
         }
         if self.scanline_counter <= 239 {
         } else if self.scanline_counter == 241 && self.cycle_counter == 1 {
@@ -566,11 +600,14 @@ impl Ppu {
             if self.ppuctrl.contains(PPUCTRL::vblank_enable) {
                 self.nmi = true;
             }
-        } else if self.scanline_counter == 261 && self.cycle_counter == 1 {
+        } else if self.scanline_counter == -1 && self.cycle_counter == 1 {
             self.ppustatus.set(PPUSTATUS::vblank_flag, false);
             self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, false);
             self.ppustatus.set(PPUSTATUS::sprite_overflow_flag, false);
             self.scanline_counter = 0;
+        }
+        if self.scanline_counter > 260{
+            self.scanline_counter = -1;
         }
         self.total_cycles = self.total_cycles.wrapping_add(1);
     }

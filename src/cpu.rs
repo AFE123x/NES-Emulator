@@ -1,6 +1,8 @@
 mod mode;
 
 
+use std::fmt::format;
+
 use crate::bus::Bus;
 mod instructions;
 bitflags! {
@@ -18,6 +20,7 @@ bitflags! {
 }
 use bitflags::bitflags;
 use instructions::inst_enum::{AddressMode, Instruction};
+use minifb_fonts::font5x8;
 
 /// Representation of the CPU state
 pub struct Cpu {
@@ -34,6 +37,7 @@ pub struct Cpu {
     bus: Option<*mut Bus>, // Pointer to the system bus
     opcode: u8,      // Current opcode being executed
     oldpc: u16,      // Previous program counter value
+    updated_state: bool,
 }
 
 impl Cpu {
@@ -55,6 +59,7 @@ impl Cpu {
             total_cycles: 0,
             opcode: 0,
             oldpc: 0,
+            updated_state: true,
         }
     }
     
@@ -73,9 +78,11 @@ impl Cpu {
     }
     
     /// Prints the current CPU state and instruction being executed
-    fn print_state(&self, instruction: &Instruction, addr_mode: &AddressMode){
-        println!("PC: {:#x}\tA: {:#x}\tX {:#x}\tY {:#x}\tSP {:#x}\tFLAGS {}\t{:?}({:?}), cycles: {}\t",
-            self.oldpc, self.a, self.x, self.y, self.sp, self.print_status_reg(), instruction, addr_mode, self.total_cycles);
+    fn print_state(&self) -> String{
+        // format!("PC: {:#x}A: {:#x}\tX {:#x}\tY \n{:#x}\tSP {:#x}\tFLAGS {}\t,\ncycles: {}\t",
+            // self.oldpc, self.a, self.x, self.y, self.sp, self.print_status_reg(), self.total_cycles)
+            format!("PC: {:#x}\nA: {:#x}, X: {:#x}, Y: {:#x}\nSP: {:#x}, flags: {}",self.pc,self.a,self.x,self.y,self.sp,self.print_status_reg())
+
     }
     
     /// Links the CPU to a system bus
@@ -87,7 +94,18 @@ impl Cpu {
     fn cpu_read(&self, address: u16, rdonly: bool) -> u8 {
         unsafe { (*self.bus.unwrap()).cpu_read(address, rdonly) }
     }
-    
+    pub fn update_cpuwindow(&mut self, buf: &mut Vec<u32>){
+        let text = font5x8::new_renderer(128,64,0xFFFFFF);
+        text.draw_text(buf, 0, 0, self.print_state().as_str());
+    }
+    pub fn isUpdated(&mut self) -> bool{
+        if self.updated_state{
+            self.updated_state = false;
+            return true;
+        }
+        false
+    }
+
     /// Writes a byte to memory via the system bus
     fn cpu_write(&self, address: u16, byte: u8) {
         unsafe {
@@ -99,6 +117,9 @@ impl Cpu {
     pub fn clock(&mut self) {
         // Fetch the next instruction if there are no remaining cycles
         if self.cycles_left == 0 {
+            if self.total_cycles & 0x03FFFF == 0{
+                self.updated_state = true;
+            }
             self.flags.set(Flags::Unused,true);
             let opcode = self.cpu_read(self.pc,false);
             self.oldpc = self.pc;
