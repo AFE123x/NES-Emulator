@@ -1,10 +1,12 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{cartridge::Cartridge, controller::Controller, cpu::Cpu, ppu::Ppu};
 
 pub struct Bus {
     memory: Vec<u8>,
-    cartridge: Option<*mut Cartridge>,
+    cartridge: Option<Rc<RefCell<Cartridge>>>,
     ppu: Option<*mut Ppu>,
-    controller: Option<*mut Controller>,
+    controller: Option<Rc<RefCell<Controller>>>,
     total_cycles: usize,
 }
 
@@ -18,14 +20,14 @@ impl Bus {
             total_cycles: 0,
         }
     }
-    pub fn link_cartridge(&mut self, cart: &mut Cartridge){
+    pub fn link_cartridge(&mut self, cart: Rc<RefCell<Cartridge>>){
         self.cartridge = Some(cart);
     }
     pub fn link_ppu(&mut self, ppu: &mut Ppu){
         self.ppu = Some(ppu);
     }
 
-    pub fn link_controller(&mut self, controller: &mut Controller) {
+    pub fn link_controller(&mut self, controller: Rc<RefCell<Controller>>) {
         self.controller = Some(controller);
     }
     pub fn cpu_read(&self, address: u16, rdonly: bool) -> u8 {
@@ -36,13 +38,23 @@ impl Bus {
             data = unsafe { (*self.ppu.unwrap()).cpu_read(address, rdonly) };
         } else if address <= 0x4017 {
             if address == 0x4016 {
-                data = unsafe { (*self.controller.unwrap()).cpu_read() };
+                data = if let Some(controller) = &self.controller{
+                    controller.borrow_mut().cpu_read()
+                }
+                else{
+                    panic!("ERROR - Controller");
+                };
             }
         } else if address <= 0x401F {
             // todo!();
             data = 0;
         } else {
-            unsafe { (*self.cartridge.unwrap()).cpu_read(address, &mut data) };
+            if let Some(cart) = &self.cartridge{
+                cart.borrow_mut().cpu_read(address, &mut data);
+            }
+            else{
+                panic!("Cartridge Error");
+            }
         }
 
         data
@@ -62,21 +74,25 @@ impl Bus {
             for i in 0..=0xFF{
                 let data = self.memory[byte | i];
                 unsafe{
-                    (*self.ppu.unwrap()).oam_dma_write(i as u8, data);
+                        (*self.ppu.unwrap()).oam_dma_write(i as u8, data);
+                    
                 }
             }
         }
         else if address <= 0x4017 {
             if address == 0x4016 {
-                unsafe { (*self.controller.unwrap()).cpu_write(byte) };
+                if let Some(controller) = &self.controller{
+                    controller.borrow_mut().cpu_write(byte);
+                }
             }
         } 
         else if address <= 0x401F {
             // todo!()
         } else {
-            unsafe {
-                (*self.cartridge.unwrap()).cpu_write(address, byte);
-            }
+
+                if let Some(cartridge) = &self.cartridge{
+                    cartridge.borrow_mut().cpu_write(address, byte);
+                }
         }
     }
 

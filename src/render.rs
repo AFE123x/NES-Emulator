@@ -1,5 +1,5 @@
 use minifb::{Key, Scale, Window, WindowOptions};
-use std::error::Error;
+use std::{cell::RefCell, error::Error, rc::Rc};
 
 use crate::{
     bus::Bus,
@@ -11,18 +11,18 @@ use crate::{
 
 pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
     /* Initialize peripherals */
-    let mut cartridge = Cartridge::new(rom_file);
+    let cartridge = Rc::new(RefCell::new(Cartridge::new(rom_file)));
     let mut cpu = Cpu::new();
     let mut game_frame = Frame::new(256, 240);
-    let mut ppu = Ppu::new(&mut cartridge);
+    let mut ppu = Ppu::new(Rc::clone(&cartridge));
     let mut bus = Bus::new();
-    let mut controller = controller::Controller::new();
+    let controller = Rc::new(RefCell::new(controller::Controller::new()));
 
     // Link components
     ppu.linkpattern(&mut game_frame);
-    bus.link_cartridge(&mut cartridge);
+    bus.link_cartridge(Rc::clone(&cartridge));
     bus.link_ppu(&mut ppu);
-    bus.link_controller(&mut controller);
+    bus.link_controller(Rc::clone(&controller));
     cpu.linkbus(&mut bus);
     cpu.reset();
     let windowoption = WindowOptions {
@@ -40,14 +40,14 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
     let mut pattern_frame: Frame = Frame::new(256, 128);
     window.set_target_fps(60);
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        controller.set_button(Buttons::A, window.is_key_down(Key::A));
-        controller.set_button(Buttons::B, window.is_key_down(Key::S));
-        controller.set_button(Buttons::Select, window.is_key_down(Key::D));
-        controller.set_button(Buttons::Start, window.is_key_down(Key::F));
-        controller.set_button(Buttons::Up, window.is_key_down(Key::Up));
-        controller.set_button(Buttons::Down, window.is_key_down(Key::Down));
-        controller.set_button(Buttons::Left, window.is_key_down(Key::Left));
-        controller.set_button(Buttons::Right, window.is_key_down(Key::Right));
+        controller.borrow_mut().set_button(Buttons::A, window.is_key_down(Key::A));
+        controller.borrow_mut().set_button(Buttons::B, window.is_key_down(Key::S));
+        controller.borrow_mut().set_button(Buttons::Select, window.is_key_down(Key::D));
+        controller.borrow_mut().set_button(Buttons::Start, window.is_key_down(Key::F));
+        controller.borrow_mut().set_button(Buttons::Up, window.is_key_down(Key::Up));
+        controller.borrow_mut().set_button(Buttons::Down, window.is_key_down(Key::Down));
+        controller.borrow_mut().set_button(Buttons::Left, window.is_key_down(Key::Left));
+        controller.borrow_mut().set_button(Buttons::Right, window.is_key_down(Key::Right));
         if window.is_key_pressed(Key::R, minifb::KeyRepeat::No) {
             ppu.set_bg_palette_num();
         }

@@ -2,6 +2,8 @@ mod loopy;
 mod oam;
 
 use core::panic;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use crate::ppu::oam::oam as Oam;
 use registers::{vt_reg, PPUCTRL, PPUMASK, PPUSTATUS};
@@ -24,7 +26,7 @@ pub struct Ppu {
     vram: Vec<u8>,
     internal_buffer: u8,
     nmi: bool,
-    cart: *mut Cartridge,
+    cart: Rc<RefCell<Cartridge>>,
     palette_memory: Vec<u8>,
     system_palette: Vec<(u8, u8, u8)>,
     palette_num: u8,
@@ -126,7 +128,7 @@ impl Ppu {
         }
         data
     }
-    pub fn new(cartridge: &mut Cartridge) -> Self {
+    pub fn new(cartridge: Rc<RefCell<Cartridge>>) -> Self {
         let pal: Vec<u8> = vec![0; 0x20];
         let mut vram: Vec<u8> = vec![0; 2048];
         for i in &mut vram {
@@ -227,9 +229,11 @@ impl Ppu {
         let mut byte = 0;
 
         if address <= 0x1FFF {
-            unsafe { (*self.cart).ppu_read(address, &mut byte) }; // Reads from cartridge space
+            self.cart.borrow_mut().ppu_read(address, &mut byte);
+            // unsafe { (*self.cart).ppu_read(address, &mut byte) }; // Reads from cartridge space
         } else if address >= 0x2000 && address <= 0x2FFF {
-            let nametable: Nametable = unsafe { (*self.cart).get_nametable() };
+            // let nametable: Nametable = unsafe { (*self.cart).get_nametable() };
+            let nametable = self.cart.borrow_mut().get_nametable();
             byte = match nametable {
                 Nametable::Vertical => {
                     let index = match address {
@@ -271,10 +275,12 @@ impl Ppu {
 
     fn ppu_write(&mut self, address: u16, data: u8) {
         if address <= 0x1FFF {
-            unsafe { (*self.cart).ppu_write(address, data) }; // writes to cartridge space
+            // unsafe { (*self.cart).ppu_write(address, data) }; // writes to cartridge space
+            self.cart.borrow_mut().ppu_write(address, data);
         } else if address >= 0x2000 && address <= 0x2FFF {
             /* nametable writes */
-            let nametable: Nametable = unsafe { (*self.cart).get_nametable() };
+            // let nametable: Nametable = unsafe { (*self.cart).get_nametable() };
+            let nametable = self.cart.borrow_mut().get_nametable();
 
             match nametable {
                 Nametable::Vertical => {
@@ -447,7 +453,60 @@ impl Ppu {
     }
 
     pub fn render_816_sprite(&mut self, index: usize) {
-        todo!()
+        let oam_sprite = self.oam_table[index].clone();
+        let x = oam_sprite.get_x_position();
+        let y = oam_sprite.get_y_position() + 1;
+        let index = oam_sprite.get_index_number() as u16;
+        let attribute = oam_sprite.get_attribute();
+        let horizontal_factor = attribute & 0x40 > 0;
+        let vertical_factor = attribute & 0x80 > 0;
+        let attrib_table = attribute & 0x3;
+        let table_index = if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {
+            0x1000
+        } else {
+            0
+        };
+        for i in 0..16 {
+            let pattern_address = (table_index | (index << 4)) + i;
+            let mut pattern_lo = self.ppu_read(pattern_address);
+            let mut pattern_hi = self.ppu_read(pattern_address + 8);
+            for j in 0..8 {
+                let pattern_bit_lo = if pattern_lo & 0x80 != 0 { 1 } else { 0 };
+                let pattern_bit_hi = if pattern_hi & 0x80 != 0 { 1 } else { 0 };
+                let pixel_num = (pattern_bit_hi << 1) | pattern_bit_lo;
+                pattern_lo <<= 1;
+                pattern_hi <<= 1;
+                let color = self.get_fgpalette(attrib_table & 3, pixel_num);
+                if x < 241 && y < 231 {
+                    let j = if horizontal_factor { 7 - j } else { j };
+                    let i = if vertical_factor { 15 - i } else { i };
+                    let x = x + j;
+                    let y = y + i;
+                    if index == 0 && self.frame_array[x as usize][y as usize] != 0 {
+                        self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
+                        
+                    }
+                    let priority = attribute & 0x20 > 0; //if it's one, we render the sprite behind the background
+                    if priority {
+                        if self.frame_array[x as usize][y as usize] == 0 {
+                            if pixel_num != 0 {
+                                unsafe {
+                                    (*self.nametable_frame.unwrap())
+                                        .drawpixel(x as u16, y as u16, color)
+                                };
+                            }
+                        }
+                    } else {
+                        if pixel_num != 0 {
+                            unsafe {
+                                (*self.nametable_frame.unwrap())
+                                    .drawpixel(x as u16, y as u16, color)
+                            };
+                        }
+                    }
+                }
+            }
+        }
     }
     pub fn render_88_sprite(&mut self, index: usize) {
         let oam_sprite = self.oam_table[index].clone();
@@ -517,8 +576,10 @@ impl Ppu {
         }
     }
     pub fn set_name_table(&mut self) {
-        // self.render_nametable();
         self.set_oam_table();
+        for i in 0..255{
+            self.oam_table[i / 4].set_byte(i as u8, 0xFF);
+        }
     }
     fn get_pattern_address(&self) -> u16{
         let toreturn = if self.ppuctrl.contains(PPUCTRL::background_pattern_table_address){0x1000} else {0x0000};
