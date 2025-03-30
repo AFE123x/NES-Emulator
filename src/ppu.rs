@@ -248,8 +248,12 @@ impl Ppu {
             // Mirror of 0x2000 - 0x2EFF
             byte = self.ppu_read(address - 0x1000);
         } else if address >= 0x3F00 && address <= 0x3FFF {
-            // Palette memory handling with mirroring
-            byte = self.palette_memory[(address & 0x1F) as usize];
+            let mut addr = address & 0x001F;
+            if addr == 0x0010 {addr = 0x0000;}
+            if addr == 0x0014 {addr = 0x0004;}
+            if addr == 0x0018 {addr = 0x0008;}
+            if addr == 0x001C {addr = 0x000C;}
+            byte = self.palette_memory[addr as usize];
         } else {
             // Open bus or undefined memory area
             byte = 0;
@@ -303,7 +307,12 @@ impl Ppu {
             };
         } else if address >= 0x3000 && address <= 0x3EFF {
         } else if address >= 0x3F00 && address <= 0x3FFF {
-            self.palette_memory[(address & 0x1F) as usize] = data;
+            let mut addr = address & 0x001F;
+            if addr == 0x0010 {addr = 0x0000;}
+            if addr == 0x0014 {addr = 0x0004;}
+            if addr == 0x0018 {addr = 0x0008;}
+            if addr == 0x001C {addr = 0x000C;}
+            self.palette_memory[addr as usize] = data;
         } else {
             // todo!()
         }
@@ -594,20 +603,25 @@ impl Ppu {
             self.cycle_counter = 0;
             self.scanline_counter += 1;
         }
+        if self.scanline_counter == 32 && self.cycle_counter == 88{
+            // println!("{}",self.oam_table[0].print_oam());
+            self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag,true);
+        }
         if self.scanline_counter <= 239 {
         } else if self.scanline_counter == 241 && self.cycle_counter == 1 {
             self.ppustatus.set(PPUSTATUS::vblank_flag, true);
             if self.ppuctrl.contains(PPUCTRL::vblank_enable) {
                 self.nmi = true;
             }
-        } else if self.scanline_counter == -1 && self.cycle_counter == 1 {
-            self.ppustatus.set(PPUSTATUS::vblank_flag, false);
-            self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, false);
-            self.ppustatus.set(PPUSTATUS::sprite_overflow_flag, false);
+        }
+        if self.scanline_counter == -1 && self.cycle_counter == 1 {
             self.scanline_counter = 0;
         }
         if self.scanline_counter > 260{
             self.scanline_counter = -1;
+            self.ppustatus.set(PPUSTATUS::vblank_flag, false);
+            self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, false);
+            self.ppustatus.set(PPUSTATUS::sprite_overflow_flag, false);
         }
         self.total_cycles = self.total_cycles.wrapping_add(1);
     }
