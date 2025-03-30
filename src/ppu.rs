@@ -2,7 +2,6 @@ mod loopy;
 mod oam;
 
 use core::panic;
-use std::iter::Cycle;
 
 use crate::ppu::oam::oam as Oam;
 use registers::{vt_reg, PPUCTRL, PPUMASK, PPUSTATUS};
@@ -603,8 +602,8 @@ impl Ppu {
             self.cycle_counter = 0;
             self.scanline_counter += 1;
         }
-        if self.scanline_counter == 32 && self.cycle_counter == 88{
-            // println!("{}",self.oam_table[0].print_oam());
+        if self.scanline_counter == 64 && self.cycle_counter == 2{
+            println!("{}",self.oam_table[0].print_oam());
             self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag,true);
         }
         if self.scanline_counter <= 239 {

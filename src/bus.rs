@@ -2,7 +2,6 @@ use crate::{cartridge::Cartridge, controller::Controller, cpu::Cpu, ppu::Ppu};
 
 pub struct Bus {
     memory: Vec<u8>,
-    cpu: *mut Cpu,
     cartridge: Option<*mut Cartridge>,
     ppu: Option<*mut Ppu>,
     controller: Option<*mut Controller>,
@@ -10,10 +9,9 @@ pub struct Bus {
 }
 
 impl Bus {
-    pub fn new(cpu: &mut Cpu) -> Self {
+    pub fn new() -> Self {
         Self {
             memory: vec![0; 2048],
-            cpu,
             cartridge: None,
             controller: None,
             ppu: None,
@@ -82,13 +80,4 @@ impl Bus {
         }
     }
 
-    pub fn clock(&mut self) {
-        unsafe {
-            (*self.ppu.unwrap()).clock();
-            (*self.ppu.unwrap()).clock();
-            (*self.ppu.unwrap()).clock();
-            (*self.cpu).clock();
-        }
-        self.total_cycles += 1;
-    }
 }
