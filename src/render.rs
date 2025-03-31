@@ -48,8 +48,8 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
         controller.borrow_mut().set_button(Buttons::Down, window.is_key_down(Key::Down));
         controller.borrow_mut().set_button(Buttons::Left, window.is_key_down(Key::Left));
         controller.borrow_mut().set_button(Buttons::Right, window.is_key_down(Key::Right));
-        if window.is_key_pressed(Key::R, minifb::KeyRepeat::No) {
-            ppu.set_bg_palette_num();
+        if window.is_key_pressed(Key::Q, minifb::KeyRepeat::No){
+            cpu.reset()
         }
 
         // bus.clock();
