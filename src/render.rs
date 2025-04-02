@@ -51,8 +51,6 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
         if window.is_key_pressed(Key::Q, minifb::KeyRepeat::No){
             cpu.reset()
         }
-
-        // bus.clock();
         for _ in 0..3{
             ppu.clock();
         }

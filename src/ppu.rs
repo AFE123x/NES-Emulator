@@ -433,7 +433,7 @@ impl Ppu {
         match masked_address {
             0 => {
                 self.ppuctrl = PPUCTRL::from_bits_truncate(data);
-                self.t.set_nametable(data);
+                self.t.set_nametable(data & 3);
             }
             1 => {
                 self.ppumask = PPUMASK::from_bits_truncate(data);
@@ -620,9 +620,17 @@ impl Ppu {
     //     }
 
     pub fn set_name_table(&mut self) {
-        for i in 0..64{
-            self.render_88_sprite(i);
+        if self.ppuctrl.contains(PPUCTRL::sprite_size){
+            for i in 0..64{
+                self.render_816_sprite(i);
+            }
         }
+        else{
+            for i in 0..64{
+                self.render_88_sprite(i);
+            }
+        }
+       
     }
     fn get_pattern_address(&self) -> u16 {
         let toreturn = if self
@@ -711,7 +719,7 @@ impl Ppu {
         if self.cycle_counter == 256 && self.scanline_counter < 239{ /* We only evaluate sprites that are visible. */
             /* Sprite evaluation function */
             if self.ppuctrl.contains(PPUCTRL::sprite_size){
-                todo!()
+                // todo!()
             }
             else{
                 // self.render_88_sprite();
@@ -766,7 +774,7 @@ impl Ppu {
             self.cycle_counter = 0;
             self.scanline_counter += 1;
         }
-        if self.scanline_counter == self.oam_table[0].get_y_position()/* .wrapping_add(8)*/  as i16
+        if self.scanline_counter == self.oam_table[0].get_y_position().wrapping_add(8)/* .wrapping_add(8)*/  as i16
             && self.cycle_counter == self.oam_table[0].get_x_position() as u16
         {
             self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);

@@ -103,10 +103,11 @@ impl vt_reg {
     }
     ///this will set the bits in the nametable section
     pub fn set_nametable(&mut self, input: u8) {
-        let input = input & 3;
-        self.data &= 0x73FF;
-        let input = input as u16;
-        self.data |= input << 10;
+        let input = (input & 3) as u16;
+        /* ...GH.. ........ */
+        let input = input << 10;
+        self.data &= 0b111_00_11_1111_1111;
+        self.data |= input;
     }
     ///this will retrieve the bits in the nametable
     pub fn get_nametable(&self) -> u8 {
