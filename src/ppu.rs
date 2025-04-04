@@ -497,51 +497,67 @@ impl Ppu {
         let oam_sprite = self.oam_table[index].clone();
         let x = oam_sprite.get_x_position();
         let y = oam_sprite.get_y_position() + 1;
-        let index = oam_sprite.get_index_number() as u16;
+        let tile_index = oam_sprite.get_index_number() as u16;
         let attribute = oam_sprite.get_attribute();
-        let horizontal_factor = attribute & 0x40 > 0;
-        let vertical_factor = attribute & 0x80 > 0;
-        let attrib_table = attribute & 0x3;
-        let table_index = if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {
-            0x1000
-        } else {
-            0
-        };
-        for i in 0..16 {
-            let pattern_address = (table_index | (index << 4)) + i;
-            let mut pattern_lo = self.ppu_read(pattern_address);
-            let mut pattern_hi = self.ppu_read(pattern_address + 8);
-            for j in 0..8 {
-                let pattern_bit_lo = if pattern_lo & 0x80 != 0 { 1 } else { 0 };
-                let pattern_bit_hi = if pattern_hi & 0x80 != 0 { 1 } else { 0 };
-                let pixel_num = (pattern_bit_hi << 1) | pattern_bit_lo;
-                pattern_lo <<= 1;
-                pattern_hi <<= 1;
-                let color = self.get_fgpalette(attrib_table & 3, pixel_num);
-                if x < 241 && y < 231 {
-                    let j = if horizontal_factor { 7 - j } else { j };
-                    let i = if vertical_factor { 15 - i } else { i };
-                    let x = x + j;
-                    let y = y + i;
-                    if index == 0 && self.frame_array[x as usize][y as usize] != 0 {
+        let flip_horizontal = attribute & 0x40 > 0;
+        let flip_vertical = attribute & 0x80 > 0;
+        let palette_idx = attribute & 0x3;
+        let behind_background = attribute & 0x20 > 0;
+        
+        // For 8x16 sprites, bit 0 of the tile index selects the pattern table
+        let pattern_table = if tile_index & 1 == 0 { 0 } else { 0x1000 };
+        let tile_number = tile_index & 0xFE; // Remove bit 0 as it's used for pattern table
+        
+        // Process both tiles (top and bottom)
+        for tile in 0..2 {
+            let effective_tile = if flip_vertical { 1 - tile } else { tile };
+            
+            // Calculate base address for this tile
+            let tile_base = pattern_table | ((tile_number + effective_tile) << 4);
+            
+            // Process the 8 rows of this tile
+            for row in 0..8 {
+                let effective_row = if flip_vertical { 7 - row } else { row };
+                let pattern_address = tile_base + effective_row;
+                
+                let pattern_lo = self.ppu_read(pattern_address);
+                let pattern_hi = self.ppu_read(pattern_address + 8);
+                
+                // Process the 8 pixels in this row
+                for col in 0..8 {
+                    let effective_col = if flip_horizontal { 7 - col } else { col };
+                    
+                    // Extract pixel data
+                    let bit_lo = (pattern_lo >> (7 - effective_col)) & 1;
+                    let bit_hi = (pattern_hi >> (7 - effective_col)) & 1;
+                    let pixel_value = (bit_hi << 1) | bit_lo;
+                    
+                    // Skip transparent pixels
+                    if pixel_value == 0 {
+                        continue;
+                    }
+                    
+                    // Calculate screen coordinates
+                    let screen_x =( (x as u16) + col) as u16;
+                    let screen_y = y + row + (tile * 8);
+                    
+                    // Skip if off-screen
+                    if screen_x >= 256 || screen_y >= 240 {
+                        continue;
+                    }
+                    
+                    // Sprite 0 hit detection
+                    if index == 0 && self.frame_array[screen_x as usize][screen_y as usize] != 0 {
                         self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
                     }
-                    let priority = attribute & 0x20 > 0; //if it's one, we render the sprite behind the background
-                    if priority {
-                        if self.frame_array[x as usize][y as usize] == 0 {
-                            if pixel_num != 0 {
-                                unsafe {
-                                    (*self.nametable_frame.unwrap())
-                                        .drawpixel(x as u16, y as u16, color)
-                                };
-                            }
-                        }
-                    } else {
-                        if pixel_num != 0 {
-                            unsafe {
-                                (*self.nametable_frame.unwrap())
-                                    .drawpixel(x as u16, y as u16, color)
-                            };
+                    
+                    // Get color and render
+                    let color = self.get_fgpalette(palette_idx, pixel_value);
+                    
+                    // Apply priority rules
+                    if !behind_background || self.frame_array[screen_x as usize][screen_y as usize] == 0 {
+                        unsafe {
+                            (*self.nametable_frame.unwrap()).drawpixel(screen_x as u16, screen_y as u16, color);
                         }
                     }
                 }
@@ -604,21 +620,6 @@ impl Ppu {
         }
     }
 
-    // pub fn render_88_sprite(&mut self){
-    //     let mut index = 0;
-    //     for i in 0..64{
-    //         if self.oam_table[i].get_y_position().wrapping_add(1).abs_diff(self.scanline_counter as u16) < 8{
-    //             /* This means our sprite is drawn on this scanline */
-    //             if index < 8{ /* We need to check if it's actually possible to draw it. */
-    //                 self.oam_list[index] = OamEval{x_pos: self.oam_table[i].get_x_position() as u16, oam_index: i as u16};
-    //                 index += 1;
-    //             }
-    //             else{
-    //                 self.ppustatus.set(PPUSTATUS::sprite_overflow_flag,true);
-    //                 break;
-    //             }
-    //         }
-    //     }
 
     pub fn set_name_table(&mut self) {
         if self.ppuctrl.contains(PPUCTRL::sprite_size){

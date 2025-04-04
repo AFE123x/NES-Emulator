@@ -31,9 +31,8 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
         scale: Scale::X2,
         ..Default::default()
     };
-    let mut window = Window::new("NES Emulator", 512, 240, windowoption)?;
-    // let mut pattern_frame: Frame = Frame::new(256, 128);
-    // window.set_target_fps(60);
+    let mut window = Window::new("CrustNES", 512, 240, windowoption)?;
+    window.set_target_fps(60);
     while window.is_open() && !window.is_key_down(Key::Escape) {
         controller.borrow_mut().set_button(Buttons::A, window.is_key_down(Key::A));
         controller.borrow_mut().set_button(Buttons::B, window.is_key_down(Key::S));
