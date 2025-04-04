@@ -5,7 +5,7 @@ use core::panic;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::ppu::oam::oam as Oam;
+use crate::ppu::oam::Oam as Oam;
 use registers::{vt_reg, PPUCTRL, PPUMASK, PPUSTATUS};
 
 use crate::cartridge::{Cartridge, Nametable};
@@ -193,9 +193,11 @@ impl Ppu {
         self.palette_num = (self.palette_num + 1) & 0xF;
     }
     pub fn oam_dma_write(&mut self, address: u8, data: u8) {
-        let index = address / 4;
-        self.oam_table[index as usize].set_byte(address, data);
+        let sprite_index = (address / 4) as usize;
+        let sprite_offset = address % 4;
+        self.oam_table[sprite_index].set_byte(sprite_offset, data);
     }
+    
     pub fn get_bgpalette(&mut self, palettenum: u8, paletteindex: u8) -> (u8, u8, u8) {
         let palettenum = palettenum & 0x1F;
         let final_index = (palettenum << 2) | paletteindex;
@@ -239,7 +241,7 @@ impl Ppu {
                         let pattern_number = (bitlo << 1) | bithi;
                         let x = (coarse_x << 3) + fine_x;
                         let y = (coarse_y << 3) + fine_y;
-                        let color = self.get_bgpalette(3, pattern_number);
+                        let color = self.get_bgpalette(self.palette_num, pattern_number);
                         frame.drawpixel(x + 256, y, color);
                         pattern_lo <<= 1;
                         pattern_hi <<= 1;

@@ -28,25 +28,27 @@ impl Cpu {
     /// - A,Z,C,N = A-M-(1-C)
     /// - This instruction subtracts the contents of a memory location to the accumulator together with the not of the carry bit. If overflow occurs the carry bit is clear, this enables multiple byte subtraction to be performed.
     pub fn sbc(&mut self) {
-        let a = self.a;
         let m = self.cpu_read(self.addrabs, false);
-        let m = (!m).wrapping_add(1);
-        let c = if self.flags.contains(Flags::Carry) {0} else {0xFF};
+        let carry_bit = if self.flags.contains(Flags::Carry) { 1 } else { 0 };
+        let a = self.a as u16;
         let m = m as u16;
-        let a = a as u16;
-        let result = a + m + c;
-        self.flags.set(Flags::Carry,result > 255);
-        self.flags.set(Flags::Negative,result & 0x80 != 0);
-        let propa = (result & 0x80) ^ (m & 0x80);
-        let propa = propa != 0;
-        let propb = (a & 0x80) ^ (result & 0x80);
-        let propb = propb != 0;
-        self.flags.set(Flags::Overflow, propa && propb);
-        self.a = (result as u8) & 0xFF;
-        self.flags.set(Flags::Zero, self.a == 0);
         
-
-
+        // SBC is effectively A - M - (1 - C)
+        let result = a.wrapping_sub(m).wrapping_sub(1 - carry_bit);
+        
+        self.flags.set(Flags::Carry, result < 0x100);  // Set if no borrow
+        
+        let result_byte = (result & 0xFF) as u8;
+        self.flags.set(Flags::Zero, result_byte == 0);
+        self.flags.set(Flags::Negative, result_byte & 0x80 != 0);
+        
+        // Overflow occurs when the sign of (A-M) differs from the sign of A^M
+        self.flags.set(
+            Flags::Overflow,
+            ((self.a ^ m as u8) & 0x80 != 0) && ((self.a ^ result_byte) & 0x80 != 0)
+        );
+        
+        self.a = result_byte;
     }
     
     ///# `CMP` - Compare

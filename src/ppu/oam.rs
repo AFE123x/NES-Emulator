@@ -1,13 +1,13 @@
 use crate::ppu::Ppu;
 
-pub struct oam {
+pub struct Oam {
     y_position: u16,
     index_number: u8,
     attribute: u8,
     x_position: u8,
 }
 
-impl Clone for oam {
+impl Clone for Oam {
     fn clone(&self) -> Self {
         Self {
             y_position: self.y_position,
@@ -17,7 +17,7 @@ impl Clone for oam {
         }
     }
 }
-impl oam {
+impl Oam {
     pub fn new() -> Self {
         Self {
             y_position: 0,
@@ -68,7 +68,7 @@ impl oam {
 
     pub fn get_byte(&mut self, address: u8) -> u8 {
         match address % 4 {
-            0 => self.y_position as u8,
+            0 => self.y_position.wrapping_add(1) as u8,
             1 => self.index_number,
             2 => self.attribute,
             3 => self.x_position,

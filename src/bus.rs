@@ -68,17 +68,20 @@ impl Bus {
                 (*self.ppu.unwrap()).cpu_write(address, byte);
             };
         }
-        else if address == 0x4014{
-            let byte = byte as usize;
-            let byte = byte << 8;
-            for i in 0..=0xFF{
-                let data = self.memory[byte | i];
-                unsafe{
-                        (*self.ppu.unwrap()).oam_dma_write(i as u8, data);
-                    
+        else if address == 0x4014 {
+            let base = (byte as usize) << 8;
+            for i in 0..=0xFF {
+                let data = self.memory[base + i];
+                unsafe {
+                    if let Some(ppu_ptr) = self.ppu {
+                        (*ppu_ptr).oam_dma_write(i as u8, data);
+                    } else {
+                        panic!("PPU pointer is null during DMA transfer");
+                    }
                 }
             }
         }
+        
         else if address <= 0x4017 {
             if address == 0x4016 {
                 if let Some(controller) = &self.controller{

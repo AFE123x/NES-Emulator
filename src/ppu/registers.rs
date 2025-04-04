@@ -194,7 +194,7 @@ impl vt_reg {
             let y = self.get_coarse_yscroll();
             if y == 29{
                 self.set_coarse_yscroll(0);
-                let nametabley = self.get_nametabley() ^ 1;
+                let nametabley = !self.get_nametabley();
                 self.set_nametabley(nametabley);
             }
             else if y == 31{
