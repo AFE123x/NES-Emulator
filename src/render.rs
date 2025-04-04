@@ -13,7 +13,7 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
     /* Initialize peripherals */
     let cartridge = Rc::new(RefCell::new(Cartridge::new(rom_file)));
     let mut cpu = Cpu::new();
-    let mut game_frame = Frame::new(256, 240);
+    let mut game_frame = Frame::new(512, 240);
     let mut ppu = Ppu::new(Rc::clone(&cartridge));
     let mut bus = Bus::new();
     let controller = Rc::new(RefCell::new(controller::Controller::new()));
@@ -25,20 +25,15 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
     bus.link_controller(Rc::clone(&controller));
     cpu.linkbus(&mut bus);
     cpu.reset();
+
     let windowoption = WindowOptions {
         resize: false,
         scale: Scale::X2,
         ..Default::default()
     };
-    let mut pattern_window = Window::new("Pattern Table", 256, 128, windowoption)?;
-    let windowoption = WindowOptions {
-        resize: false,
-        scale: Scale::X4,
-        ..Default::default()
-    };
-    let mut window = Window::new("NES Emulator", 256, 240, windowoption)?;
-    let mut pattern_frame: Frame = Frame::new(256, 128);
-    window.set_target_fps(60);
+    let mut window = Window::new("NES Emulator", 512, 240, windowoption)?;
+    // let mut pattern_frame: Frame = Frame::new(256, 128);
+    // window.set_target_fps(60);
     while window.is_open() && !window.is_key_down(Key::Escape) {
         controller.borrow_mut().set_button(Buttons::A, window.is_key_down(Key::A));
         controller.borrow_mut().set_button(Buttons::B, window.is_key_down(Key::S));
@@ -48,6 +43,9 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
         controller.borrow_mut().set_button(Buttons::Down, window.is_key_down(Key::Down));
         controller.borrow_mut().set_button(Buttons::Left, window.is_key_down(Key::Left));
         controller.borrow_mut().set_button(Buttons::Right, window.is_key_down(Key::Right));
+        if window.is_key_pressed(Key::P, minifb::KeyRepeat::No){
+            ppu.set_bg_palette_num();
+        }
         if window.is_key_pressed(Key::Q, minifb::KeyRepeat::No){
             cpu.reset()
         }
@@ -59,9 +57,9 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
             cpu.nmi();
             
             ppu.set_name_table();
-            ppu.get_pattern_table(&mut pattern_frame);
-            window.update_with_buffer(game_frame.get_buf().as_slice(), 256, 240)?;
-            pattern_window.update_with_buffer(pattern_frame.get_buf().as_slice(), 256, 128)?;
+            ppu.get_pattern_table(&mut game_frame);
+            window.update_with_buffer(game_frame.get_buf().as_slice(), 512, 240)?;
+            // pattern_window.update_with_buffer(pattern_frame.get_buf().as_slice(), 256, 128)?;
         }
         
     }

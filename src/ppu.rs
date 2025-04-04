@@ -240,7 +240,7 @@ impl Ppu {
                         let x = (coarse_x << 3) + fine_x;
                         let y = (coarse_y << 3) + fine_y;
                         let color = self.get_bgpalette(3, pattern_number);
-                        frame.drawpixel(x, y, color);
+                        frame.drawpixel(x + 256, y, color);
                         pattern_lo <<= 1;
                         pattern_hi <<= 1;
                     }
@@ -309,11 +309,11 @@ impl Ppu {
         if address <= 0x1FFF {
             // unsafe { (*self.cart).ppu_write(address, data) }; // writes to cartridge space
             self.cart.borrow_mut().ppu_write(address, data);
-        } else if address >= 0x2000 && address <= 0x2FFF {
+
+        } else if address >= 0x2000 && address <= 0x3EFF {
             /* nametable writes */
             // let nametable: Nametable = unsafe { (*self.cart).get_nametable() };
             let nametable = self.cart.borrow_mut().get_nametable();
-
             match nametable {
                 Nametable::Vertical => {
                     match address {
@@ -350,7 +350,6 @@ impl Ppu {
                     self.vram[index as usize] = data;
                 }
             };
-        } else if address >= 0x3000 && address <= 0x3EFF {
         } else if address >= 0x3F00 && address <= 0x3FFF {
             let mut addr = address & 0x001F;
             if addr == 0x0010 {
@@ -774,7 +773,7 @@ impl Ppu {
             self.cycle_counter = 0;
             self.scanline_counter += 1;
         }
-        if self.scanline_counter == self.oam_table[0].get_y_position().wrapping_add(8)/* .wrapping_add(8)*/  as i16
+        if self.scanline_counter == self.oam_table[0].get_y_position().wrapping_add(8)  as i16
             && self.cycle_counter == self.oam_table[0].get_x_position() as u16
         {
             self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
