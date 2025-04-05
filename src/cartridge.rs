@@ -8,6 +8,7 @@ mod mapper002;
 use mapper::Mapper;
 use mapper000::Mapper000;
 use mapper002::Mapper002;
+use mapper001::Mapper001;
 
 use std::fs;
 #[derive(Debug)]
@@ -77,6 +78,7 @@ impl Cartridge {
         let mapper: Box<dyn Mapper> = match mapper{
             0 => Box::new(Mapper000 { n_chr: chr_rom_size as u8, n_prg: prg_rom_size as u8 }),
             2 => Box::new(Mapper002::new(prg_rom_size as u8, chr_rom_size as u8)),
+            1 => Box::new(Mapper001::new(prg_rom_size as u8, chr_rom_size as u8)),
             _ => panic!("mapper {} not supported",mapper),
         };
         println!("{:?}",header);

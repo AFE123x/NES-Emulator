@@ -79,8 +79,6 @@ impl Cpu {
     
     /// Prints the current CPU state and instruction being executed
     fn print_state(&self) -> String{
-        // format!("PC: {:#x}A: {:#x}\tX {:#x}\tY \n{:#x}\tSP {:#x}\tFLAGS {}\t,\ncycles: {}\t",
-            // self.oldpc, self.a, self.x, self.y, self.sp, self.print_status_reg(), self.total_cycles)
             format!("PC: {:#x}\nA: {:#x}, X: {:#x}, Y: {:#x}\nSP: {:#x}, flags: {}",self.pc,self.a,self.x,self.y,self.sp,self.print_status_reg())
 
     }

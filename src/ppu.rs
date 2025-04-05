@@ -566,54 +566,68 @@ impl Ppu {
     }
     pub fn render_88_sprite(&mut self, index: usize) {
         let oam_sprite = self.oam_table[index].clone();
-        let x = oam_sprite.get_x_position();
-        let y = oam_sprite.get_y_position() + 1;
-        let index = oam_sprite.get_index_number() as u16;
+        let sprite_x = oam_sprite.get_x_position() as u16;
+        let sprite_y = oam_sprite.get_y_position() + 1;
+        let tile_index = oam_sprite.get_index_number() as u16;
         let attribute = oam_sprite.get_attribute();
-        let horizontal_factor = attribute & 0x40 > 0;
-        let vertical_factor = attribute & 0x80 > 0;
-        let attrib_table = attribute & 0x3;
-        let table_index = if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {
+        let flip_horizontal = attribute & 0x40 > 0;
+        let flip_vertical = attribute & 0x80 > 0;
+        let palette = attribute & 0x3;
+        let behind_background = attribute & 0x20 > 0;
+        
+        // Get pattern table address from PPUCTRL
+        let pattern_table = if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {
             0x1000
         } else {
             0
         };
-        for i in 0..8 {
-            let pattern_address = (table_index | (index << 4)) + i;
-            let mut pattern_lo = self.ppu_read(pattern_address);
-            let mut pattern_hi = self.ppu_read(pattern_address + 8);
-            for j in 0..8 {
-                let pattern_bit_lo = if pattern_lo & 0x80 != 0 { 1 } else { 0 };
-                let pattern_bit_hi = if pattern_hi & 0x80 != 0 { 1 } else { 0 };
-                let pixel_num = (pattern_bit_hi << 1) | pattern_bit_lo;
-                pattern_lo <<= 1;
-                pattern_hi <<= 1;
-                let color = self.get_fgpalette(attrib_table & 3, pixel_num);
-                if x < 241 && y < 231 {
-                    let j = if horizontal_factor { 7 - j } else { j };
-                    let i = if vertical_factor { 7 - i } else { i };
-                    let x = x + j;
-                    let y = y + i;
-                    if index == 0 && self.frame_array[x as usize][y as usize] != 0 {
-                        self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
-                    }
-                    let priority = attribute & 0x20 > 0; //if it's one, we render the sprite behind the background
-                    if priority {
-                        if self.frame_array[x as usize][y as usize] == 0 {
-                            if pixel_num != 0 {
-                                unsafe {
-                                    (*self.nametable_frame.unwrap())
-                                        .drawpixel(x as u16, y as u16, color)
-                                };
-                            }
-                        }
-                    } else {
-                        if pixel_num != 0 {
-                            unsafe {
-                                (*self.nametable_frame.unwrap())
-                                    .drawpixel(x as u16, y as u16, color)
-                            };
-                        }
+        
+        // Calculate base address for this tile
+        let tile_base = pattern_table | (tile_index << 4);
+        
+        // Process each row of the sprite
+        for row in 0..8 {
+            let effective_row = if flip_vertical { 7 - row } else { row };
+            
+            // Get pattern data for this row
+            let pattern_lo = self.ppu_read(tile_base + effective_row);
+            let pattern_hi = self.ppu_read(tile_base + effective_row + 8);
+            
+            // Process each pixel in the row
+            for col in 0..8 {
+                let effective_col = if flip_horizontal { col } else { 7 - col };
+                
+                // Extract pixel color value (0-3)
+                let pixel_bit_lo = (pattern_lo >> effective_col) & 1;
+                let pixel_bit_hi = (pattern_hi >> effective_col) & 1;
+                let pixel_value = (pixel_bit_hi << 1) | pixel_bit_lo;
+                
+                // Skip transparent pixels
+                if pixel_value == 0 {
+                    continue;
+                }
+                
+                // Calculate screen position
+                let screen_x = (sprite_x + col) as u16;
+                let screen_y = sprite_y + row;
+                
+                // Skip if off-screen
+                if screen_x >= 256 || screen_y >= 240 {
+                    continue;
+                }
+                
+                // Sprite 0 hit detection
+                if index == 0 && self.frame_array[screen_x as usize][screen_y as usize] != 0 {
+                    self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
+                }
+                
+                // Get color from palette
+                let color = self.get_fgpalette(palette, pixel_value);
+                
+                // Apply sprite priority
+                if !behind_background || self.frame_array[screen_x as usize][screen_y as usize] == 0 {
+                    unsafe {
+                        (*self.nametable_frame.unwrap()).drawpixel(screen_x as u16, screen_y as u16, color);
                     }
                 }
             }
