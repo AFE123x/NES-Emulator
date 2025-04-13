@@ -16,7 +16,6 @@ struct Header {
     prg_rom_size: u8,
     chr_rom_size: u8,
     _mapper: u8,
-    name_table_arrangement: Nametable,
 }
 pub struct Cartridge {
     header: Header,
@@ -25,19 +24,17 @@ pub struct Cartridge {
     mapper: Box<dyn Mapper>,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub enum Nametable {
     Vertical,
     Horizontal,
+    OneScreenLo,
+    OneScreenHi,
 }
 
 impl Cartridge {
     pub fn get_nametable(&self) -> Nametable {
-        let nameboi = match self.header.name_table_arrangement {
-            Nametable::Vertical => Nametable::Vertical,
-            Nametable::Horizontal => Nametable::Horizontal,
-        };
-        nameboi
+        self.mapper.get_nametable().clone()
     }
     ///# `new` - Constructs a new cartridge
     pub fn new(file_name: &str) -> Self {
@@ -63,22 +60,22 @@ impl Cartridge {
         else{
             vec![0; 8192]
         };
+        let mapper = (header[7] & 0xF0) | (header[6] >> 4);
         let nametable_arrangement = match header[6] & 1 {
             0 => Nametable::Horizontal,
             1 => Nametable::Vertical,
             _ => panic!("impossible"),
         };
-        let mapper = (header[7] & 0xF0) | (header[6] >> 4);
         let header = Header {
             prg_rom_size: prg_rom_size as u8,
             chr_rom_size: chr_rom_size as u8,
             _mapper: mapper,
-            name_table_arrangement: nametable_arrangement,
         };
+        
         let mapper: Box<dyn Mapper> = match mapper{
-            0 => Box::new(Mapper000 { n_chr: chr_rom_size as u8, n_prg: prg_rom_size as u8 }),
-            2 => Box::new(Mapper002::new(prg_rom_size as u8, chr_rom_size as u8)),
-            1 => Box::new(Mapper001::new(prg_rom_size as u8, chr_rom_size as u8)),
+            0 => Box::new(Mapper000 { n_chr: chr_rom_size as u8, n_prg: prg_rom_size as u8, nametable: nametable_arrangement }),
+            2 => Box::new(Mapper002::new(prg_rom_size as u8, chr_rom_size as u8,nametable_arrangement)),
+            1 => Box::new(Mapper001::new(prg_rom_size as u8, chr_rom_size as u8,nametable_arrangement,None)),
             _ => panic!("mapper {} not supported",mapper),
         };
         println!("{:?}",header);
@@ -92,8 +89,8 @@ impl Cartridge {
 
     pub fn cpu_read(&self, address: u16, byte: &mut u8) {
         let mut mapped_addr = address as u32;
-        let res = self.mapper.cpu_read(address,&mut mapped_addr,*byte);
-        if res {
+        let res = self.mapper.cpu_read(address,&mut mapped_addr,byte);
+        if res  && mapped_addr != 0xFFFFFFFF {
             *byte = self.prg_rom[mapped_addr as usize];
         }
     }
@@ -101,7 +98,7 @@ impl Cartridge {
     pub fn cpu_write(&mut self, address: u16, byte: u8) {
         let mut mapped_address = address as u32;
         let res = self.mapper.cpu_write(address,&mut mapped_address,byte);
-        if res {
+        if res  && mapped_address != 0xFFFFFFFF{
             self.prg_rom[mapped_address as usize] = byte;
         }
     }
@@ -121,5 +118,8 @@ impl Cartridge {
         if res {
             self.chr_rom[mapped_address as usize] = byte;
         }
+    }
+    pub fn savestate(&mut self){
+        self.mapper.savestate();
     }
 }

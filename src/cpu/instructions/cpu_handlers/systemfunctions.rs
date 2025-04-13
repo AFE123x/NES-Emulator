@@ -2,8 +2,33 @@ use crate::cpu::Cpu;
 use crate::cpu::Flags;
 impl Cpu{
     pub fn brk(&mut self) {
-        println!("PC: {:4x}, opcode {:2x}",self.pc,self.opcode);
-        todo!()
+        // Increment PC by 1 because BRK is a 2-byte instruction
+        // (the second byte is padding and is typically skipped when executing)
+        println!("{:4x}",self.pc);
+        self.pc += 1;
+        
+        // Push the program counter to the stack
+        let lo_byte = self.pc & 0xFF;
+        let hi_byte = self.pc >> 8;
+        self.push(hi_byte as u8);
+        self.push(lo_byte as u8);
+        
+        // Push the status register to the stack
+        // Note: The B flag should be set in the copy pushed to the stack
+        self.flags.set(Flags::Break, true);
+        self.flags.set(Flags::Unused, true);
+        self.push(self.flags.bits());
+        
+        // Set the interrupt disable flag
+        self.flags.set(Flags::IDisable, true);
+        
+        // Load the IRQ/BRK vector (same vector is used for both)
+        let lo_byte = self.cpu_read(0xFFFE, false) as u16;
+        let hi_byte = self.cpu_read(0xFFFF, false) as u16;
+        self.pc = (hi_byte << 8) | lo_byte;
+        
+        // BRK takes 7 cycles
+        self.cycles_left = 7;
     }
     ///# `RTI` - Return from Interrupt
     /// - The RTI instruction is used at the end of an interrupt processing routine. It pulls the processor flags from the stack followed by the program counter.
@@ -12,7 +37,6 @@ impl Cpu{
         let lo_byte = self.pop() as u16;
         let hi_byte = self.pop() as u16;
         self.pc = (hi_byte << 8) | lo_byte;
-
     }
 
     ///# `nmi` - Non Maskable Interrupts
@@ -38,6 +62,7 @@ impl Cpu{
         let hi_byte = self.cpu_read(0xFFFB, false) as u16;
         self.pc = (hi_byte << 8) | lo_byte;
     }
+    
     pub fn reset(&mut self) {
         self.a = 0;
         self.x = 0;

@@ -78,8 +78,9 @@ impl Cpu {
     }
     
     /// Prints the current CPU state and instruction being executed
-    fn print_state(&self) -> String{
-            format!("PC: {:#x}\nA: {:#x}, X: {:#x}, Y: {:#x}\nSP: {:#x}, flags: {}",self.pc,self.a,self.x,self.y,self.sp,self.print_status_reg())
+    fn print_state(&self, instruction: &Instruction, addrmode: &AddressMode) -> String{
+            // format!("PC: {:#x}\nA: {:#x}, X: {:#x}, Y: {:#x}\nSP: {:#x}, flags: {}",self.pc,self.a,self.x,self.y,self.sp,self.print_status_reg())
+            format!("intsruction: {:?}({:?})",instruction,addrmode)
 
     }
     
@@ -91,10 +92,6 @@ impl Cpu {
     /// Reads a byte from memory via the system bus
     fn cpu_read(&self, address: u16, rdonly: bool) -> u8 {
         unsafe { (*self.bus.unwrap()).cpu_read(address, rdonly) }
-    }
-    pub fn update_cpuwindow(&mut self, buf: &mut Vec<u32>){
-        let text = font5x8::new_renderer(128,64,0xFFFFFF);
-        text.draw_text(buf, 0, 0, self.print_state().as_str());
     }
     pub fn isUpdated(&mut self) -> bool{
         if self.updated_state{

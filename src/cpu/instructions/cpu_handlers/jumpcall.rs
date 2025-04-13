@@ -1,10 +1,10 @@
 use crate::cpu::Cpu;
-use crate::cpu::Flags;
 impl Cpu{
     ///# `JMP` - Jump
     /// - Sets the program counter to the address specified by the operand.
     pub fn jmp(&mut self) {
         self.pc = self.addrabs;
+
     }
     ///# `JSR` - Jump to Subroutine
     /// - The JSR instruction pushes the address (minus one) of the return point on to the stack and then sets the program counter to the target memory address.

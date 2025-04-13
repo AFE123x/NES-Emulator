@@ -6,13 +6,17 @@ mod cpu;
 mod bus;
 mod ppu;
 mod controller;
+mod state;
 fn main(){
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 1{
-        panic!("cargo run <rom-file>");
-    }
-
-    let status = render::gameloop(&args[1]);
+    // let args: Vec<String> = env::args().collect();
+    // if args.len() < 1{
+    //     panic!("cargo run <rom-file>");
+    // }
+    let file = rfd::FileDialog::new()
+        .set_title("Select a save file")
+        .pick_file().unwrap();
+    let status = render::gameloop(file.to_str().unwrap());
+    // let status = render::gameloop("roms/branch_timing_tests/1.Branch_Basics.nes");
     match status{
         Ok(_) => {},
         Err(e) => panic!("error: {}",e.to_string()),

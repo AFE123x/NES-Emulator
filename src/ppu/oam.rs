@@ -68,7 +68,7 @@ impl Oam {
 
     pub fn get_byte(&mut self, address: u8) -> u8 {
         match address % 4 {
-            0 => self.y_position.wrapping_add(1) as u8,
+            0 => self.y_position as u8,
             1 => self.index_number,
             2 => self.attribute,
             3 => self.x_position,

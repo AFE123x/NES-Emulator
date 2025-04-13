@@ -1,5 +1,13 @@
 # NES Emulator
 
+![zelda](./images/zelda.png)
+
+![megaman](./images/megaman.png)
+
+![mario](./images/mario.png)
+
+![alt text](./images/contra.png)
+
 ## Introduction
 
 This is an NES Emulator Fully written in Rust. This has been a project I started in December of 2023, but I only gained enough will power and courage to complete it in March. This Emulator currently only supports Mapper 000, but I intend to add more later, which I will discuss later.
@@ -23,10 +31,9 @@ git clone https://github.com/AFE123x/NES-Emulator
 - Run your program
 
 ```bash
-cargo run <path-of-game>
+cargo run
 ```
-- `path-of-game` denotes the path where your **legally backed up** rom is located.
-- `scale` denotes how big you want the window to be.
+- You'll be asked to open a rom (which you legally backed up).
 
 ### Controls
 - I hardcoded the controls at the moment (they seem convoluted, Dvorak moment ;p)
@@ -41,17 +48,17 @@ cargo run <path-of-game>
 | O | B Button |
 | E | Select Button |
 | U | Start Button |
-
+| ; (or s) | save the prog ram (mapper 001 only) |
 ## Plans
 
 Ideally, this is not the end of the journey for my Emulator. Below are my plans. If you would like to contribute, feel free to make a pull request (there is much work to be done).
 
 - ~~Replace SDl2 Implementation with MiniFB~~
-- Optimize the PPU Background Rendering:
-    - Optimize PPU Scrolling by utilizing the loopy register mechanism.
-    - Troubleshoot nametable rendering (Super Mario Bros nametable does not seem to compile correctly (may also be a flag issue)).
+- ~~Optimize the PPU Background Rendering:~~
+    - ~~Optimize PPU Scrolling by utilizing the loopy register mechanism.~~
+    - ~~Troubleshoot nametable rendering (Super Mario Bros nametable does not seem to compile correctly (may also be a flag issue)).~~
 - Check CPU Instructions for correctness
-    - The nestest seems to fail a flag test.
+    - ~~The nestest seems to fail a flag test.~~
 - Implement Other Mappers
     - I hope to implement mapper 001, which should broaden the horizon for game compatability.
 - Audio

@@ -1,5 +1,5 @@
 use minifb::{Key, Scale, Window, WindowOptions};
-use std::{cell::RefCell, error::Error, rc::Rc};
+use std::{cell::RefCell, error::Error, rc::Rc, thread::{sleep, Thread}, time::Duration};
 
 use crate::{
     bus::Bus,
@@ -17,31 +17,52 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
     let mut ppu = Ppu::new(Rc::clone(&cartridge));
     let mut bus = Bus::new();
     let controller = Rc::new(RefCell::new(controller::Controller::new()));
-
+    let controller2 = Rc::new(RefCell::new(controller::Controller::new()));
+    let mut turn = true;
     // Link components
     ppu.linkpattern(&mut game_frame);
     bus.link_cartridge(Rc::clone(&cartridge));
     bus.link_ppu(&mut ppu);
-    bus.link_controller(Rc::clone(&controller));
+    bus.link_controller1(Rc::clone(&controller));
+    bus.link_controller2(Rc::clone(&controller2));
     cpu.linkbus(&mut bus);
     cpu.reset();
 
     let windowoption = WindowOptions {
-        resize: false,
+        resize: true,
         scale: Scale::X2,
         ..Default::default()
+
     };
     let mut window = Window::new("CrustNES", 512, 240, windowoption)?;
     window.set_target_fps(60);
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        controller.borrow_mut().set_button(Buttons::A, window.is_key_down(Key::A));
-        controller.borrow_mut().set_button(Buttons::B, window.is_key_down(Key::S));
-        controller.borrow_mut().set_button(Buttons::Select, window.is_key_down(Key::D));
-        controller.borrow_mut().set_button(Buttons::Start, window.is_key_down(Key::F));
-        controller.borrow_mut().set_button(Buttons::Up, window.is_key_down(Key::Up));
-        controller.borrow_mut().set_button(Buttons::Down, window.is_key_down(Key::Down));
-        controller.borrow_mut().set_button(Buttons::Left, window.is_key_down(Key::Left));
-        controller.borrow_mut().set_button(Buttons::Right, window.is_key_down(Key::Right));
+        if turn{
+            controller.borrow_mut().set_button(Buttons::A, window.is_key_down(Key::A));
+            controller.borrow_mut().set_button(Buttons::B, window.is_key_down(Key::S));
+            controller.borrow_mut().set_button(Buttons::Select, window.is_key_down(Key::D));
+            controller.borrow_mut().set_button(Buttons::Start, window.is_key_down(Key::F));
+            controller.borrow_mut().set_button(Buttons::Up, window.is_key_down(Key::Up));
+            controller.borrow_mut().set_button(Buttons::Down, window.is_key_down(Key::Down));
+            controller.borrow_mut().set_button(Buttons::Left, window.is_key_down(Key::Left));
+            controller.borrow_mut().set_button(Buttons::Right, window.is_key_down(Key::Right));
+    
+        }
+        else{
+            controller2.borrow_mut().set_button(Buttons::A, window.is_key_down(Key::A));
+            controller2.borrow_mut().set_button(Buttons::B, window.is_key_down(Key::S));
+            controller2.borrow_mut().set_button(Buttons::Select, window.is_key_down(Key::D));
+            controller2.borrow_mut().set_button(Buttons::Start, window.is_key_down(Key::F));
+            controller2.borrow_mut().set_button(Buttons::Up, window.is_key_down(Key::Up));
+            controller2.borrow_mut().set_button(Buttons::Down, window.is_key_down(Key::Down));
+            controller2.borrow_mut().set_button(Buttons::Left, window.is_key_down(Key::Left));
+            controller2.borrow_mut().set_button(Buttons::Right, window.is_key_down(Key::Right));
+        }
+        if window.is_key_pressed(Key::Semicolon, minifb::KeyRepeat::No){
+            cartridge.borrow_mut().savestate();
+            std::process::exit(0);
+        }
+        turn = !turn;
         if window.is_key_pressed(Key::R, minifb::KeyRepeat::No){
             ppu.set_bg_palette_num();
         }
@@ -58,7 +79,6 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
             ppu.set_name_table();
             ppu.get_pattern_table(&mut game_frame);
             window.update_with_buffer(game_frame.get_buf().as_slice(), 512, 240)?;
-            // pattern_window.update_with_buffer(pattern_frame.get_buf().as_slice(), 256, 128)?;
         }
         
     }

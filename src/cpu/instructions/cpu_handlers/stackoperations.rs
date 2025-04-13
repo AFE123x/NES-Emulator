@@ -23,7 +23,9 @@ impl Cpu{
     ///# `PHP` - Push Processor Status
     /// - Pushes a copy of the status flags on to the stack.
     pub fn php(&mut self) {
-        self.push(self.flags.bits());
+        // Set Break flag and Unused flag when pushing to stack
+        let status = self.flags.bits() | 0x30; // Set bits 4 and 5
+        self.push(status);
     }
     ///# `PLA` - Pull Accumulator
     /// - Pulls an 8 bit value from the stack and into the accumulator. The zero and negative flags are set as appropriate.
@@ -35,7 +37,11 @@ impl Cpu{
     ///# `PLP` - Pull Processor Status
     /// - Pulls an 8 bit value from the stack and into the processor flags. The flags will take on new states as determined by the value pulled.
     pub fn plp(&mut self) {
+        // When pulling flags from stack, the Break flag should be ignored
+        // and retain its current value
+        let current_break = self.flags.contains(Flags::Break);
         self.flags = Flags::from_bits_truncate(self.pop());
-        self.flags.set(Flags::Unused,true);    
+        self.flags.set(Flags::Unused, true);
+        self.flags.set(Flags::Break, current_break);
     }
 }
