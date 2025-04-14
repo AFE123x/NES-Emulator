@@ -1,6 +1,5 @@
-use crate::cartridge::Nametable;
 
-use super::{registers::{PPUCTRL, PPUMASK}, Ppu};
+use super::{registers::PPUMASK, Ppu};
 
 impl Ppu {
     pub fn increment_x(&mut self){

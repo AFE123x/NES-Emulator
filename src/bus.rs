@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{cartridge::Cartridge, controller::Controller, cpu::Cpu, ppu::Ppu};
+use crate::{cartridge::Cartridge, controller::Controller, ppu::Ppu};
 
 pub struct Bus {
     memory: Vec<u8>,

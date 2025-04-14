@@ -1,7 +1,6 @@
 mod mode;
 
 
-use std::fmt::format;
 
 use crate::bus::Bus;
 mod instructions;
@@ -20,7 +19,6 @@ bitflags! {
 }
 use bitflags::bitflags;
 use instructions::inst_enum::{AddressMode, Instruction};
-use minifb_fonts::font5x8;
 
 /// Representation of the CPU state
 pub struct Cpu {

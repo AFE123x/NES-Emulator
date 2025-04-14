@@ -1,76 +1,78 @@
-# NES Emulator
+<h1 align="center">NES Emulator</h1>
 
-![zelda](./images/zelda.png)
+An NES emulator is fully written in Rust.
 
-![megaman](./images/megaman.png)
-
-![mario](./images/mario.png)
-
-![alt text](./images/contra.png)
+<p align="center">
+  <img src="./images/zelda.png" width="300"/>
+  <img src="./images/megaman.png" width="300"/>
+  <img src="./images/mario.png" width="300"/>
+  <img src="./images/contra.png" width="300"/>
+  <img src="./images/zelda2.png" width="300"/>
+</p>
 
 ## Introduction
 
-This is an NES Emulator Fully written in Rust. This has been a project I started in December of 2023, but I only gained enough will power and courage to complete it in March. This Emulator currently only supports Mapper 000, but I intend to add more later, which I will discuss later.
+This project is a Nintendo Entertainment System emulator written entirely in Rust. I began working on it in December 2023 but only found the motivation to push through and complete it in March 2024. Currently, the emulator supports Mappers 000, 001, and 002, with plans to add more.
 
 ## Installation
 
-By the off chance that you are planning on using this, here is how you do it:
+If you are curious or brave enough to try it out, here is how you can get started:
 
-### Step One
-- Install [rustup!](https://www.rust-lang.org)
+### 1. Install Rust
 
-### Step Two
+If you have not already, install Rust using [rustup](https://www.rust-lang.org).
 
-- clone repository
+### 2. Clone the Repository
 
 ```bash
 git clone https://github.com/AFE123x/NES-Emulator
+cd NES-Emulator
 ```
 
-### Step Three
-- Run your program
+### 3. Run the Emulator
 
 ```bash
 cargo run
 ```
-- You'll be asked to open a rom (which you legally backed up).
 
-### Controls
-- I hardcoded the controls at the moment (they seem convoluted, Dvorak moment ;p)
+You will be prompted to select a ROM file (make sure it is one you legally own and backed up!).
 
-| Key | Button |
-| --- | --- |
-| Up | Up Button |
-| Down | Down Button |
-| Left | Left Button |
-| Right | Right Button |
-| A | A Button |
-| O | B Button |
-| E | Select Button |
-| U | Start Button |
-| ; (or s) | save the prog ram (mapper 001 only) |
-## Plans
+## 🎮 Controls
 
-Ideally, this is not the end of the journey for my Emulator. Below are my plans. If you would like to contribute, feel free to make a pull request (there is much work to be done).
+Controls are currently hardcoded and may feel unconventional:
 
-- ~~Replace SDl2 Implementation with MiniFB~~
-- ~~Optimize the PPU Background Rendering:~~
-    - ~~Optimize PPU Scrolling by utilizing the loopy register mechanism.~~
-    - ~~Troubleshoot nametable rendering (Super Mario Bros nametable does not seem to compile correctly (may also be a flag issue)).~~
-- Check CPU Instructions for correctness
-    - ~~The nestest seems to fail a flag test.~~
-- Implement Other Mappers
-    - I hope to implement mapper 001, which should broaden the horizon for game compatability.
-- Audio
-    - This is a WHOLE can of worms.
-- Debugger
-    - Implement a debugger to view the assembly, palette table, foam attributes, etc.
-- Second controller support:
-    - This is self-explanatory
-- Network support
-    - Support wireless multiplayer (never done before).
-- AWS (I do not know; people are lowkey hyped about it.)
+| Key         | NES Button         |
+|-------------|--------------------|
+| Up          | D-Pad Up           |
+| Down        | D-Pad Down         |
+| Left        | D-Pad Left         |
+| Right       | D-Pad Right        |
+| A           | A Button           |
+| O           | B Button           |
+| E           | Select             |
+| U           | Start              |
+| `;` or `S` | Save PRG RAM (Mapper 001 only) |
+| `L` or `P` | Load PRG RAM (Mapper 001 only) |
 
-## Contributions
+## 📌 Roadmap
 
-I love contributions; You are welcome to contribute to my lovely project.
+This emulator is a work in progress, and there is still a lot I want to explore and implement:
+
+- ✅ Replace SDL2 with `minifb`
+- ✅ Optimize PPU background rendering
+  - ✅ Implement Loopy register scrolling
+  - ✅ Fix name table rendering issues in Super Mario Bros
+- 🔲 Validate all CPU instructions (some flags still need verification)
+- ✅ Implement Mapper 001
+- ✅ Implement Mapper 002
+- 🔲 Add additional mapper support
+- 🔲 Audio emulation (coming... eventually)
+- ✅ Implement a basic debugger
+- 🔲 Second controller support (partially implemented)
+- 🔲 Network multiplayer support (netplay)
+- 🔲 Cloud save / AWS integration (just an idea... maybe?)
+
+## Contributing
+
+Contributions are more than welcome! Feel free to open a pull request, whether it is fixing a bug, adding a feature, or improving documentation. There is plenty of work to be done, and I would love the help.
+

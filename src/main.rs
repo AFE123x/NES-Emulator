@@ -1,4 +1,3 @@
-use std::env;
 
 mod render;
 mod cartridge;
@@ -6,17 +5,17 @@ mod cpu;
 mod bus;
 mod ppu;
 mod controller;
-mod state;
+
 fn main(){
-    // let args: Vec<String> = env::args().collect();
-    // if args.len() < 1{
-    //     panic!("cargo run <rom-file>");
-    // }
+
     let file = rfd::FileDialog::new()
-        .set_title("Select a save file")
-        .pick_file().unwrap();
+        .set_title("Open a ROM")
+        .pick_file();
+    let file = match file{
+        Some(file) => file,
+        None => {std::process::exit(0)},
+    };
     let status = render::gameloop(file.to_str().unwrap());
-    // let status = render::gameloop("roms/branch_timing_tests/1.Branch_Basics.nes");
     match status{
         Ok(_) => {},
         Err(e) => panic!("error: {}",e.to_string()),

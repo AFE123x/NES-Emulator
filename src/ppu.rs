@@ -65,7 +65,9 @@ pub struct Ppu {
     next_attribute_hi: u16,
     next_nametable_tile: u16,
     next_attribute_tile: u16,
-    oam_list: [OamEval; 8],
+    sprite0xcoord: u16,
+    sprite0ycoord: u16,
+    isopaque: bool
 }
 
 impl Ppu {
@@ -182,10 +184,9 @@ impl Ppu {
             next_attribute_hi: 0,
             next_nametable_tile: 0,
             next_attribute_tile: 0,
-            oam_list: [OamEval {
-                x_pos: 0xFF,
-                oam_index: 0xFF,
-            }; 8],
+            sprite0xcoord: 0,
+            sprite0ycoord: 0,
+            isopaque: false,
         }
     }
     pub fn set_bg_palette_num(&mut self) {
@@ -195,6 +196,63 @@ impl Ppu {
         let sprite_index = (address / 4) as usize;
         let sprite_offset = address % 4;
         self.oam_table[sprite_index].set_byte(sprite_offset, data);
+        if sprite_index == 0{
+            self.find_sprite0_coord();
+        }
+    }
+    pub fn find_sprite0_coord(&mut self) {
+        // Get sprite 0 data from OAM table
+        let mut sprite = self.oam_table[0].clone();
+        
+        // Extract sprite information
+        let y_pos = sprite.get_byte(0) as u16;       // Y position
+        let tile_index = sprite.get_byte(1) as u16;  // Tile index
+        let attributes = sprite.get_byte(2);         // Attributes
+        let x_pos = sprite.get_byte(3) as u16;       // X position
+        
+        // Determine if we're using the first or second pattern table
+        // In NES, bit 3 of PPU control register often determines this
+        // For simplicity, let's assume the base pattern table address
+        let pattern_table_base: u16 = 0x0000; // Change to 0x1000 if using second pattern table
+        
+        // Get the tile address in the pattern table
+        let tile_address = pattern_table_base + (tile_index * 16);
+        
+        // Check for vertical/horizontal flipping
+        let flip_horizontal = (attributes & 0x40) != 0;
+        let flip_vertical = (attributes & 0x80) != 0;
+        
+        // Sprites are 8x8 pixels
+        for y in 0..8 {
+            // Adjust y based on vertical flip
+            let y_offset = if flip_vertical { 7 - y } else { y };
+            
+            // Each row of 8 pixels is stored in 2 bytes
+            let low_byte = self.ppu_read(tile_address + y_offset);
+            let high_byte = self.ppu_read(tile_address + y_offset + 8); // High bit plane is 8 bytes after low bit plane
+            
+            for x in 0..8 {
+                // Adjust x based on horizontal flip
+                let x_offset = if flip_horizontal { 7 - x } else { x };
+                
+                // Extract the pixel value by combining bits from both bytes
+                let low_bit = (low_byte >> (7 - x_offset)) & 0x01;
+                let high_bit = (high_byte >> (7 - x_offset)) & 0x01;
+                let pixel_value = (high_bit << 1) | low_bit;
+                
+                // If pixel is not transparent (0)
+                if pixel_value != 0 {
+                    // Calculate the actual coordinates on screen
+                    self.sprite0xcoord = x_pos + x as u16;
+                    self.sprite0ycoord = y_pos + y as u16;
+                    return; // Found first non-transparent pixel
+                }
+            }
+        }
+        
+        // If no non-transparent pixel was found, set to default values
+        self.sprite0xcoord = x_pos;
+        self.sprite0ycoord = y_pos;
     }
 
     pub fn get_bgpalette(&mut self, palettenum: u8, paletteindex: u8) -> (u8, u8, u8) {
@@ -742,7 +800,6 @@ impl Ppu {
                         } else {
                             0x00
                         };
-                        // println!("{:4x} hi: {:08b} lo: {:08b}",self.v.get_nametable_address(),self.next_pattern_hi,self.next_attribute_lo);
                     }
                     7 => {
                         self.increment_x();
@@ -809,18 +866,18 @@ impl Ppu {
                 }
             }
         }
-
+        if self.scanline_counter.wrapping_sub(1) == self.sprite0ycoord as i16
+            && self.cycle_counter == self.sprite0xcoord as u16
+        {
+            self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
+        }
         /* Incrementing Logic */
         self.cycle_counter += 1;
         if self.cycle_counter > 340 {
             self.cycle_counter = 0;
             self.scanline_counter += 1;
         }
-        if self.scanline_counter == self.oam_table[0].get_y_position().wrapping_add(8) as i16
-            && self.cycle_counter == self.oam_table[0].get_x_position() as u16
-        {
-            self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
-        }
+        
         if self.scanline_counter <= 239 {
         } else if self.scanline_counter == 241 && self.cycle_counter == 1 {
             self.ppustatus.set(PPUSTATUS::vblank_flag, true);

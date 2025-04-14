@@ -64,7 +64,7 @@ impl Cartridge {
         let nametable_arrangement = match header[6] & 1 {
             0 => Nametable::Horizontal,
             1 => Nametable::Vertical,
-            _ => panic!("impossible"),
+            _ => unreachable!(),
         };
         let header = Header {
             prg_rom_size: prg_rom_size as u8,
@@ -91,10 +91,13 @@ impl Cartridge {
         let mut mapped_addr = address as u32;
         let res = self.mapper.cpu_read(address,&mut mapped_addr,byte);
         if res  && mapped_addr != 0xFFFFFFFF {
+            let mapped_addr = (mapped_addr as usize) % self.prg_rom.len();
             *byte = self.prg_rom[mapped_addr as usize];
         }
     }
-
+    pub fn load(&mut self){
+        self.mapper.loadstate();
+    }
     pub fn cpu_write(&mut self, address: u16, byte: u8) {
         let mut mapped_address = address as u32;
         let res = self.mapper.cpu_write(address,&mut mapped_address,byte);

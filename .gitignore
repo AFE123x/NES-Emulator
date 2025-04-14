@@ -2,7 +2,9 @@ target/
 .DS_Store
 .vscode/
 helper/
-roms/
+.roms/
+zelda.save
+zeldabackup.nes
 output.txt
 dissas/
 reference_code/notes.md

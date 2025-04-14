@@ -1,5 +1,5 @@
 use minifb::{Key, Scale, Window, WindowOptions};
-use std::{cell::RefCell, error::Error, rc::Rc, thread::{sleep, Thread}, time::Duration};
+use std::{cell::RefCell, error::Error, rc::Rc};
 
 use crate::{
     bus::Bus,
@@ -27,6 +27,7 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
     bus.link_controller2(Rc::clone(&controller2));
     cpu.linkbus(&mut bus);
     cpu.reset();
+    let mut opened = false;
 
     let windowoption = WindowOptions {
         resize: true,
@@ -35,7 +36,7 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
 
     };
     let mut window = Window::new("CrustNES", 512, 240, windowoption)?;
-    window.set_target_fps(60);
+    window.set_target_fps(59);
     while window.is_open() && !window.is_key_down(Key::Escape) {
         if turn{
             controller.borrow_mut().set_button(Buttons::A, window.is_key_down(Key::A));
@@ -60,7 +61,12 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
         }
         if window.is_key_pressed(Key::Semicolon, minifb::KeyRepeat::No){
             cartridge.borrow_mut().savestate();
-            std::process::exit(0);
+        }
+        if window.is_key_pressed(Key::P, minifb::KeyRepeat::No){
+            if !opened{
+                cartridge.borrow_mut().load();
+            }
+            opened = true;
         }
         turn = !turn;
         if window.is_key_pressed(Key::R, minifb::KeyRepeat::No){

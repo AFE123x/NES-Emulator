@@ -48,6 +48,10 @@ impl Mapper for Mapper000{
     }
     
     fn savestate(&self) {
-        println!("mapper 000 doesn't have prg-ram");
+        panic!("mapper 000 doesn't have prg-ram");
+    }
+    
+    fn loadstate(&mut self) {
+        panic!("mapper 001 doesn't have prg-ram");
     }
 }

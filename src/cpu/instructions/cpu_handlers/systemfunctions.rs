@@ -4,7 +4,6 @@ impl Cpu{
     pub fn brk(&mut self) {
         // Increment PC by 1 because BRK is a 2-byte instruction
         // (the second byte is padding and is typically skipped when executing)
-        println!("{:4x}",self.pc);
         self.pc += 1;
         
         // Push the program counter to the stack
