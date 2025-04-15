@@ -1,12 +1,8 @@
 use minifb::{Key, Scale, Window, WindowOptions};
-use std::{cell::RefCell, error::Error, rc::Rc};
+use std::{cell::RefCell, error::Error, rc::Rc, time::{Duration, Instant}};
 
 use crate::{
-    bus::Bus,
-    cartridge::Cartridge,
-    controller::{self, Buttons},
-    cpu::Cpu,
-    ppu::{Frame::Frame, Ppu},
+    bus::Bus, cartridge::Cartridge, controller::{self, Buttons}, cpu::Cpu, ppu::{frame::Frame, Ppu}
 };
 
 pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
@@ -35,8 +31,10 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
         ..Default::default()
 
     };
-    let mut window = Window::new("CrustNES", 512, 240, windowoption)?;
-    window.set_target_fps(59);
+    let mut last_time = Instant::now();
+    let mut frame_count = 0;
+    let mut window = Window::new("NES Emulator - FPS: ", 512, 240, windowoption)?;
+    window.set_target_fps(60);
     while window.is_open() && !window.is_key_down(Key::Escape) {
         if turn{
             controller.borrow_mut().set_button(Buttons::A, window.is_key_down(Key::A));
@@ -83,6 +81,14 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
             cpu.nmi();
             
             ppu.set_name_table();
+            frame_count += 1;
+            let elapsed = last_time.elapsed();
+            if elapsed >= Duration::from_secs(1) {
+                let fps = frame_count;
+                window.set_title(&format!("NES Emulator - FPS: {}", fps));
+                frame_count = 0;
+                last_time = Instant::now();
+            }
             ppu.get_pattern_table(&mut game_frame);
             window.update_with_buffer(game_frame.get_buf().as_slice(), 512, 240)?;
         }

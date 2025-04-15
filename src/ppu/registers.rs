@@ -1,4 +1,4 @@
-use bitflags::{bitflags, Flags};
+use bitflags::bitflags;
 
 bitflags! {
     /// # PPU Control Register
@@ -75,14 +75,14 @@ bitflags! {
 /// - bits 5-9: this represents the coarse y scroll
 /// - bits 10-11: this represents which nametable to use
 /// - bits 12-14: This represents the fine y scroll
-pub struct vt_reg {
+pub struct VtReg {
     data: u16,
 }
 
-impl vt_reg {
-    pub fn print_register(&mut self) -> String{
-    format!("fine y: {}\tnametable: {}\ty_scroll: {}\tx_scroll: {}\t",self.get_fine_y(),self.get_nametable(),self.get_coarse_yscroll(),self.get_coarse_xscroll())
-    }
+impl VtReg {
+    // pub fn print_register(&mut self) -> String{
+    // format!("fine y: {}\tnametable: {}\ty_scroll: {}\tx_scroll: {}\t",self.get_fine_y(),self.get_nametable(),self.get_coarse_yscroll(),self.get_coarse_xscroll())
+    // }
     /// This initializes the vt_reg structure
     pub fn new() -> Self {
         Self { data: 0 }
@@ -110,7 +110,7 @@ impl vt_reg {
         self.data |= input;
     }
     ///this will retrieve the bits in the nametable
-    pub fn get_nametable(&self) -> u8 {
+    pub fn _get_nametable(&self) -> u8 {
         let nametable = (self.data >> 10) & 3;
         nametable as u8
     }
@@ -223,35 +223,35 @@ impl vt_reg {
 ///# Unit tests module
 /// - These are comprehensive tests to illustrate and prove it's functionatily and correctness
 mod vt_tests {
-    use super::vt_reg;
+    use super::VtReg;
     #[test]
     pub fn nametable_test_1(){
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.set_coarse_xscroll(1);
         vt_reg.set_coarse_yscroll(1);
         assert_eq!(vt_reg.get_nametable_address(),0x2021,"nametable test, FAILED!");
     }
     #[test]
     pub fn increment_nametable(){
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.increment_x();
         vt_reg.set_nametable(2);
         assert_eq!(vt_reg.get_nametable_address(),0x2801,"nametable test - FAILED!");
     }
     #[test]
     pub fn nametable_test_2(){
-        let vt_reg = vt_reg::new();
+        let vt_reg = VtReg::new();
         assert_eq!(vt_reg.get_attribute_address(),0x23C0,"nametable test, FAILED!");
     }
     #[test]
     pub fn increment_x_1(){
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.increment_x();
         assert_eq!(vt_reg.get_coarse_xscroll(),1,"Coarse x value, failed!");
     }
     #[test]
     pub fn increment_x_2(){
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.set_coarse_xscroll(31);
         vt_reg.increment_x();
         assert_eq!(vt_reg.get_coarse_xscroll(),0,"Coarse x value, failed!");
@@ -260,7 +260,7 @@ mod vt_tests {
 
     #[test]
     pub fn increment_x_3(){
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.set_coarse_xscroll(31);
         vt_reg.set_nametablex(1);
         vt_reg.increment_x();
@@ -269,14 +269,14 @@ mod vt_tests {
     }
     #[test]
     pub fn increment_y_1(){
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.increment_y();
         assert_eq!(vt_reg.get_fine_y(),1,"fine y value, FAILED!");
     }
 
     #[test]
     pub fn increment_y_2(){
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.set_fine_y(7);
         vt_reg.increment_y();
 
@@ -286,7 +286,7 @@ mod vt_tests {
 
     #[test]
     pub fn increment_y_3(){
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.set_fine_y(7);
         vt_reg.set_coarse_yscroll(29);
         vt_reg.increment_y();
@@ -297,7 +297,7 @@ mod vt_tests {
 
     #[test]
     pub fn increment_y_4(){
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.set_fine_y(7);
         vt_reg.set_coarse_yscroll(29);
         vt_reg.set_nametabley(1);
@@ -309,7 +309,7 @@ mod vt_tests {
 
     #[test]
     pub fn increment_y_5(){
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.set_fine_y(7);
         vt_reg.set_coarse_yscroll(31);
         vt_reg.set_nametabley(0);
@@ -320,20 +320,20 @@ mod vt_tests {
     }
     #[test]
     pub fn test11(){
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.set_nametablex(1);
         assert_eq!(vt_reg.get_data(),0b0_000_01_00000_00000);
     }
 
     #[test]
     pub fn test12(){
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.set_nametabley(1);
         assert_eq!(vt_reg.get_data(),0b0_000_10_00000_00000);
     }
 
     pub fn test13(){
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.set_nametablex(1);
         let x = vt_reg.get_nametablex();
         assert_eq!(x,1);
@@ -341,7 +341,7 @@ mod vt_tests {
 
     #[test]
     pub fn test14(){
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.set_nametabley(1);
         let y = vt_reg.get_nametabley();
         assert_eq!(y,1);
@@ -350,7 +350,7 @@ mod vt_tests {
     #[test]
     ///
     pub fn test1() {
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.set_fine_y(4);
         assert_eq!(
             vt_reg.data, 0b0100000000000000,
@@ -360,7 +360,7 @@ mod vt_tests {
 
     #[test]
     pub fn test2() {
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.set_fine_y(7);
         assert_eq!(
             vt_reg.data, 0b0111000000000000,
@@ -369,28 +369,28 @@ mod vt_tests {
     }
     #[test]
     pub fn test3() {
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.data = 0b0101000000000000;
         assert_eq!(vt_reg.get_fine_y(), 5, "get_fine_y test 3 - FAILED!")
     }
 
     #[test]
     pub fn test4() {
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.data = 0b0110000000000000;
         assert_eq!(vt_reg.get_fine_y(), 6, "get_fine_y test 4 - FAILED!")
     }
 
     #[test]
     pub fn test5() {
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.set_nametable(3);
         assert_eq!(vt_reg.data,0b0000110000000000, "set_nametable test 5 - FAILED!")
     }
 
     #[test]
     pub fn test6() {
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.data = 0b0000110000000000;
         
         assert_eq!(vt_reg.get_nametable(),3, "get_nametable test 6 - FAILED!")
@@ -398,26 +398,26 @@ mod vt_tests {
 
     #[test]
     pub fn test7(){
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.set_coarse_yscroll(0b11111);
         assert_eq!(vt_reg.data,0b0_000_00_11111_00000,"set_coarse_yscroll test 7 - FAILED!")
     }
     #[test]
     pub fn test8(){
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.data = 0b0_000_00_11111_00000;
         assert_eq!(vt_reg.get_coarse_yscroll(),0x1F,"get_coarse_yscroll test 8 - FAILED!")
     }
 
     #[test]
     pub fn test9(){
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.set_coarse_xscroll(0b11111);
         assert_eq!(vt_reg.data,0b0_000_00_00000_11111,"set_coarse_xscroll test 9 - FAILED!")
     }
     #[test]
     pub fn test10(){
-        let mut vt_reg = vt_reg::new();
+        let mut vt_reg = VtReg::new();
         vt_reg.data = 0b0_000_00_00000_11111;
         assert_eq!(vt_reg.get_coarse_xscroll(),0x1F,"get_coarse_kscroll test 10 - FAILED!")
     }

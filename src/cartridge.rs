@@ -5,20 +5,22 @@ mod mapper;
 mod mapper000;
 mod mapper001;
 mod mapper002;
+mod mapper003;
 use mapper::Mapper;
 use mapper000::Mapper000;
 use mapper002::Mapper002;
 use mapper001::Mapper001;
+use mapper003::Mapper003;
 
 use std::fs;
 #[derive(Debug)]
 struct Header {
-    prg_rom_size: u8,
-    chr_rom_size: u8,
+    _prg_rom_size: u8,
+    _chr_rom_size: u8,
     _mapper: u8,
 }
 pub struct Cartridge {
-    header: Header,
+    _header: Header,
     prg_rom: Vec<u8>,
     chr_rom: Vec<u8>,
     mapper: Box<dyn Mapper>,
@@ -67,8 +69,8 @@ impl Cartridge {
             _ => unreachable!(),
         };
         let header = Header {
-            prg_rom_size: prg_rom_size as u8,
-            chr_rom_size: chr_rom_size as u8,
+            _prg_rom_size: prg_rom_size as u8,
+            _chr_rom_size: chr_rom_size as u8,
             _mapper: mapper,
         };
         
@@ -76,11 +78,12 @@ impl Cartridge {
             0 => Box::new(Mapper000 { n_chr: chr_rom_size as u8, n_prg: prg_rom_size as u8, nametable: nametable_arrangement }),
             2 => Box::new(Mapper002::new(prg_rom_size as u8, chr_rom_size as u8,nametable_arrangement)),
             1 => Box::new(Mapper001::new(prg_rom_size as u8, chr_rom_size as u8,nametable_arrangement,None)),
+            3 => Box::new(Mapper003::new(prg_rom_size as u8, chr_rom_size as u8,nametable_arrangement)),
             _ => panic!("mapper {} not supported",mapper),
         };
         println!("{:?}",header);
         Self {
-            header: header,
+            _header: header,
             prg_rom: prg_rom,
             chr_rom: chr_rom,
             mapper: mapper,
@@ -110,7 +113,7 @@ impl Cartridge {
         let mut mapped_addr = address as u32;
         let res = self.mapper.ppu_read(address,&mut mapped_addr,*byte);
         if res {
-            
+            let mapped_addr = mapped_addr % (self.chr_rom.len() as u32);
             *byte = self.chr_rom[mapped_addr as usize];
         }
     }

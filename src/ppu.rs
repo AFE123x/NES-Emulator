@@ -6,36 +6,22 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::ppu::oam::Oam;
-use registers::{vt_reg, PPUCTRL, PPUMASK, PPUSTATUS};
+use registers::{VtReg, PPUCTRL, PPUMASK, PPUSTATUS};
 
 use crate::cartridge::{Cartridge, Nametable};
 
-pub mod Frame;
+pub mod frame;
 mod registers;
 
-use crate::ppu::Frame::Frame as Fr;
-
-struct OamEval {
-    x_pos: u16,
-    oam_index: u16,
-}
-impl Clone for OamEval {
-    fn clone(&self) -> Self {
-        Self {
-            x_pos: self.x_pos.clone(),
-            oam_index: self.oam_index.clone(),
-        }
-    }
-}
-impl Copy for OamEval {}
+use crate::ppu::frame::Frame as Fr;
 
 pub struct Ppu {
     ppuctrl: PPUCTRL,     //ppu control register (mapped at address $2000)
     ppumask: PPUMASK,     //ppu mask register (mapped at address $2001)
     ppustatus: PPUSTATUS, //ppu status register (mapped at address $2002)
     oamaddr: u8,          //oamaddr register (mapped at address $2003)
-    v: vt_reg,
-    t: vt_reg,
+    v: VtReg,
+    t: VtReg,
     w: u8, //toggle between first and second write
     x: u8, //fine x scroll
     vram: Vec<u8>,
@@ -67,7 +53,6 @@ pub struct Ppu {
     next_attribute_tile: u16,
     sprite0xcoord: u16,
     sprite0ycoord: u16,
-    isopaque: bool
 }
 
 impl Ppu {
@@ -157,8 +142,8 @@ impl Ppu {
             ppumask: PPUMASK::empty(),
             ppustatus: PPUSTATUS::empty(),
             oamaddr: 0,
-            v: vt_reg::new(),
-            t: vt_reg::new(),
+            v: VtReg::new(),
+            t: VtReg::new(),
             w: 0,
             x: 0,
             vram: vram,
@@ -186,7 +171,6 @@ impl Ppu {
             next_attribute_tile: 0,
             sprite0xcoord: 0,
             sprite0ycoord: 0,
-            isopaque: false,
         }
     }
     pub fn set_bg_palette_num(&mut self) {
@@ -241,6 +225,7 @@ impl Ppu {
                 let pixel_value = (high_bit << 1) | low_bit;
                 
                 // If pixel is not transparent (0)
+                // let a = self.frame_array[y_pos as usize + y as usize][x_pos as usize + x] > 0;
                 if pixel_value != 0 {
                     // Calculate the actual coordinates on screen
                     self.sprite0xcoord = x_pos + x as u16;
@@ -453,25 +438,25 @@ impl Ppu {
     /// 4: Read oam data
     /// 7: read value from ppu from ppu address set in the PPUADDR Register
     pub fn cpu_read(&mut self, address: u16, rdonly: bool) -> u8 {
+        let mut _data = 0;
         let masked_address = address & 0x7;
-        let mut data = 0;
         match masked_address {
             0 | 1 | 3 | 5 | 6 => {
-                data = 0;
+                _data = 0;
             }
             2 => {
-                data = self.ppustatus.bits();
+                _data = self.ppustatus.bits();
                 self.ppustatus.set(PPUSTATUS::vblank_flag, false);
                 self.w = 0;
             }
             4 => {
-                data = self.oam_table[(self.oamaddr >> 2) as usize].get_byte(self.oamaddr);
+                _data = self.oam_table[(self.oamaddr >> 2) as usize].get_byte(self.oamaddr);
             }
             7 => {
-                data = self.internal_buffer;
+                _data = self.internal_buffer;
                 self.internal_buffer = self.ppu_read(self.v.get_data());
                 if address >= 0x3F00 && address <= 0x3FFF {
-                    data = self.internal_buffer;
+                    _data = self.internal_buffer;
                 }
                 /* We increment the v register by 32 or 1 depending on the PPUCTRL increment flag */
                 if !rdonly {
@@ -489,7 +474,7 @@ impl Ppu {
                 panic!("cpu_read: Cannot read address");
             }
         }
-        data
+        _data
     }
 
     /// # cpu_write

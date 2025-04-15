@@ -7,7 +7,7 @@ pub struct Mapper000{
 }
 
 impl Mapper for Mapper000{
-    fn cpu_read(&self, address: u16,mapped_addr: &mut u32, data: &mut u8) -> bool {
+    fn cpu_read(&self, _address: u16,mapped_addr: &mut u32, _data: &mut u8) -> bool {
         if *mapped_addr >= 0x8000{
             *mapped_addr &= if self.n_prg > 1 {0x7FFF} else {0x3FFF};
             return true;
@@ -15,7 +15,7 @@ impl Mapper for Mapper000{
         false
     }
 
-    fn cpu_write(&mut self, address: u16,mapped_addr: &mut u32, data: u8) -> bool {
+    fn cpu_write(&mut self, _address: u16,mapped_addr: &mut u32, _data: u8) -> bool {
         if *mapped_addr >= 0x8000{
             *mapped_addr &= if self.n_prg > 1 {0x7FFF} else {0x3FFF};
             return true;
@@ -23,7 +23,7 @@ impl Mapper for Mapper000{
         false
     }
 
-    fn ppu_read(&self, address: u16,mapped_addr: &mut u32, data: u8) -> bool {
+    fn ppu_read(&self, _address: u16,mapped_addr: &mut u32, _data: u8) -> bool {
         if *mapped_addr <= 0x1FFF {
             if self.n_prg > 0{
                 *mapped_addr = *mapped_addr;
@@ -33,7 +33,7 @@ impl Mapper for Mapper000{
         false
     }
 
-    fn ppu_write(&mut self, address: u16,mapped_addr: &mut u32, data: u8) -> bool {
+    fn ppu_write(&mut self, _address: u16,mapped_addr: &mut u32, _data: u8) -> bool {
         if *mapped_addr <= 0x1FFF {
             if self.n_chr == 0{
                 *mapped_addr = *mapped_addr;

@@ -79,7 +79,7 @@ impl Mapper for Mapper001 {
                 // CHR-ROM mode
                 if self.n_control_register & 0b10000 != 0 {
                     // 4K CHR Bank Mode
-                    if address >= 0x0000 && address <= 0x0FFF {
+                    if address <= 0x0FFF {
                         *mapped_addr = (self.n_chrbank_select4_lo as u32 * 0x1000) + (address as u32 & 0x0FFF);
                         return true;
                     }
@@ -229,7 +229,7 @@ impl Mapper for Mapper001 {
         let file = rfd::FileDialog::new()
         .set_title("Save")
         .save_file();
-        let mut file = match file{
+        let file = match file{
             Some(file) => file,
             None => 
             {

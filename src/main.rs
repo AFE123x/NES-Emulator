@@ -5,7 +5,6 @@ mod cpu;
 mod bus;
 mod ppu;
 mod controller;
-
 fn main(){
 
     let file = rfd::FileDialog::new()

@@ -8,7 +8,6 @@ pub struct Bus {
     ppu: Option<*mut Ppu>,
     controller1: Option<Rc<RefCell<Controller>>>,
     controller2: Option<Rc<RefCell<Controller>>>,
-    total_cycles: usize,
 }
 
 impl Bus {
@@ -19,9 +18,9 @@ impl Bus {
             controller1: None,
             controller2: None,
             ppu: None,
-            total_cycles: 0,
         }
     }
+
     pub fn link_cartridge(&mut self, cart: Rc<RefCell<Cartridge>>){
         self.cartridge = Some(cart);
     }
@@ -66,7 +65,6 @@ impl Bus {
                 },
                 _ => {
                     // Other APU/IO registers (not implemented)
-                    data = 0;
                 }
             }
         } else if address <= 0x401F {

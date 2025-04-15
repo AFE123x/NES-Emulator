@@ -18,7 +18,6 @@ bitflags! {
     }
 }
 use bitflags::bitflags;
-use instructions::inst_enum::{AddressMode, Instruction};
 
 /// Representation of the CPU state
 pub struct Cpu {
@@ -62,25 +61,25 @@ impl Cpu {
     }
     
     /// Returns a string representation of the CPU status flags
-    fn print_status_reg(&self) -> String{
-        let a = if self.flags.contains(Flags::Negative) {'N'} else {'-'};
-        let b = if self.flags.contains(Flags::Overflow) {'V'} else {'-'};
-        let c = if self.flags.contains(Flags::Unused) {'U'} else {'-'};
-        let d = if self.flags.contains(Flags::Break) {'B'} else {'-'};
-        let e = if self.flags.contains(Flags::Decimal) {'D'} else {'-'};
-        let f = if self.flags.contains(Flags::IDisable) {'I'} else {'-'};
-        let g = if self.flags.contains(Flags::Zero) {'Z'} else {'-'};
-        let h = if self.flags.contains(Flags::Carry) {'C'} else {'-'};
-        let string = format!("{}{}{}{}{}{}{}{}",a,b,c,d,e,f,g,h);
-        string
-    }
+    // fn print_status_reg(&self) -> String{
+    //     let a = if self.flags.contains(Flags::Negative) {'N'} else {'-'};
+    //     let b = if self.flags.contains(Flags::Overflow) {'V'} else {'-'};
+    //     let c = if self.flags.contains(Flags::Unused) {'U'} else {'-'};
+    //     let d = if self.flags.contains(Flags::Break) {'B'} else {'-'};
+    //     let e = if self.flags.contains(Flags::Decimal) {'D'} else {'-'};
+    //     let f = if self.flags.contains(Flags::IDisable) {'I'} else {'-'};
+    //     let g = if self.flags.contains(Flags::Zero) {'Z'} else {'-'};
+    //     let h = if self.flags.contains(Flags::Carry) {'C'} else {'-'};
+    //     let string = format!("{}{}{}{}{}{}{}{}",a,b,c,d,e,f,g,h);
+    //     string
+    // }
     
     /// Prints the current CPU state and instruction being executed
-    fn print_state(&self, instruction: &Instruction, addrmode: &AddressMode) -> String{
-            // format!("PC: {:#x}\nA: {:#x}, X: {:#x}, Y: {:#x}\nSP: {:#x}, flags: {}",self.pc,self.a,self.x,self.y,self.sp,self.print_status_reg())
-            format!("intsruction: {:?}({:?})",instruction,addrmode)
+    // fn print_state(&self, instruction: &Instruction, addrmode: &AddressMode) -> String{
+    //         // format!("PC: {:#x}\nA: {:#x}, X: {:#x}, Y: {:#x}\nSP: {:#x}, flags: {}",self.pc,self.a,self.x,self.y,self.sp,self.print_status_reg())
+    //         format!("intsruction: {:?}({:?})",instruction,addrmode)
 
-    }
+    // }
     
     /// Links the CPU to a system bus
     pub fn linkbus(&mut self, bus: &mut Bus) {
@@ -91,13 +90,13 @@ impl Cpu {
     fn cpu_read(&self, address: u16, rdonly: bool) -> u8 {
         unsafe { (*self.bus.unwrap()).cpu_read(address, rdonly) }
     }
-    pub fn isUpdated(&mut self) -> bool{
-        if self.updated_state{
-            self.updated_state = false;
-            return true;
-        }
-        false
-    }
+    // pub fn isUpdated(&mut self) -> bool{
+    //     if self.updated_state{
+    //         self.updated_state = false;
+    //         return true;
+    //     }
+    //     false
+    // }
 
     /// Writes a byte to memory via the system bus
     fn cpu_write(&self, address: u16, byte: u8) {

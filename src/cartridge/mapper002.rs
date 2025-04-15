@@ -1,23 +1,21 @@
-use std::ptr::addr_eq;
-
 use super::{mapper::Mapper, Nametable};
 
 pub struct Mapper002 {
-    nPRGBankSelectLo: u8,
-    nPRGBankSelectHi: u8,
-    nPRGBanks: u8,
-    nCHRBanks: u8,
+    n_prgbank_select_lo: u8,
+    n_prgbank_select_hi: u8,
+    n_prgbanks: u8,
+    n_chrbanks: u8,
     nametable: Nametable,
 }
 
 impl Mapper002 {
     pub fn new(prg_rom: u8, chr_rom: u8, nametable: Nametable) -> Self {
         let mut toreturn = Mapper002{
-            nPRGBanks: prg_rom,
-            nCHRBanks: chr_rom,
+            n_prgbanks: prg_rom,
+            n_chrbanks: chr_rom,
             nametable,
-            nPRGBankSelectHi: 0,
-            nPRGBankSelectLo: 0,
+            n_prgbank_select_hi: 0,
+            n_prgbank_select_lo: 0,
         };
         toreturn.reset();
         toreturn
@@ -26,20 +24,20 @@ impl Mapper002 {
 
 impl Mapper002{
     fn reset(&mut self){
-        self.nPRGBankSelectHi = self.nPRGBanks - 1;
-        self.nPRGBankSelectLo = 0;
+        self.n_prgbank_select_hi = self.n_prgbanks - 1;
+        self.n_prgbank_select_lo = 0;
     }
 }
 impl Mapper for Mapper002 {
     
-    fn cpu_read(&self, address: u16, mapped_addr: &mut u32, data: &mut u8) -> bool {
+    fn cpu_read(&self, address: u16, mapped_addr: &mut u32, _data: &mut u8) -> bool {
         *mapped_addr = 0;
         if address >= 0x8000 && address <= 0xBFFF{
-            *mapped_addr = ((self.nPRGBankSelectLo as u32) * 0x4000) + ((address as u32) & 0x3FFF);
+            *mapped_addr = ((self.n_prgbank_select_lo as u32) * 0x4000) + ((address as u32) & 0x3FFF);
             return true;
         }
         if address >= 0xC000{
-            *mapped_addr = ((self.nPRGBankSelectHi as u32) * 0x4000) + ((address as u32) & 0x3FFF);
+            *mapped_addr = ((self.n_prgbank_select_hi as u32) * 0x4000) + ((address as u32) & 0x3FFF);
             return true;
         }
         false
@@ -47,12 +45,12 @@ impl Mapper for Mapper002 {
 
     fn cpu_write(&mut self, address: u16, _mapped_addr: &mut u32, data: u8) -> bool {
         if address >= 0x8000{
-            self.nPRGBankSelectLo = data & 0xF;
+            self.n_prgbank_select_lo = data & 0xF;
         }
         false
     }
 
-    fn ppu_read(&self, address: u16, mapped_addr: &mut u32, data:  u8) -> bool {
+    fn ppu_read(&self, address: u16, mapped_addr: &mut u32, _data:  u8) -> bool {
         if address <= 0x1FFF{
             *mapped_addr = address as u32;
             return true;
@@ -60,8 +58,8 @@ impl Mapper for Mapper002 {
         false
     }
 
-    fn ppu_write(&mut self, address: u16, mapped_addr: &mut u32, data: u8) -> bool {
-        if self.nCHRBanks == 0{
+    fn ppu_write(&mut self, address: u16, mapped_addr: &mut u32, _data: u8) -> bool {
+        if self.n_chrbanks == 0{
             *mapped_addr = address as u32;
             return true;
         }
