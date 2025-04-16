@@ -1,7 +1,7 @@
 pub struct Frame {
     buffer: Vec<u32>,
     width: u16,
-    height: u16,
+    // height: u16,
 }
 
 impl Frame {
@@ -9,7 +9,7 @@ impl Frame {
         Self {
             buffer: vec![0;(width as usize * height as usize) as usize],
             width,
-            height,
+            // height,
         }
     }
 

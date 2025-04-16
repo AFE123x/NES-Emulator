@@ -34,7 +34,7 @@ cd NES-Emulator
 ### 3. Run the Emulator
 
 ```bash
-cargo run --release
+cargo run --release 
 ```
 
 You will be prompted to select a ROM file (make sure it is one you legally own and backed up!).

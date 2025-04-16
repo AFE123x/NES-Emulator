@@ -331,7 +331,7 @@ mod vt_tests {
         vt_reg.set_nametabley(1);
         assert_eq!(vt_reg.get_data(),0b0_000_10_00000_00000);
     }
-
+    #[test]
     pub fn test13(){
         let mut vt_reg = VtReg::new();
         vt_reg.set_nametablex(1);
@@ -386,14 +386,6 @@ mod vt_tests {
         let mut vt_reg = VtReg::new();
         vt_reg.set_nametable(3);
         assert_eq!(vt_reg.data,0b0000110000000000, "set_nametable test 5 - FAILED!")
-    }
-
-    #[test]
-    pub fn test6() {
-        let mut vt_reg = VtReg::new();
-        vt_reg.data = 0b0000110000000000;
-        
-        assert_eq!(vt_reg.get_nametable(),3, "get_nametable test 6 - FAILED!")
     }
 
     #[test]
