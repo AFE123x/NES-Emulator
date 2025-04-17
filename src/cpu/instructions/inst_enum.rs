@@ -22,6 +22,10 @@ pub enum Instruction {
     CLC, CLD, CLI, CLV, SEC, SED, SEI,
     // System Functions
     BRK, NOP, RTI,
+    // illegal opcodes
+    SRE, LAX, LAS, SHY, RRA, DCP, SAX,
+    RLA, SLO, ISC, TAS, LXA, JAM, SHX,
+    SBX, ANE, SHA, ARR, ALR, ANC,
 }
 #[derive(Debug)]
 pub enum AddressMode {

@@ -1,24 +1,10 @@
 
-mod render;
-mod cartridge;
+
 mod cpu;
 mod bus;
-mod ppu;
-mod controller;
 fn main(){
 
-    let file = rfd::FileDialog::new()
-        .set_title("Open a ROM")
-        .pick_file();
-    let file = match file{
-        Some(file) => file,
-        None => {std::process::exit(0)},
-    };
-    let status = render::gameloop(file.to_str().unwrap());
-    match status{
-        Ok(_) => {},
-        Err(e) => panic!("error: {}",e.to_string()),
-    }
+    /*  */
 }
 // ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 // ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣴⠶⠛⠋⠉⠐⠻⣷⣊⠉⠀⠀⠯⣔⠤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
