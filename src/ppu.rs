@@ -184,54 +184,116 @@ impl Ppu {
     pub fn find_sprite0_coord(&mut self) {
         // Get sprite 0 data from OAM table
         let mut sprite = self.oam_table[0].clone();
-
+    
         // Extract sprite information
         let y_pos = sprite.get_byte(0) as u16; // Y position
         let tile_index = sprite.get_byte(1) as u16; // Tile index
         let attributes = sprite.get_byte(2); // Attributes
         let x_pos = sprite.get_byte(3) as u16; // X position
-
-        // Determine if we're using the first or second pattern table
-        // In NES, bit 3 of PPU control register often determines this
-        // For simplicity, let's assume the base pattern table address
-        let pattern_table_base: u16 = 0x0000; // Change to 0x1000 if using second pattern table
-
-        // Get the tile address in the pattern table
-        let tile_address = pattern_table_base + (tile_index * 16);
-
+    
         // Check for vertical/horizontal flipping
         let flip_horizontal = (attributes & 0x40) != 0;
         let flip_vertical = (attributes & 0x80) != 0;
-
-        // Sprites are 8x8 pixels
-        for y in 0..8 {
-            // Adjust y based on vertical flip
-            let y_offset = if flip_vertical { 7 - y } else { y };
-
-            // Each row of 8 pixels is stored in 2 bytes
-            let low_byte = self.ppu_read(tile_address + y_offset);
-            let high_byte = self.ppu_read(tile_address + y_offset + 8); // High bit plane is 8 bytes after low bit plane
-
-            for x in 0..8 {
-                // Adjust x based on horizontal flip
-                let x_offset = if flip_horizontal { 7 - x } else { x };
-
-                // Extract the pixel value by combining bits from both bytes
-                let low_bit = (low_byte >> (7 - x_offset)) & 0x01;
-                let high_bit = (high_byte >> (7 - x_offset)) & 0x01;
-                let pixel_value = (high_bit << 1) | low_bit;
-
-                // If pixel is not transparent (0)
-                // let a = self.frame_array[y_pos as usize + y as usize][x_pos as usize + x] > 0;
-                if pixel_value != 0 {
-                    // Calculate the actual coordinates on screen
-                    self.sprite0xcoord = x_pos + x as u16;
-                    self.sprite0ycoord = y_pos + y as u16;
-                    return; // Found first non-transparent pixel
+    
+        if self.ppuctrl.contains(PPUCTRL::sprite_size) {
+            // 8x16 sprite mode
+            
+            // For 8x16 sprites, bit 0 of tile index selects the pattern table
+            // Bits 1-7 select the tile number (which will be the top tile)
+            let pattern_table_base: u16 = if tile_index & 0x01 != 0 { 0x1000 } else { 0x0000 };
+            let tile_number = tile_index & 0xFE; // Clear bit 0
+            
+            // Process both tiles (top and bottom)
+            for tile_half in 0..2 {
+                // Determine which tile to use based on vertical flip
+                let current_tile = if flip_vertical { 
+                    tile_number + (1 - tile_half) // Bottom tile then top tile
+                } else { 
+                    tile_number + tile_half // Top tile then bottom tile
+                };
+                
+                // Calculate tile address in pattern table
+                let tile_address = pattern_table_base + (current_tile * 16);
+                
+                // Process each row in the current tile
+                for row in 0..8 {
+                    // Calculate actual y position in sprite
+                    let y_in_tile = if flip_vertical {
+                        7 - row
+                    } else {
+                        row
+                    };
+                    
+                    // Each row of 8 pixels is stored in 2 bytes
+                    let low_byte = self.ppu_read(tile_address + y_in_tile);
+                    let high_byte = self.ppu_read(tile_address + y_in_tile + 8);
+                    
+                    // Process each pixel in the row
+                    for col in 0..8 {
+                        // Calculate actual x position based on horizontal flip
+                        let x_in_tile = if flip_horizontal { 7 - col } else { col };
+                        
+                        // Extract pixel value by combining bits from both bytes
+                        let low_bit = (low_byte >> (7 - x_in_tile)) & 0x01;
+                        let high_bit = (high_byte >> (7 - x_in_tile)) & 0x01;
+                        let pixel_value = (high_bit << 1) | low_bit;
+                        
+                        // If pixel is not transparent (0)
+                        if pixel_value != 0 {
+                            // Calculate the actual coordinates on screen
+                            // Account for which half of the 8x16 sprite we're in
+                            let y_offset = (tile_half * 8) as u16 + row as u16;
+                            
+                            self.sprite0xcoord = x_pos + col as u16;
+                            self.sprite0ycoord = y_pos + y_offset;
+                            return; // Found first non-transparent pixel
+                        }
+                    }
+                }
+            }
+        } else {
+            // 8x8 sprite mode
+            
+            // Get pattern table address from PPUCTRL
+            let pattern_table_base: u16 = if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {
+                0x1000
+            } else {
+                0x0000
+            };
+            
+            // Calculate tile address in pattern table
+            let tile_address = pattern_table_base + (tile_index * 16);
+            
+            // Process each row in the sprite
+            for row in 0..8 {
+                // Calculate actual y position based on vertical flip
+                let y_in_tile = if flip_vertical { 7 - row } else { row };
+                
+                // Each row of 8 pixels is stored in 2 bytes
+                let low_byte = self.ppu_read(tile_address + y_in_tile);
+                let high_byte = self.ppu_read(tile_address + y_in_tile + 8);
+                
+                // Process each pixel in the row
+                for col in 0..8 {
+                    // Calculate actual x position based on horizontal flip
+                    let x_in_tile = if flip_horizontal { 7 - col } else { col };
+                    
+                    // Extract pixel value by combining bits from both bytes
+                    let low_bit = (low_byte >> (7 - x_in_tile)) & 0x01;
+                    let high_bit = (high_byte >> (7 - x_in_tile)) & 0x01;
+                    let pixel_value = (high_bit << 1) | low_bit;
+                    
+                    // If pixel is not transparent (0)
+                    if pixel_value != 0 {
+                        // Calculate the actual coordinates on screen
+                        self.sprite0xcoord = x_pos + col as u16;
+                        self.sprite0ycoord = y_pos + row as u16;
+                        return; // Found first non-transparent pixel
+                    }
                 }
             }
         }
-
+    
         // If no non-transparent pixel was found, set to default values
         self.sprite0xcoord = x_pos;
         self.sprite0ycoord = y_pos;
@@ -281,7 +343,8 @@ impl Ppu {
                         let x = (coarse_x << 3) + fine_x;
                         let y = (coarse_y << 3) + fine_y;
                         let color = self.get_bgpalette(self.palette_num, pattern_number);
-                        frame.drawpixel(x + 255, y, color);
+                        // frame.drawpixel(x + 255, y, color);
+                        frame.drawpixel((x / 2) + 256, y / 2, color);
                         pattern_lo <<= 1;
                         pattern_hi <<= 1;
                     }
@@ -630,7 +693,6 @@ impl Ppu {
         let sprite_y = oam_sprite.get_y_position() + 1;
         let tile_index = oam_sprite.get_index_number() as u16;
         let attribute = oam_sprite.get_attribute();
-
         let flip_horizontal = attribute & 0x40 > 0;
         let flip_vertical = attribute & 0x80 > 0;
         let palette = attribute & 0x3;

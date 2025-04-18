@@ -9,7 +9,7 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
     /* Initialize peripherals */
     let cartridge = Rc::new(RefCell::new(Cartridge::new(rom_file)));
     let mut cpu = Cpu::new();
-    let mut game_frame = Frame::new(512, 240);
+    let mut game_frame = Frame::new(384, 240);
     let mut ppu = Ppu::new(Rc::clone(&cartridge));
     let mut bus = Bus::new();
     let controller = Rc::new(RefCell::new(controller::Controller::new()));
@@ -27,13 +27,13 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
 
     let windowoption = WindowOptions {
         resize: true,
-        scale: Scale::X2,
+        scale: Scale::X4,
         ..Default::default()
 
     };
     let mut last_time = Instant::now();
     let mut frame_count = 0;
-    let mut window = Window::new("NES Emulator - FPS: ", 512, 240, windowoption)?;
+    let mut window = Window::new("NES Emulator - FPS: ", 384, 240, windowoption)?;
     window.set_target_fps(60);
     while window.is_open() && !window.is_key_down(Key::Escape) {
         if turn{
@@ -90,7 +90,7 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
                 last_time = Instant::now();
             }
             ppu.get_pattern_table(&mut game_frame);
-            window.update_with_buffer(game_frame.get_buf().as_slice(), 512, 240)?;
+            window.update_with_buffer(game_frame.get_buf().as_slice(), 384, 240)?;
         }
         
     }
