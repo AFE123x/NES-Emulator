@@ -180,50 +180,47 @@ impl Ppu {
         let sprite_index = (address / 4) as usize;
         let sprite_offset = address % 4;
         self.oam_table[sprite_index].set_byte(sprite_offset, data);
-        if sprite_index == 0{
-            self.find_sprite0_coord();
-        }
     }
     pub fn find_sprite0_coord(&mut self) {
         // Get sprite 0 data from OAM table
         let mut sprite = self.oam_table[0].clone();
-        
+
         // Extract sprite information
-        let y_pos = sprite.get_byte(0) as u16;       // Y position
-        let tile_index = sprite.get_byte(1) as u16;  // Tile index
-        let attributes = sprite.get_byte(2);         // Attributes
-        let x_pos = sprite.get_byte(3) as u16;       // X position
-        
+        let y_pos = sprite.get_byte(0) as u16; // Y position
+        let tile_index = sprite.get_byte(1) as u16; // Tile index
+        let attributes = sprite.get_byte(2); // Attributes
+        let x_pos = sprite.get_byte(3) as u16; // X position
+
         // Determine if we're using the first or second pattern table
         // In NES, bit 3 of PPU control register often determines this
         // For simplicity, let's assume the base pattern table address
         let pattern_table_base: u16 = 0x0000; // Change to 0x1000 if using second pattern table
-        
+
         // Get the tile address in the pattern table
         let tile_address = pattern_table_base + (tile_index * 16);
-        
+
         // Check for vertical/horizontal flipping
         let flip_horizontal = (attributes & 0x40) != 0;
         let flip_vertical = (attributes & 0x80) != 0;
-        
+
         // Sprites are 8x8 pixels
         for y in 0..8 {
             // Adjust y based on vertical flip
             let y_offset = if flip_vertical { 7 - y } else { y };
-            
+
             // Each row of 8 pixels is stored in 2 bytes
             let low_byte = self.ppu_read(tile_address + y_offset);
             let high_byte = self.ppu_read(tile_address + y_offset + 8); // High bit plane is 8 bytes after low bit plane
-            
+
             for x in 0..8 {
                 // Adjust x based on horizontal flip
                 let x_offset = if flip_horizontal { 7 - x } else { x };
-                
+
                 // Extract the pixel value by combining bits from both bytes
                 let low_bit = (low_byte >> (7 - x_offset)) & 0x01;
                 let high_bit = (high_byte >> (7 - x_offset)) & 0x01;
                 let pixel_value = (high_bit << 1) | low_bit;
-                
+
                 // If pixel is not transparent (0)
                 // let a = self.frame_array[y_pos as usize + y as usize][x_pos as usize + x] > 0;
                 if pixel_value != 0 {
@@ -234,7 +231,7 @@ impl Ppu {
                 }
             }
         }
-        
+
         // If no non-transparent pixel was found, set to default values
         self.sprite0xcoord = x_pos;
         self.sprite0ycoord = y_pos;
@@ -633,6 +630,7 @@ impl Ppu {
         let sprite_y = oam_sprite.get_y_position() + 1;
         let tile_index = oam_sprite.get_index_number() as u16;
         let attribute = oam_sprite.get_attribute();
+
         let flip_horizontal = attribute & 0x40 > 0;
         let flip_vertical = attribute & 0x80 > 0;
         let palette = attribute & 0x3;
@@ -689,7 +687,7 @@ impl Ppu {
                 let color = self.get_fgpalette(palette, pixel_value);
 
                 // Apply sprite priority
-                if screen_x >= 1 && screen_x < 240 {
+                if screen_x > 1 && screen_x < 240 {
                     if !behind_background
                         || self.frame_array[screen_x as usize][screen_y as usize] == 0
                     {
@@ -862,7 +860,7 @@ impl Ppu {
             self.cycle_counter = 0;
             self.scanline_counter += 1;
         }
-        
+
         if self.scanline_counter <= 239 {
         } else if self.scanline_counter == 241 && self.cycle_counter == 1 {
             self.ppustatus.set(PPUSTATUS::vblank_flag, true);
@@ -875,6 +873,7 @@ impl Ppu {
         }
         if self.scanline_counter > 260 {
             self.scanline_counter = -1;
+            self.find_sprite0_coord();
             self.ppustatus.set(PPUSTATUS::vblank_flag, false);
             self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, false);
             self.ppustatus.set(PPUSTATUS::sprite_overflow_flag, false);

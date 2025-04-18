@@ -99,7 +99,7 @@ impl Bus {
                     // This writes 256 bytes from CPU memory at byte*0x100 to the PPU's OAM memory
                     let base = (byte as usize) << 8;
                     for i in 0..=0xFF {
-                        let data = self.memory[base + i];
+                        let data = self.memory[(base + i) % 2048];
                         unsafe {
                             if let Some(ppu_ptr) = self.ppu {
                                 (*ppu_ptr).oam_dma_write(i as u8, data);

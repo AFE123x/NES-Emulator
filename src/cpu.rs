@@ -34,7 +34,6 @@ pub struct Cpu {
     bus: Option<*mut Bus>, // Pointer to the system bus
     opcode: u8,      // Current opcode being executed
     oldpc: u16,      // Previous program counter value
-    updated_state: bool,
 }
 
 impl Cpu {
@@ -56,7 +55,6 @@ impl Cpu {
             total_cycles: 0,
             opcode: 0,
             oldpc: 0,
-            updated_state: true,
         }
     }
     
@@ -80,9 +78,6 @@ impl Cpu {
     pub fn clock(&mut self) {
         // Fetch the next instruction if there are no remaining cycles
         if self.cycles_left == 0 {
-            if self.total_cycles & 0x03FFFF == 0{
-                self.updated_state = true;
-            }
             self.flags.set(Flags::Unused,true);
             let opcode = self.cpu_read(self.pc,false);
             self.oldpc = self.pc;
