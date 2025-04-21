@@ -3,6 +3,7 @@ mod render;
 mod cartridge;
 mod cpu;
 mod bus;
+mod apu;
 mod ppu;
 mod controller;
 fn main(){

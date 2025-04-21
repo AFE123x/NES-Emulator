@@ -30,7 +30,6 @@ impl Controller {
             strobe: false,
         }
     }
-
     // Handles writes from the CPU, controlling the strobe signal
     pub fn cpu_write(&mut self, data: u8) {
         self.strobe = data & 1 == 1;
@@ -38,22 +37,22 @@ impl Controller {
             self.index = 0; // Reset index when strobe is set
         }
     }
-
     // Reads button state in a serial fashion, one bit at a time
     pub fn cpu_read(&mut self) -> u8 {
         if self.index > 7 {
-            return 1; // Return 1 if all buttons have been read
-        }
+            return 1;
+        } 
         let response = (self.button.bits() & (1 << self.index)) >> self.index;
+        
         if !self.strobe && self.index <= 7 {
-            self.index += 1; // Increment index only if strobe is low
+            self.index += 1;
         }
+        
         response
     }
-    
+
     // Sets or clears a button state based on input
     pub fn set_button(&mut self, button: Buttons, pressed: bool) {
-        // Update the button state regardless of strobe state
         self.button.set(button, pressed);
     }
 }

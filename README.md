@@ -64,17 +64,18 @@ This emulator is a work in progress, and there is still a lot I want to explore 
 - ✅ Optimize PPU background rendering
   - ✅ Implement Loopy register scrolling
   - ✅ Fix name table rendering issues in Super Mario Bros
-- 🔲 Validate all CPU instructions (some flags still need verification)
+- ✅ Validate all CPU instructions (some flags still need verification)
+  - update: tested and verified with the single step processor tests (official and unofficial opcodes)
 - 🔲 Implement Mappers
   - ✅ Implement Mapper 001
   - ✅ Implement Mapper 001
   - ✅ Implement Mapper 002
   - 🔲 Implement Mapper 004
   - 🔲 Implement the other Mappers
-- 🔲 Add additional mapper support
-- 🔲 Audio emulation (coming... eventually)
+- ✅ Audio emulation
+  - I need to actually modify pulse 1 and 2 to use pulse waves. Implement "immediate unmute".
 - ✅ Implement a basic debugger
-- 🔲 Second controller support (partially implemented)
+- ✅ Second controller support (implemented, but want it to be supported by network.)
 - 🔲 Network multiplayer support (netplay)
 - 🔲 Cloud save / AWS integration (just an idea... maybe?)
 

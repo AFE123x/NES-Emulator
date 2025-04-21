@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{cartridge::Cartridge, controller::Controller, ppu::Ppu};
+use crate::{apu::Apu, cartridge::Cartridge, controller::Controller, ppu::Ppu};
 
 pub struct Bus {
     memory: Vec<u8>,
@@ -8,6 +8,7 @@ pub struct Bus {
     ppu: Option<*mut Ppu>,
     controller1: Option<Rc<RefCell<Controller>>>,
     controller2: Option<Rc<RefCell<Controller>>>,
+    apu: Option<Rc<RefCell<Apu>>>,
 }
 
 impl Bus {
@@ -18,6 +19,7 @@ impl Bus {
             controller1: None,
             controller2: None,
             ppu: None,
+            apu: None,
         }
     }
 
@@ -27,7 +29,9 @@ impl Bus {
     pub fn link_ppu(&mut self, ppu: &mut Ppu){
         self.ppu = Some(ppu);
     }
-
+    pub fn link_apu(&mut self, apu: Rc<RefCell<Apu>>){
+        self.apu = Some(apu);
+    }
     pub fn link_controller1(&mut self, controller: Rc<RefCell<Controller>>) {
         self.controller1 = Some(controller);
     }
@@ -46,6 +50,15 @@ impl Bus {
         } else if address <= 0x4017 {
             // APU and I/O registers
             match address {
+                0x4000..=0x4013 | 0x4015 => {
+                    if let Some(apu) = &self.apu{
+                        data = apu.borrow_mut().cpu_read(address);
+                    }
+                    else{
+                        panic!("APU Error");
+                    }
+                    
+                },
                 0x4016 => {
                     // Controller 1 data
                     if let Some(controller) = &self.controller1 {
@@ -94,6 +107,15 @@ impl Bus {
         } else if address <= 0x4017 {
             // APU and I/O registers
             match address {
+                0x4000..=0x4013 | 0x4015 | 0x4017 => {
+                    if let Some(apu) = &self.apu{
+                        apu.borrow_mut().cpu_write(address,byte);
+                    }
+                    else{
+                        panic!("APU Error");
+                    }
+                    
+                },
                 0x4014 => {
                     // OAM DMA transfer
                     // This writes 256 bytes from CPU memory at byte*0x100 to the PPU's OAM memory
@@ -120,13 +142,6 @@ impl Bus {
                     if let Some(controller) = &self.controller2 {
                         controller.borrow_mut().cpu_write(byte);
                     }
-                },
-                0x4017 => {
-                    // APU frame counter control
-                    // Note: This is not related to controller2 despite sharing the address
-                    // The controller reads and APU writes don't interfere with each other
-                    
-                    // APU frame counter implementation would go here if needed
                 },
                 _ => {
                     // Other APU registers (not implemented in this code)
