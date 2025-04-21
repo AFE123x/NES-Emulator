@@ -8,4 +8,6 @@ pub trait Mapper{
     fn get_nametable(&self) -> Nametable;
     fn savestate(&self);
     fn loadstate(&mut self);
+    fn hasirq(&mut self) -> bool;
+    fn scanline(&mut self);
 }

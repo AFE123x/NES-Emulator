@@ -279,6 +279,7 @@ impl Cpu {
         instruction: Instruction,
         cycles: u8,
     ) {
+        // println!("{:?}({:?})",instruction,addrmode);
         self.handle_addrmode(&addrmode);
         self.handle_instruction(instruction);
         self.cycles_left = self.cycles_left.wrapping_add(cycles as u16);

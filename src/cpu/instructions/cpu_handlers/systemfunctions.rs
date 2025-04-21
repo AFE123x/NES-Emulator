@@ -1,61 +1,61 @@
 use crate::cpu::Cpu;
 use crate::cpu::Flags;
-impl Cpu{
+impl Cpu {
     /*
-    uint8_t olc6502::BRK()
-{
-	pc++;
-	
-	SetFlag(I, 1);
-	write(0x0100 + stkp, (pc >> 8) & 0x00FF);
-	stkp--;
-	write(0x0100 + stkp, pc & 0x00FF);
-	stkp--;
+        uint8_t olc6502::BRK()
+    {
+        pc++;
 
-	SetFlag(B, 1);
-	write(0x0100 + stkp, status);
-	stkp--;
-	SetFlag(B, 0);
+        SetFlag(I, 1);
+        write(0x0100 + stkp, (pc >> 8) & 0x00FF);
+        stkp--;
+        write(0x0100 + stkp, pc & 0x00FF);
+        stkp--;
 
-	pc = (uint16_t)read(0xFFFE) | ((uint16_t)read(0xFFFF) << 8);
-	return 0;
-}
-     */
+        SetFlag(B, 1);
+        write(0x0100 + stkp, status);
+        stkp--;
+        SetFlag(B, 0);
+
+        pc = (uint16_t)read(0xFFFE) | ((uint16_t)read(0xFFFF) << 8);
+        return 0;
+    }
+         */
     pub fn brk(&mut self) {
         // BRK pushes PC+2, but we need to increment by 1 here since
         // the CPU will have already incremented PC by 1 when fetching this instruction
         self.pc += 1;
-        
+
         // Push the program counter to the stack
         let hi_byte = (self.pc >> 8) as u8;
         let lo_byte = (self.pc & 0xFF) as u8;
         self.push(hi_byte);
         self.push(lo_byte);
-        
+
         // Push the status register to the stack with B flag set
         // Note: The B flag should be set in the copy pushed to the stack
         let mut status_copy = Flags::from_bits_truncate(self.flags.bits());
-        status_copy.set(Flags::Break, true);     // Set B flag in copy for stack
-        status_copy.set(Flags::Unused, true);    // The Unused flag is always set
+        status_copy.set(Flags::Break, true); // Set B flag in copy for stack
+        status_copy.set(Flags::Unused, true); // The Unused flag is always set
         self.push(status_copy.bits());
-        
+
         // Set the interrupt disable flag
-        self.flags.set(Flags::IDisable, true);   // Set I flag, not clear it
-        
+        self.flags.set(Flags::IDisable, true); // Set I flag, not clear it
+
         // Load the IRQ/BRK vector (0xFFFE-0xFFFF)
         let lo_byte = self.cpu_read(0xFFFE, false) as u16;
         let hi_byte = self.cpu_read(0xFFFF, false) as u16;
         self.pc = (hi_byte << 8) | lo_byte;
-        
+
         // BRK takes 7 cycles
         self.cycles_left = 7;
     }
-    
+
     ///# `RTI` - Return from Interrupt
     /// - The RTI instruction is used at the end of an interrupt processing routine. It pulls the processor flags from the stack followed by the program counter.
     pub fn rti(&mut self) {
         self.flags = Flags::from_bits_truncate(self.pop());
-        self.flags.set(Flags::Unused,true);
+        self.flags.set(Flags::Unused, true);
         self.flags.set(Flags::Break, false);
         let lo_byte = self.pop() as u16;
         let hi_byte = self.pop() as u16;
@@ -78,14 +78,14 @@ impl Cpu{
 
         /* Push the status register */
         self.push(self.flags.bits());
-        self.flags.set(Flags::IDisable,true);
+        self.flags.set(Flags::IDisable, true);
 
         /* Retrieve the location of NMI handler */
         let lo_byte = self.cpu_read(0xFFFA, false) as u16;
         let hi_byte = self.cpu_read(0xFFFB, false) as u16;
         self.pc = (hi_byte << 8) | lo_byte;
     }
-    
+
     pub fn reset(&mut self) {
         self.a = 0;
         self.x = 0;
@@ -97,5 +97,44 @@ impl Cpu{
         self.flags.set(Flags::Unused, true);
         self.cycles_left = 8;
         self.total_cycles = 0;
+    }
+
+    /// # `irq` - Interrupt Request
+    /// - IRQ (Interrupt Request) is a type of interrupt that can be masked by the I flag in the status register.
+    /// - When an IRQ occurs and the I flag is clear (0), the CPU will:
+    ///   1. Push the program counter to the stack
+    ///   2. Push the status register to the stack (with the B flag clear)
+    ///   3. Set the I flag to prevent further interrupts
+    ///   4. Load the address of the interrupt handler from the vector table ($FFFE-$FFFF)
+    /// - If the I flag is set (1), the IRQ will be ignored.
+    pub fn irq(&mut self) {
+        // If the interrupt disable flag is set, ignore the IRQ
+        if self.flags.contains(Flags::IDisable) {
+            return;
+        }
+
+        // Push the program counter to the stack
+        let hi_byte = (self.pc >> 8) as u8;
+        let lo_byte = (self.pc & 0xFF) as u8;
+        self.push(hi_byte);
+        self.push(lo_byte);
+
+        // Push the status register to the stack
+        // For IRQ, the B flag should be clear in the copy pushed to the stack
+        let mut status_copy = Flags::from_bits_truncate(self.flags.bits());
+        status_copy.set(Flags::Break, false);
+        status_copy.set(Flags::Unused, true); // The Unused flag is always set
+        self.push(status_copy.bits());
+
+        // Set the interrupt disable flag
+        self.flags.set(Flags::IDisable, true);
+
+        // Load the IRQ vector address (0xFFFE-0xFFFF)
+        let lo_byte = self.cpu_read(0xFFFE, false) as u16;
+        let hi_byte = self.cpu_read(0xFFFF, false) as u16;
+        self.pc = (hi_byte << 8) | lo_byte;
+
+        // IRQ takes 7 cycles
+        self.cycles_left = 7;
     }
 }

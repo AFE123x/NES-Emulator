@@ -72,7 +72,9 @@ pub fn gameloop(rom_file: &str) -> Result<(), Box<dyn Error>> {
         }
         cpu.clock();
         // apu.clock();  // This is now properly integrated
-        
+        if cartridge.borrow_mut().irq(){
+            cpu.irq();
+        }
         if ppu.get_nmi() {
             if turn{
                 controller.borrow_mut().set_button(Buttons::A, window.is_key_down(Key::A));

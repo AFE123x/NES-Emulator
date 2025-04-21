@@ -53,4 +53,11 @@ impl Mapper for Mapper003{
     fn loadstate(&mut self) {
         panic!("load not available for mapper 3")
     }
+    
+    fn hasirq(&mut self) -> bool {
+        return false;
+    }
+    
+    fn scanline(&mut self) {
+    }
 }

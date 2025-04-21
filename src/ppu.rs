@@ -863,6 +863,7 @@ impl Ppu {
         if self.cycle_counter == 256 && self.scanline_counter < 239 {
             /* We only evaluate sprites that are visible. */
             /* Sprite evaluation function */
+            self.cart.borrow_mut().scanline();
             if self.ppuctrl.contains(PPUCTRL::sprite_size) {
                 // todo!()
             } else {

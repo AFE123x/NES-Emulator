@@ -248,4 +248,11 @@ impl Mapper for Mapper001 {
             let _ = file.read(&mut self.ram);
         }
     }
+    
+    fn hasirq(&mut self) -> bool {
+        return false;
+    }
+    
+    fn scanline(&mut self) {
+    }
 }
