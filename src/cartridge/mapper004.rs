@@ -1,271 +1,212 @@
 use super::{mapper::Mapper, Nametable};
 
-const READFROMSRAM: u32 = 0xFFFFFFFF; // Special value to indicate reading from SRAM
-
 pub struct Mapper004 {
-    // ROM bank information
-    prg_banks: u8,
-    chr_banks: u8,
+    n_prgbanks: u8,
+    n_chrbanks: u8,
 
-    // Mapper registers
-    target_register: u8,
-    prg_bank_mode: bool,
-    chr_inversion: bool,
+    n_target_register: u8,
+    b_prgbank_mode: bool,
+    b_chrinversion: bool,
 
-    mirror_mode: Nametable,
+    mirrormode: Nametable,
+    p_register: [i32; 8],
+    p_chrbank: [u32; 8],
+    p_prgbank: [u32; 4],
 
-    registers: [i32; 8],
-    // Bank offsets for CHR and PRG ROM
-    chr_bank: [u32; 8],
-    prg_bank: [u32; 4],
+    b_irqactive: bool,
+    b_irqenable: bool,
+    b_irqupdate: bool,
 
-    // IRQ status flags
-    irq_active: bool,
-    irq_enable: bool,
-    irq_update: bool,
+    n_irqcounter: u16,
+    n_irqreload: u16,
 
-    // IRQ counter
-    irq_counter: u16,
-    irq_reload: u16,
-
-    // Static RAM
-    ram_static: Vec<u8>,
+    ram: Vec<u8>,
 }
 
 impl Mapper004 {
-    pub fn new(prg_rom_chunks: u8, chr_rom_chunks: u8) -> Self {
-        let mut mapper = Mapper004 {
-            prg_banks: prg_rom_chunks,
-            chr_banks: chr_rom_chunks,
-            mirror_mode: Nametable::Horizontal,
-            ram_static: vec![0; 8192],
-
-            target_register: 0,
-            prg_bank_mode: false,
-            chr_inversion: false,
-
-            registers: [0; 8],
-            chr_bank: [0; 8],
-            prg_bank: [0; 4],
-
-            irq_active: false,
-            irq_enable: false,
-            irq_update: false,
-            irq_counter: 0,
-            irq_reload: 0,
+    pub fn new(prg_rom_size: u8, chr_rom_size: u8) -> Self {
+        let mut mapper = Self {
+            n_prgbanks: prg_rom_size,
+            n_chrbanks: chr_rom_size,
+            n_target_register: 0,
+            b_prgbank_mode: false,
+            b_chrinversion: false,
+            mirrormode: Nametable::Horizontal,
+            p_register: [0; 8],
+            p_chrbank: [0; 8],
+            p_prgbank: [0; 4],
+            b_irqactive: false,
+            b_irqenable: false,
+            b_irqupdate: false,
+            n_irqcounter: 0,
+            n_irqreload: 0,
+            ram: vec![0; 8192],
         };
-
         mapper.reset();
         mapper
     }
-
-    fn reset(&mut self) {
-        self.target_register = 0;
-        self.prg_bank_mode = false;
-        self.chr_inversion = false;
-        self.mirror_mode = Nametable::Horizontal;
-
-        self.irq_active = false;
-        self.irq_enable = false;
-        self.irq_update = false;
-        self.irq_counter = 0;
-        self.irq_reload = 0;
-
-        for i in 0..self.prg_bank.len() {
-            self.prg_bank[i] = 0;
-        }
-        for i in 0..self.chr_bank.len() {
-            self.chr_bank[i] = 0;
-            if i < self.registers.len() {
-                self.registers[i] = 0;
-            }
-        }
-
-        // Initial bank setup
-        self.prg_bank[0] = 0 * 0x2000;
-        self.prg_bank[1] = 1 * 0x2000;
-
-        // Fixed upper 16K mode by default
-        self.prg_bank[2] = (self.prg_banks as u32 * 2 - 2) * 0x2000;
-        self.prg_bank[3] = (self.prg_banks as u32 * 2 - 1) * 0x2000;
-        
-        // Set up initial CHR banking as well
-        self.update_bank_offset();
-    }
-
-    fn update_bank_offset(&mut self) {
-        // Update Pointer Table
-        if self.chr_inversion {
-            self.chr_bank[0] = self.chr_bank_offset(self.registers[2]);
-            self.chr_bank[1] = self.chr_bank_offset(self.registers[3]);
-            self.chr_bank[2] = self.chr_bank_offset(self.registers[4]);
-            self.chr_bank[3] = self.chr_bank_offset(self.registers[5]);
-            self.chr_bank[4] = self.chr_bank_offset(self.registers[0] & 0xFE);
-            self.chr_bank[5] = self.chr_bank_offset(self.registers[0] | 0x01);
-            self.chr_bank[6] = self.chr_bank_offset(self.registers[1] & 0xFE);
-            self.chr_bank[7] = self.chr_bank_offset(self.registers[1] | 0x01);
-        } else {
-            self.chr_bank[0] = self.chr_bank_offset(self.registers[0] & 0xFE);
-            self.chr_bank[1] = self.chr_bank_offset(self.registers[0] | 0x01);
-            self.chr_bank[2] = self.chr_bank_offset(self.registers[1] & 0xFE);
-            self.chr_bank[3] = self.chr_bank_offset(self.registers[1] | 0x01);
-            self.chr_bank[4] = self.chr_bank_offset(self.registers[2]);
-            self.chr_bank[5] = self.chr_bank_offset(self.registers[3]);
-            self.chr_bank[6] = self.chr_bank_offset(self.registers[4]);
-            self.chr_bank[7] = self.chr_bank_offset(self.registers[5]);
-        }
-
-        if self.prg_bank_mode {
-            self.prg_bank[0] = self.prg_bank_offset(-2);
-            self.prg_bank[2] = self.prg_bank_offset(self.registers[6]);
-        } else {
-            self.prg_bank[0] = self.prg_bank_offset(self.registers[6]);
-            self.prg_bank[2] = self.prg_bank_offset(-2);
-        }
-
-        self.prg_bank[1] = self.prg_bank_offset(self.registers[7]);
-        self.prg_bank[3] = self.prg_bank_offset(-1); // last 8k bank
-    }
-
+    
     fn prg_bank_offset(&self, index: i32) -> u32 {
-        let mut idx = index;
-        if idx >= 0x80 {
-            idx -= 0x100;
+        let mut index = index;
+        // Handle negative indices
+        if index >= 0x80 {
+            index -= 0x100;
         }
         
-        // Ensure we have a valid index
-        let total_banks = self.prg_banks as i32 * 2;
+        // Ensure index is within valid range
+        index %= (self.n_prgbanks as i32) * 2;
         
-        // Handle negative indices correctly
-        if idx < 0 {
-            idx = total_banks + idx;
-        } else {
-            idx %= total_banks;
+        let mut offset = index * 0x2000;
+        
+        // Handle negative offset
+        if offset < 0 {
+            offset += (self.n_prgbanks as i32) * 16 * 1024;
         }
         
-        (idx as u32) * 0x2000
+        offset as u32
     }
 
-    // CHR ROM is divided into 1k banks
     fn chr_bank_offset(&self, index: i32) -> u32 {
-        let mut idx = index;
-        if idx >= 0x80 {
-            idx -= 0x100;
+        let mut index = index;
+        // Handle negative indices
+        if index >= 0x80 {
+            index -= 0x100;
         }
-
-        // If chr_banks is 0, it indicates CHR RAM which is treated as one 8KB bank
-        if self.chr_banks == 0 {
-            return (idx as u32 & 0x07) * 0x0400;
-        }
-
-        // Calculate the total number of 1KB CHR banks
-        let total_banks = self.chr_banks as i32 * 8;
         
-        // Handle negative indices correctly
-        if idx < 0 {
-            idx = total_banks + idx;
+        // Handle case where n_chrbanks is 0 (CHR RAM)
+        let n_actual_chrbank = if self.n_chrbanks == 0 { 1 } else { self.n_chrbanks };
+        
+        // Ensure index is within valid range
+        index %= (n_actual_chrbank as i32) * 8;
+        
+        let mut offset = index * 0x400; // 1KB banks
+        
+        // Handle negative offset
+        if offset < 0 {
+            offset += (n_actual_chrbank as i32) * 8 * 1024;
+        }
+        
+        offset as u32
+    }
+    
+    fn update_bank_offset(&mut self) {
+        // Update CHR banks based on inversion flag
+        if self.b_chrinversion {
+            // CHR Inversion Mode 1 (PPU $0000-$0FFF 4KB switchable, $1000-$1FFF 4KB switchable)
+            self.p_chrbank[0] = self.chr_bank_offset(self.p_register[2]);
+            self.p_chrbank[1] = self.chr_bank_offset(self.p_register[3]);
+            self.p_chrbank[2] = self.chr_bank_offset(self.p_register[4]);
+            self.p_chrbank[3] = self.chr_bank_offset(self.p_register[5]);
+            self.p_chrbank[4] = self.chr_bank_offset(self.p_register[0] & 0xFE);
+            self.p_chrbank[5] = self.chr_bank_offset(self.p_register[0] | 0x01);
+            self.p_chrbank[6] = self.chr_bank_offset(self.p_register[1] & 0xFE);
+            self.p_chrbank[7] = self.chr_bank_offset(self.p_register[1] | 0x01);
         } else {
-            idx %= total_banks;
+            // CHR Inversion Mode 0 (PPU $0000-$0FFF 2x2KB, $1000-$1FFF 4x1KB)
+            self.p_chrbank[0] = self.chr_bank_offset(self.p_register[0] & 0xFE);
+            self.p_chrbank[1] = self.chr_bank_offset(self.p_register[0] | 0x01);
+            self.p_chrbank[2] = self.chr_bank_offset(self.p_register[1] & 0xFE);
+            self.p_chrbank[3] = self.chr_bank_offset(self.p_register[1] | 0x01);
+            self.p_chrbank[4] = self.chr_bank_offset(self.p_register[2]);
+            self.p_chrbank[5] = self.chr_bank_offset(self.p_register[3]);
+            self.p_chrbank[6] = self.chr_bank_offset(self.p_register[4]);
+            self.p_chrbank[7] = self.chr_bank_offset(self.p_register[5]);
         }
-        
-        (idx as u32) * 0x0400
+
+        // Update PRG banks based on mode
+        if self.b_prgbank_mode {
+            // PRG Mode 1: Swap $8000 with second-last bank
+            self.p_prgbank[0] = self.prg_bank_offset(-2);
+            self.p_prgbank[2] = self.prg_bank_offset(self.p_register[6]);
+        } else {
+            // PRG Mode 0: $8000 switchable, $C000 fixed to second-last bank
+            self.p_prgbank[0] = self.prg_bank_offset(self.p_register[6]);
+            self.p_prgbank[2] = self.prg_bank_offset(-2);
+        }
+
+        // These banks are the same regardless of mode
+        self.p_prgbank[1] = self.prg_bank_offset(self.p_register[7]);
+        self.p_prgbank[3] = self.prg_bank_offset(-1); // Last bank is always fixed
     }
 }
 
 impl Mapper for Mapper004 {
-    fn scanline(&mut self) {
-        // First check if we need to reload
-        if self.irq_counter == 0 || self.irq_update {
-            self.irq_counter = self.irq_reload;
-            self.irq_update = false;
-        } else {
-            self.irq_counter -= 1;
-        }
-
-        // Then check if we need to trigger an IRQ
-        if self.irq_counter == 0 && self.irq_enable {
-            self.irq_active = true;
-        }
-    }
-
     fn cpu_read(&self, address: u16, mapped_addr: &mut u32, data: &mut u8) -> bool {
         if address >= 0x6000 && address <= 0x7FFF {
-            // Read from static RAM on cartridge
-            *mapped_addr = READFROMSRAM;
-            // Read data from RAM
-            *data = self.ram_static[(address & 0x1FFF) as usize];
-            // Signal mapper has handled request
+            // Reading from static RAM
+            *mapped_addr = 0xFFFFFFFF; // Special flag for SRAM
+            *data = self.ram[(address & 0x1FFF) as usize];
             return true;
         }
-
-        if address >= 0x8000 {
+        
+        if address >= 0x8000 && address <= 0xFFFF {
+            // Reading from PRG ROM
             let idx_chunk = ((address - 0x8000) / 0x2000) as usize;
-            *mapped_addr = self.prg_bank[idx_chunk] + (address & 0x1FFF) as u32;
+            *mapped_addr = self.p_prgbank[idx_chunk] + ((address & 0x1FFF) as u32);
             return true;
         }
         
         false
     }
-
+    
     fn cpu_write(&mut self, address: u16, mapped_addr: &mut u32, data: u8) -> bool {
         if address >= 0x6000 && address <= 0x7FFF {
-            // Write to static RAM on cartridge
-            *mapped_addr = READFROMSRAM;
-            // Write data to RAM
-            self.ram_static[(address & 0x1FFF) as usize] = data;
-            // Signal mapper has handled request
+            // Writing to static RAM
+            *mapped_addr = 0xFFFFFFFF; // Special flag for SRAM
+            self.ram[(address & 0x1FFF) as usize] = data;
             return true;
         }
-
+        
         if address >= 0x8000 && address <= 0x9FFF {
-            // Bank Select
-            if address & 0x0001 == 0 {  // even
-                self.target_register = data & 0x07;
-                self.prg_bank_mode = (data & 0x40) != 0;
-                self.chr_inversion = (data & 0x80) != 0;
-            } else {  // odd
-                // Update target register
-                self.registers[self.target_register as usize] = data as i32;
+            // Bank select and bank data
+            if address & 0x0001 == 0 {
+                // Even: Select register
+                self.n_target_register = data & 0x07;
+                self.b_prgbank_mode = (data & 0x40) != 0;
+                self.b_chrinversion = (data & 0x80) != 0;
+            } else {
+                // Odd: Set register data
+                self.p_register[self.n_target_register as usize] = data as i32;
                 self.update_bank_offset();
             }
-            return true; // Fixed: Return true to indicate handled write
+            return false;
         }
 
-        // Handle mirroring
         if address >= 0xA000 && address <= 0xBFFF {
-            if address & 0x0001 == 0 {  // even
-                // Mirroring
-                if (data & 0x01) != 0 {
-                    self.mirror_mode = Nametable::Horizontal;
+            if address & 0x0001 == 0 {
+                // Even: Mirroring
+                if data & 0x01 != 0 {
+                    self.mirrormode = Nametable::Horizontal;
                 } else {
-                    self.mirror_mode = Nametable::Vertical;
+                    self.mirrormode = Nametable::Vertical;
                 }
-            } else {  // odd
-                // PRG RAM Protect - not implemented but handled
+            } else {
+                // Odd: PRG RAM protect (not implemented)
             }
-            return true; // Fixed: Return true to indicate handled write
+            return false;
         }
 
-        // Handle IRQ
         if address >= 0xC000 && address <= 0xDFFF {
-            if address & 0x0001 == 0 {  // even
-                self.irq_reload = data as u16;
-            } else {  // odd
-                self.irq_counter = 0;
-                self.irq_update = true;
+            if address & 0x0001 == 0 {
+                // Even: IRQ latch
+                self.n_irqreload = data as u16;
+            } else {
+                // Odd: IRQ reload
+                self.n_irqcounter = 0; // This will be reloaded on next scanline
             }
-            return true; // Fixed: Return true to indicate handled write
+            return false;
         }
-
-        // Enable/Disable IRQ
-        if address >= 0xE000 {
-            if address & 0x0001 == 0 {  // even
-                self.irq_enable = false;
-                self.irq_active = false;
-            } else {  // odd
-                self.irq_enable = true;
+        
+        if address >= 0xE000 && address <= 0xFFFF {
+            if address & 0x0001 == 0 {
+                // Even: IRQ disable
+                self.b_irqenable = false;
+                self.b_irqactive = false;
+            } else {
+                // Odd: IRQ enable
+                self.b_irqenable = true;
             }
-            return true; // Fixed: Return true to indicate handled write
+            return false;
         }
 
         false
@@ -273,42 +214,98 @@ impl Mapper for Mapper004 {
 
     fn ppu_read(&self, address: u16, mapped_addr: &mut u32, _data: u8) -> bool {
         if address <= 0x1FFF {
-            let idx_chunk = (address / 0x0400) as usize;
-            *mapped_addr = self.chr_bank[idx_chunk] + (address & 0x03FF) as u32;
+            // Calculate which 1KB bank to use
+            let idx_chunk = (address / 0x400) as usize;
+            // Each chunk is 1KB (0x400 bytes)
+            *mapped_addr = self.p_chrbank[idx_chunk] + ((address & 0x03FF) as u32);
             return true;
         }
-        
         false
     }
 
     fn ppu_write(&mut self, address: u16, mapped_addr: &mut u32, _data: u8) -> bool {
         if address <= 0x1FFF {
-            if self.chr_banks == 0 {
-                // Only allow writes if using CHR RAM
-                let idx_chunk = (address / 0x0400) as usize;
-                *mapped_addr = self.chr_bank[idx_chunk] + (address & 0x03FF) as u32;
+            // Only allow writes if using CHR RAM (n_chrbanks == 0)
+            if self.n_chrbanks == 0 {
+                let idx_chunk = (address / 0x400) as usize;
+                *mapped_addr = self.p_chrbank[idx_chunk] + ((address & 0x03FF) as u32);
                 return true;
             }
         }
-        
         false
     }
 
     fn get_nametable(&self) -> Nametable {
-        self.mirror_mode.clone()
+        self.mirrormode.clone()
     }
 
     fn savestate(&self) {
-        // TODO: Implement savestate functionality
+        todo!()
     }
 
     fn loadstate(&mut self) {
-        // TODO: Implement loadstate functionality
+        todo!()
     }
 
     fn hasirq(&mut self) -> bool {
-        let test = self.irq_active;
-        self.irq_active = false;
-        return test;
+        // Test and clear the IRQ flag
+        let irq_status = self.b_irqactive;
+        self.b_irqactive = false;
+        irq_status
+    }
+
+    fn scanline(&mut self) {
+        // Handle scanline counter for IRQs
+        if self.n_irqcounter == 0 {
+            // Counter is 0, reload from latch
+            self.n_irqcounter = self.n_irqreload;
+        } else {
+            // Decrement counter
+            self.n_irqcounter = self.n_irqcounter.wrapping_sub(1);
+        }
+
+        // Check if counter is now 0 and IRQs are enabled
+        if self.n_irqcounter == 0 && self.b_irqenable {
+            self.b_irqactive = true;
+        }
+    }
+
+    fn reset(&mut self) {
+        // Reset mapper registers
+        self.n_target_register = 0;
+        self.b_prgbank_mode = false;
+        self.b_chrinversion = false;
+        self.mirrormode = Nametable::Horizontal;
+
+        // Reset IRQ state
+        self.b_irqactive = false;
+        self.b_irqenable = false;
+        self.b_irqupdate = false;
+        self.n_irqcounter = 0;
+        self.n_irqreload = 0;
+        
+        // Reset all registers to 0
+        for i in 0..8 {
+            self.p_register[i] = 0;
+        }
+        
+        // Clear bank mappings
+        for i in 0..4 {
+            self.p_prgbank[i] = 0;
+        }
+        
+        for i in 0..8 {
+            self.p_chrbank[i] = 0;
+        }
+        
+        // Setup default PRG banking
+        // - First bank switchable
+        // - Second bank points to third bank
+        // - Third bank points to second-last bank
+        // - Fourth bank points to last bank
+        self.p_prgbank[0] = 0 * 0x2000;                           // First 8KB bank
+        self.p_prgbank[1] = 1 * 0x2000;                           // Second 8KB bank
+        self.p_prgbank[2] = ((self.n_prgbanks as u32) * 2 - 2) * 0x2000; // Second-last 8KB bank
+        self.p_prgbank[3] = ((self.n_prgbanks as u32) * 2 - 1) * 0x2000; // Last 8KB bank
     }
 }

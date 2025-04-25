@@ -22,13 +22,12 @@ impl Mapper002 {
     }
 }
 
-impl Mapper002{
+
+impl Mapper for Mapper002 {
     fn reset(&mut self){
         self.n_prgbank_select_hi = self.n_prgbanks - 1;
         self.n_prgbank_select_lo = 0;
     }
-}
-impl Mapper for Mapper002 {
     
     fn cpu_read(&self, address: u16, mapped_addr: &mut u32, _data: &mut u8) -> bool {
         *mapped_addr = 0;

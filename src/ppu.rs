@@ -344,7 +344,7 @@ impl Ppu {
                         let y = (coarse_y << 3) + fine_y;
                         let color = self.get_bgpalette(self.palette_num, pattern_number);
                         // frame.drawpixel(x + 255, y, color);
-                        frame.drawpixel((x / 2) + 256, y / 2, color);
+                        frame.drawpixel(x + 256, y, color);
                         pattern_lo <<= 1;
                         pattern_hi <<= 1;
                     }
@@ -860,14 +860,9 @@ impl Ppu {
         if self.scanline_counter == -1 && self.cycle_counter >= 280 && self.cycle_counter <= 304 {
             self.transfer_y(); /* We transfer the vertical factor from the T register here. */
         }
-        if self.cycle_counter == 256 && self.scanline_counter < 239 {
-            /* We only evaluate sprites that are visible. */
-            /* Sprite evaluation function */
-            self.cart.borrow_mut().scanline();
-            if self.ppuctrl.contains(PPUCTRL::sprite_size) {
-                // todo!()
-            } else {
-                // self.render_88_sprite();
+        if self.ppumask.contains(PPUMASK::enable_background_rendering) || self.ppumask.contains(PPUMASK::enable_sprite_rendering){
+            if self.cycle_counter == 260 && self.scanline_counter < 240{
+                self.cart.borrow_mut().scanline();
             }
         }
 

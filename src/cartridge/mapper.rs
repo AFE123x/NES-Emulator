@@ -10,4 +10,5 @@ pub trait Mapper{
     fn loadstate(&mut self);
     fn hasirq(&mut self) -> bool;
     fn scanline(&mut self);
+    fn reset(&mut self);
 }

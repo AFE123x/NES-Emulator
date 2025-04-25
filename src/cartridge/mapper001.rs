@@ -48,7 +48,12 @@ impl Mapper001 {
         }
         toreturn
     }
-    pub fn reset(&mut self) {
+
+
+}
+
+impl Mapper for Mapper001 {
+    fn reset(&mut self) {
         self.n_control_register = 0x1C;
         self.n_load_register = 0x00;
         self.n_load_register_count = 0;
@@ -60,10 +65,6 @@ impl Mapper001 {
         self.n_prgbank_select16_lo = 0;
         self.n_prgbank_select16_hi = self.n_prgbanks - 1;
     }
-
-}
-
-impl Mapper for Mapper001 {
     fn get_nametable(&self) -> Nametable {
         self.mirrormode.clone()
     }

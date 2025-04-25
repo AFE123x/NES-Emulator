@@ -60,4 +60,7 @@ impl Mapper for Mapper003{
     
     fn scanline(&mut self) {
     }
+    
+    fn reset(&mut self) {
+    }
 }

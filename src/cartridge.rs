@@ -92,7 +92,9 @@ impl Cartridge {
             mapper: mapper,
         }
     }
-
+    pub fn reset(&mut self){
+        self.mapper.reset();
+    }
     pub fn scanline(&mut self){
         self.mapper.scanline();
     }
