@@ -1,9 +1,9 @@
-use super::{mapper::Mapper, Nametable};
+use super::{mapper::Mapper, MirrorMode};
 
 pub struct Mapper000{
     pub(crate) n_chr: u8,
     pub(crate) n_prg: u8,
-    pub(crate) nametable: Nametable,
+    pub(crate) nametable: MirrorMode,
 }
 
 impl Mapper for Mapper000{
@@ -23,7 +23,7 @@ impl Mapper for Mapper000{
         false
     }
 
-    fn ppu_read(&self, _address: u16,mapped_addr: &mut u32, _data: u8) -> bool {
+    fn ppu_read(&mut self, _address: u16,mapped_addr: &mut u32, _data: u8) -> bool {
         if *mapped_addr <= 0x1FFF {
             if self.n_prg > 0{
                 *mapped_addr = *mapped_addr;
@@ -43,7 +43,7 @@ impl Mapper for Mapper000{
         false
     }
     
-    fn get_nametable(&self) -> super::Nametable {
+    fn get_mirror_mode(&self) -> super::MirrorMode {
         self.nametable.clone()
     }
     
@@ -64,5 +64,14 @@ impl Mapper for Mapper000{
     }
     
     fn reset(&mut self) {
+    }
+    fn ppu_access(&mut self, _address: u16){
+        
+    }
+    fn step_m2(&mut self, _cpu_clock: u64) {
+    }
+    
+    fn irq_clear(&mut self) {
+        
     }
 }

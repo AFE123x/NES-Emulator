@@ -916,13 +916,6 @@ impl Apu {
         self.noise.set_frequency(freq);
     }
 
-    /// Utility method to get pulse 1 frequency directly
-    pub fn get_pulse1_frequency(&self) -> f32 {
-        Self::get_frequency_from_timer(
-            *self.pulse1_timer_high.lock().unwrap(),
-            *self.pulse1_timer_low.lock().unwrap(),
-        )
-    }
 }
 
 /// Cleanup when APU is dropped

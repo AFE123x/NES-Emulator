@@ -1,15 +1,15 @@
-use super::{mapper::Mapper, Nametable};
+use super::{mapper::Mapper, MirrorMode};
 
 pub struct Mapper002 {
     n_prgbank_select_lo: u8,
     n_prgbank_select_hi: u8,
     n_prgbanks: u8,
     n_chrbanks: u8,
-    nametable: Nametable,
+    nametable: MirrorMode,
 }
 
 impl Mapper002 {
-    pub fn new(prg_rom: u8, chr_rom: u8, nametable: Nametable) -> Self {
+    pub fn new(prg_rom: u8, chr_rom: u8, nametable: MirrorMode) -> Self {
         let mut toreturn = Mapper002{
             n_prgbanks: prg_rom,
             n_chrbanks: chr_rom,
@@ -48,8 +48,12 @@ impl Mapper for Mapper002 {
         }
         false
     }
-
-    fn ppu_read(&self, address: u16, mapped_addr: &mut u32, _data:  u8) -> bool {
+    fn step_m2(&mut self, _cpu_clock: u64) {
+    }
+    fn ppu_access(&mut self, _address: u16){
+        
+    }
+    fn ppu_read(&mut self, address: u16, mapped_addr: &mut u32, _data:  u8) -> bool {
         if address <= 0x1FFF{
             *mapped_addr = address as u32;
             return true;
@@ -65,7 +69,7 @@ impl Mapper for Mapper002 {
         false
     }
 
-    fn get_nametable(&self) -> super::Nametable {
+    fn get_mirror_mode(&self) -> super::MirrorMode {
         self.nametable.clone()
     }
 
@@ -82,5 +86,8 @@ impl Mapper for Mapper002 {
     }
     
     fn scanline(&mut self) {
+    }
+    
+    fn irq_clear(&mut self) {
     }
 }

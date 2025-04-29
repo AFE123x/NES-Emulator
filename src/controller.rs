@@ -50,7 +50,13 @@ impl Controller {
         
         response
     }
+    pub fn _set_reg_value(&mut self, byte: u8){
+        self.button = Buttons::from_bits_truncate(byte);
+    } 
 
+    pub fn _get_reg_value(&self) -> u8{
+        self.button.bits()
+    }
     // Sets or clears a button state based on input
     pub fn set_button(&mut self, button: Buttons, pressed: bool) {
         self.button.set(button, pressed);

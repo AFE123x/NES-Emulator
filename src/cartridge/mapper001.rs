@@ -1,6 +1,6 @@
 use std::{fs::File, io::Read};
 
-use super::{mapper::Mapper, Nametable};
+use super::{mapper::Mapper, MirrorMode};
 
 pub struct Mapper001 {
     n_load_register: u8,
@@ -12,7 +12,7 @@ pub struct Mapper001 {
     n_prgbank_select16_lo: u8,
     n_prgbank_select16_hi: u8,
     n_prgbank_select32: u8,
-    mirrormode: Nametable,
+    mirrormode: MirrorMode,
     n_prgbanks: u8,
     n_chrbanks: u8,
     ram: Vec<u8>,
@@ -22,7 +22,7 @@ impl Mapper001 {
     pub fn new(
         prg_rom_size: u8,
         chr_rom_size: u8,
-        _nametable_arrangement: Nametable,
+        _nametable_arrangement: MirrorMode,
         save: Option<String>,
     ) -> Self {
         let mut toreturn = Self {
@@ -34,7 +34,7 @@ impl Mapper001 {
             n_prgbank_select16_lo: 0,
             n_prgbank_select16_hi: 0,
             n_prgbank_select32: 0,
-            mirrormode: Nametable::Horizontal,
+            mirrormode: MirrorMode::Horizontal,
             ram: vec![0; 8192],
             n_prgbanks: prg_rom_size,
             n_chrbanks: chr_rom_size,
@@ -65,11 +65,15 @@ impl Mapper for Mapper001 {
         self.n_prgbank_select16_lo = 0;
         self.n_prgbank_select16_hi = self.n_prgbanks - 1;
     }
-    fn get_nametable(&self) -> Nametable {
+    fn get_mirror_mode(&self) -> MirrorMode {
         self.mirrormode.clone()
     }
-
-    fn ppu_read(&self, address: u16, mapped_addr: &mut u32, _data: u8) -> bool {
+    fn step_m2(&mut self, _cpu_clock: u64) {
+    }
+    fn ppu_access(&mut self, _address: u16){
+        
+    }
+    fn ppu_read(&mut self, address: u16, mapped_addr: &mut u32, _data: u8) -> bool {
         *mapped_addr = 0;
         if address < 0x2000 {
             if self.n_chrbanks == 0 {
@@ -172,10 +176,10 @@ impl Mapper for Mapper001 {
                         // Control register
                         self.n_control_register = self.n_load_register & 0x1F;
                         self.mirrormode = match self.n_control_register & 0x03 {
-                            0 => Nametable::OneScreenLo,
-                            1 => Nametable::OneScreenHi,
-                            2 => Nametable::Vertical,
-                            3 => Nametable::Horizontal,
+                            0 => MirrorMode::OneScreenLo,
+                            1 => MirrorMode::OneScreenHi,
+                            2 => MirrorMode::Vertical,
+                            3 => MirrorMode::Horizontal,
                             _ => unreachable!(),
                         };
                     } else if ntargetregister == 1 {
@@ -255,5 +259,8 @@ impl Mapper for Mapper001 {
     }
     
     fn scanline(&mut self) {
+    }
+    
+    fn irq_clear(&mut self) {
     }
 }

@@ -1,4 +1,4 @@
-use super::{mapper::Mapper, Nametable};
+use super::{mapper::Mapper, MirrorMode};
 
 pub struct Mapper004 {
     n_prgbanks: u8,
@@ -8,7 +8,7 @@ pub struct Mapper004 {
     b_prgbank_mode: bool,
     b_chrinversion: bool,
 
-    mirrormode: Nametable,
+    mirrormode: MirrorMode,
     p_register: [i32; 8],
     p_chrbank: [u32; 8],
     p_prgbank: [u32; 4],
@@ -31,7 +31,7 @@ impl Mapper004 {
             n_target_register: 0,
             b_prgbank_mode: false,
             b_chrinversion: false,
-            mirrormode: Nametable::Horizontal,
+            mirrormode: MirrorMode::Horizontal,
             p_register: [0; 8],
             p_chrbank: [0; 8],
             p_prgbank: [0; 4],
@@ -128,9 +128,14 @@ impl Mapper004 {
         self.p_prgbank[1] = self.prg_bank_offset(self.p_register[7]);
         self.p_prgbank[3] = self.prg_bank_offset(-1); // Last bank is always fixed
     }
+    
+    
 }
 
 impl Mapper for Mapper004 {
+    fn irq_clear(&mut self) {
+        self.b_irqactive = false;
+    }
     fn cpu_read(&self, address: u16, mapped_addr: &mut u32, data: &mut u8) -> bool {
         if address >= 0x6000 && address <= 0x7FFF {
             // Reading from static RAM
@@ -139,7 +144,7 @@ impl Mapper for Mapper004 {
             return true;
         }
         
-        if address >= 0x8000 && address <= 0xFFFF {
+        if address >= 0x8000 {
             // Reading from PRG ROM
             let idx_chunk = ((address - 0x8000) / 0x2000) as usize;
             *mapped_addr = self.p_prgbank[idx_chunk] + ((address & 0x1FFF) as u32);
@@ -176,9 +181,9 @@ impl Mapper for Mapper004 {
             if address & 0x0001 == 0 {
                 // Even: Mirroring
                 if data & 0x01 != 0 {
-                    self.mirrormode = Nametable::Horizontal;
+                    self.mirrormode = MirrorMode::Horizontal;
                 } else {
-                    self.mirrormode = Nametable::Vertical;
+                    self.mirrormode = MirrorMode::Vertical;
                 }
             } else {
                 // Odd: PRG RAM protect (not implemented)
@@ -197,7 +202,7 @@ impl Mapper for Mapper004 {
             return false;
         }
         
-        if address >= 0xE000 && address <= 0xFFFF {
+        if address >= 0xE000 {
             if address & 0x0001 == 0 {
                 // Even: IRQ disable
                 self.b_irqenable = false;
@@ -212,7 +217,7 @@ impl Mapper for Mapper004 {
         false
     }
 
-    fn ppu_read(&self, address: u16, mapped_addr: &mut u32, _data: u8) -> bool {
+    fn ppu_read(&mut self, address: u16, mapped_addr: &mut u32, _data: u8) -> bool {
         if address <= 0x1FFF {
             // Calculate which 1KB bank to use
             let idx_chunk = (address / 0x400) as usize;
@@ -235,7 +240,7 @@ impl Mapper for Mapper004 {
         false
     }
 
-    fn get_nametable(&self) -> Nametable {
+    fn get_mirror_mode(&self) -> MirrorMode {
         self.mirrormode.clone()
     }
 
@@ -263,8 +268,8 @@ impl Mapper for Mapper004 {
             // Decrement counter
             self.n_irqcounter = self.n_irqcounter.wrapping_sub(1);
         }
-
-        // Check if counter is now 0 and IRQs are enabled
+        
+        // FIX: Activate IRQ if counter reaches 0 and IRQs are enabled
         if self.n_irqcounter == 0 && self.b_irqenable {
             self.b_irqactive = true;
         }
@@ -275,7 +280,7 @@ impl Mapper for Mapper004 {
         self.n_target_register = 0;
         self.b_prgbank_mode = false;
         self.b_chrinversion = false;
-        self.mirrormode = Nametable::Horizontal;
+        self.mirrormode = MirrorMode::Horizontal;
 
         // Reset IRQ state
         self.b_irqactive = false;
@@ -307,5 +312,15 @@ impl Mapper for Mapper004 {
         self.p_prgbank[1] = 1 * 0x2000;                           // Second 8KB bank
         self.p_prgbank[2] = ((self.n_prgbanks as u32) * 2 - 2) * 0x2000; // Second-last 8KB bank
         self.p_prgbank[3] = ((self.n_prgbanks as u32) * 2 - 1) * 0x2000; // Last 8KB bank
+    }
+    
+    fn step_m2(&mut self, _cpu_clock: u64) {
+        // Implementation can be left empty as in the original
+        // or could be used for IRQ timing if needed
+    }
+    
+    fn ppu_access(&mut self, _address: u16) {
+        // Implementation can be left empty as in the original
+        // Could be used for PPU-specific operations if needed
     }
 }

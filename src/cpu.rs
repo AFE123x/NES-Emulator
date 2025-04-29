@@ -75,7 +75,7 @@ impl Cpu {
     }
     
     /// Advances the CPU clock cycle, fetching and executing an instruction if needed
-    pub fn clock(&mut self) {
+    pub fn clock(&mut self) -> u64 {
         // Fetch the next instruction if there are no remaining cycles
         if self.cycles_left == 0 {
             self.flags.set(Flags::Unused,true);
@@ -89,5 +89,6 @@ impl Cpu {
         // Decrement cycle count and increment total executed cycles
         self.cycles_left = self.cycles_left.wrapping_sub(1);
         self.total_cycles = self.total_cycles.wrapping_add(1);
+        (self.cycles_left as u64).wrapping_add(1)
     }
 }

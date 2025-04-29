@@ -8,7 +8,7 @@ use std::rc::Rc;
 use crate::ppu::oam::Oam;
 use registers::{VtReg, PPUCTRL, PPUMASK, PPUSTATUS};
 
-use crate::cartridge::{Cartridge, Nametable};
+use crate::cartridge::{Cartridge, MirrorMode};
 
 pub mod frame;
 mod registers;
@@ -133,10 +133,7 @@ impl Ppu {
     }
     pub fn new(cartridge: Rc<RefCell<Cartridge>>) -> Self {
         let pal: Vec<u8> = vec![0; 0x20];
-        let mut vram: Vec<u8> = vec![0; 2048];
-        for i in &mut vram {
-            *i = rand::random_range(0..=0xFF);
-        }
+        let vram: Vec<u8> = vec![0; 2048];
         Self {
             ppuctrl: PPUCTRL::empty(),
             ppumask: PPUMASK::empty(),
@@ -363,7 +360,7 @@ impl Ppu {
             // let nametable: Nametable = unsafe { (*self.cart).get_nametable() };
             let nametable = self.cart.borrow_mut().get_nametable();
             byte = match nametable {
-                Nametable::Vertical => {
+                MirrorMode::Vertical => {
                     let index = match address {
                         0x2000..=0x23FF => address & 0x3FF,
                         0x2800..=0x2BFF => address & 0x3FF,
@@ -373,7 +370,7 @@ impl Ppu {
                     };
                     self.vram[index as usize]
                 }
-                Nametable::Horizontal => {
+                MirrorMode::Horizontal => {
                     let index = match address {
                         0x2000..=0x23FF | 0x2400..=0x27FF => address & 0x3FF,
                         0x2800..=0x2BFF | 0x2C00..=0x2FFF => 0x400 + (address & 0x3FF),
@@ -381,11 +378,11 @@ impl Ppu {
                     };
                     self.vram[index as usize]
                 }
-                Nametable::OneScreenLo => {
+                MirrorMode::OneScreenLo => {
                     let index = address & 0x3FF;
                     self.vram[index as usize]
                 }
-                Nametable::OneScreenHi => {
+                MirrorMode::OneScreenHi => {
                     let index = address & 0x3FF;
                     let index = index.wrapping_add(0x400);
                     self.vram[index as usize]
@@ -422,12 +419,12 @@ impl Ppu {
         if address <= 0x1FFF {
             // unsafe { (*self.cart).ppu_write(address, data) }; // writes to cartridge space
             self.cart.borrow_mut().ppu_write(address, data);
-        } else if address >= 0x2000 && address <= 0x3EFF {
+        } else if address >= 0x2000 && address <= 0x2FFF {
             /* nametable writes */
             // let nametable: Nametable = unsafe { (*self.cart).get_nametable() };
             let nametable = self.cart.borrow_mut().get_nametable();
             match nametable {
-                Nametable::Vertical => {
+                MirrorMode::Vertical => {
                     match address {
                         0x2000..=0x23FF => {
                             /* nametable 0 */
@@ -453,7 +450,7 @@ impl Ppu {
                         _ => panic!("Address out of range!"),
                     };
                 }
-                Nametable::Horizontal => {
+                MirrorMode::Horizontal => {
                     let index = match address {
                         0x2000..=0x23FF | 0x2400..=0x27FF => address & 0x3FF,
                         0x2800..=0x2BFF | 0x2C00..=0x2FFF => 0x400 + (address & 0x3FF),
@@ -461,11 +458,11 @@ impl Ppu {
                     };
                     self.vram[index as usize] = data;
                 }
-                Nametable::OneScreenLo => {
+                MirrorMode::OneScreenLo => {
                     let index = address & 0x3FF;
                     self.vram[index as usize] = data;
                 }
-                Nametable::OneScreenHi => {
+                MirrorMode::OneScreenHi => {
                     let index = address & 0x3FF;
                     let index = index.wrapping_add(0x400);
                     self.vram[index as usize] = data;
@@ -620,7 +617,7 @@ impl Ppu {
         let flip_vertical = attribute & 0x80 > 0;
         let palette_idx = attribute & 0x3;
         let behind_background = attribute & 0x20 > 0;
-
+        
         // For 8x16 sprites, bit 0 of the tile index selects the pattern table
         let pattern_table = if tile_index & 1 == 0 { 0 } else { 0x1000 };
         let tile_number = tile_index & 0xFE; // Remove bit 0 as it's used for pattern table
@@ -697,7 +694,9 @@ impl Ppu {
         let flip_vertical = attribute & 0x80 > 0;
         let palette = attribute & 0x3;
         let behind_background = attribute & 0x20 > 0;
-
+        if sprite_y >= 238{
+            return;
+        }
         // Get pattern table address from PPUCTRL
         let pattern_table = if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {
             0x1000
@@ -766,7 +765,7 @@ impl Ppu {
         }
     }
 
-    pub fn set_name_table(&mut self) {
+    pub fn render_sprites(&mut self) {
         if self.ppuctrl.contains(PPUCTRL::sprite_size) {
             for i in 0..64 {
                 self.render_816_sprite(i);
@@ -860,11 +859,6 @@ impl Ppu {
         if self.scanline_counter == -1 && self.cycle_counter >= 280 && self.cycle_counter <= 304 {
             self.transfer_y(); /* We transfer the vertical factor from the T register here. */
         }
-        if self.ppumask.contains(PPUMASK::enable_background_rendering) || self.ppumask.contains(PPUMASK::enable_sprite_rendering){
-            if self.cycle_counter == 260 && self.scanline_counter < 240{
-                self.cart.borrow_mut().scanline();
-            }
-        }
 
         if self.ppumask.contains(PPUMASK::enable_background_rendering)
             || self.ppumask.contains(PPUMASK::enable_sprite_rendering)
@@ -912,13 +906,19 @@ impl Ppu {
         {
             self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
         }
+
+        
         /* Incrementing Logic */
         self.cycle_counter += 1;
         if self.cycle_counter > 340 {
             self.cycle_counter = 0;
             self.scanline_counter += 1;
         }
-
+        if self.ppumask.contains(PPUMASK::enable_background_rendering) || self.ppumask.contains(PPUMASK::enable_sprite_rendering){
+            if self.cycle_counter == 260 && self.scanline_counter < 240{
+                self.cart.borrow_mut().scanline();
+            }
+        }
         if self.scanline_counter <= 239 {
         } else if self.scanline_counter == 241 && self.cycle_counter == 1 {
             self.ppustatus.set(PPUSTATUS::vblank_flag, true);

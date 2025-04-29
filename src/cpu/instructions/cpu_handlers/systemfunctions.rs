@@ -70,20 +70,29 @@ impl Cpu {
     /// - Load the address of the interrupt handling routine from the vector table into the program counter.
     /// - Execute the interrupt handling routine(located at address $FFFA and $FFFB)
     pub fn nmi(&mut self) {
-        /* Push the program counter */
-        let lo_byte = self.pc & 0xFF;
-        let hi_byte = self.pc >> 8;
-        self.push(hi_byte as u8);
-        self.push(lo_byte as u8);
+        // Push the program counter to the stack
+        let hi_byte = (self.pc >> 8) as u8;
+        let lo_byte = (self.pc & 0xFF) as u8;
+        self.push(hi_byte);
+        self.push(lo_byte);
 
-        /* Push the status register */
-        self.push(self.flags.bits());
+        // Push the status register to the stack
+        // For NMI, the B flag should be clear in the copy pushed to the stack
+        let mut status_copy = Flags::from_bits_truncate(self.flags.bits());
+        status_copy.set(Flags::Break, false);
+        status_copy.set(Flags::Unused, true);
+        self.push(status_copy.bits());
+
+        // Set the interrupt disable flag
         self.flags.set(Flags::IDisable, true);
 
-        /* Retrieve the location of NMI handler */
+        // Load the NMI vector address (0xFFFA-0xFFFB)
         let lo_byte = self.cpu_read(0xFFFA, false) as u16;
         let hi_byte = self.cpu_read(0xFFFB, false) as u16;
         self.pc = (hi_byte << 8) | lo_byte;
+
+        // NMI takes 7 cycles
+        self.cycles_left = 7;
     }
 
     pub fn reset(&mut self) {
@@ -123,7 +132,7 @@ impl Cpu {
         // For IRQ, the B flag should be clear in the copy pushed to the stack
         let mut status_copy = Flags::from_bits_truncate(self.flags.bits());
         status_copy.set(Flags::Break, false);
-        status_copy.set(Flags::Unused, true); // The Unused flag is always set
+        status_copy.set(Flags::Unused, true);
         self.push(status_copy.bits());
 
         // Set the interrupt disable flag
@@ -133,7 +142,6 @@ impl Cpu {
         let lo_byte = self.cpu_read(0xFFFE, false) as u16;
         let hi_byte = self.cpu_read(0xFFFF, false) as u16;
         self.pc = (hi_byte << 8) | lo_byte;
-
         // IRQ takes 7 cycles
         self.cycles_left = 7;
     }

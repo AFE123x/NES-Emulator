@@ -20,25 +20,30 @@ struct Header {
     _prg_rom_size: u8,
     _chr_rom_size: u8,
     _mapper: u8,
+    _four_screen: bool,
 }
 pub struct Cartridge {
     _header: Header,
     prg_rom: Vec<u8>,
     chr_rom: Vec<u8>,
     mapper: Box<dyn Mapper>,
+    cpu_clock: u64,
 }
 
 #[derive(Debug,Clone)]
-pub enum Nametable {
-    Vertical,
+pub enum MirrorMode {
     Horizontal,
-    OneScreenLo,
     OneScreenHi,
+    OneScreenLo,
+    Vertical,
 }
 
 impl Cartridge {
-    pub fn get_nametable(&self) -> Nametable {
-        self.mapper.get_nametable().clone()
+    pub fn irq_clear(&mut self){
+        self.mapper.irq_clear();
+    }
+    pub fn get_nametable(&self) -> MirrorMode {
+        self.mapper.get_mirror_mode().clone()
     }
     ///# `new` - Constructs a new cartridge
     pub fn new(file_name: &str) -> Self {
@@ -66,45 +71,59 @@ impl Cartridge {
         };
         let mapper = (header[7] & 0xF0) | (header[6] >> 4);
         let nametable_arrangement = match header[6] & 1 {
-            0 => Nametable::Horizontal,
-            1 => Nametable::Vertical,
+            0 => MirrorMode::Horizontal,
+            1 => MirrorMode::Vertical,
             _ => unreachable!(),
         };
+        let four_screen = (header[6] & 0x08) != 0;
+        
         let header = Header {
             _prg_rom_size: prg_rom_size as u8,
             _chr_rom_size: chr_rom_size as u8,
             _mapper: mapper,
+            _four_screen: four_screen,
         };
         
         let mapper: Box<dyn Mapper> = match mapper{
             0 => Box::new(Mapper000 { n_chr: chr_rom_size as u8, n_prg: prg_rom_size as u8, nametable: nametable_arrangement }),
-            2 => Box::new(Mapper002::new(prg_rom_size as u8, chr_rom_size as u8,nametable_arrangement)),
-            1 => Box::new(Mapper001::new(prg_rom_size as u8, chr_rom_size as u8,nametable_arrangement,None)),
-            3 => Box::new(Mapper003::new(prg_rom_size as u8, chr_rom_size as u8,nametable_arrangement)),
-            4 => Box::new(Mapper004::new(prg_rom_size as u8,chr_rom_size as u8)),
-            _ => panic!("mapper {} not supported",mapper),
+            2 => Box::new(Mapper002::new(prg_rom_size as u8, chr_rom_size as u8, nametable_arrangement)),
+            1 => Box::new(Mapper001::new(prg_rom_size as u8, chr_rom_size as u8, nametable_arrangement, None)),
+            3 => Box::new(Mapper003::new(prg_rom_size as u8, chr_rom_size as u8, nametable_arrangement)),
+            4 => Box::new(Mapper004::new(prg_rom_size as u8, chr_rom_size as u8)),
+            _ => panic!("mapper {} not supported", mapper),
         };
-        println!("{:?}",header);
+        println!("{:?}", header);
         Self {
             _header: header,
             prg_rom: prg_rom,
             chr_rom: chr_rom,
             mapper: mapper,
+            cpu_clock: 0,
         }
     }
-    pub fn reset(&mut self){
+    
+    pub fn _reset(&mut self){
         self.mapper.reset();
+        self.cpu_clock = 0;
     }
+    
     pub fn scanline(&mut self){
         self.mapper.scanline();
     }
+    
+    pub fn step_m2(&mut self) {
+        self.cpu_clock += 1;
+        self.mapper.step_m2(self.cpu_clock);
+    }
+    
     pub fn irq(&mut self) -> bool{
         return self.mapper.hasirq();
     }
+    
     pub fn cpu_read(&self, address: u16, byte: &mut u8) {
         let mut mapped_addr = address as u32;
-        let res = self.mapper.cpu_read(address,&mut mapped_addr,byte);
-        if res  && mapped_addr != 0xFFFFFFFF {
+        let res = self.mapper.cpu_read(address, &mut mapped_addr, byte);
+        if res && mapped_addr != 0xFFFFFFFF {
             let mapped_addr = (mapped_addr as usize) % self.prg_rom.len();
             *byte = self.prg_rom[mapped_addr as usize];
         }
@@ -113,30 +132,37 @@ impl Cartridge {
     pub fn load(&mut self){
         self.mapper.loadstate();
     }
+    
     pub fn cpu_write(&mut self, address: u16, byte: u8) {
         let mut mapped_address = address as u32;
-        let res = self.mapper.cpu_write(address,&mut mapped_address,byte);
-        if res  && mapped_address != 0xFFFFFFFF{
+        let res = self.mapper.cpu_write(address, &mut mapped_address, byte);
+        if res && mapped_address != 0xFFFFFFFF {
             self.prg_rom[mapped_address as usize] = byte;
         }
     }
 
-    pub fn ppu_read(&self, address: u16, byte: &mut u8) {
+    pub fn ppu_read(&mut self, address: u16, byte: &mut u8) {
         let mut mapped_addr = address as u32;
-        let res = self.mapper.ppu_read(address,&mut mapped_addr,*byte);
+        let res = self.mapper.ppu_read(address, &mut mapped_addr, *byte);
         if res {
             let mapped_addr = mapped_addr % (self.chr_rom.len() as u32);
             *byte = self.chr_rom[mapped_addr as usize];
         }
+        
+        // Update PPU A12 tracking
+        self.mapper.ppu_access(address);
     }
 
     pub fn ppu_write(&mut self, address: u16, byte: u8) {
         let mut mapped_address = address as u32;
-        let res = self.mapper.ppu_write(address,&mut mapped_address,byte);
+        let res = self.mapper.ppu_write(address, &mut mapped_address, byte);
         if res {
             self.chr_rom[mapped_address as usize] = byte;
         }
+        self.mapper.ppu_access(address);
+       
     }
+    
     pub fn savestate(&mut self){
         self.mapper.savestate();
     }
