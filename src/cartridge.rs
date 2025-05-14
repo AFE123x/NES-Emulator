@@ -27,7 +27,6 @@ pub struct Cartridge {
     prg_rom: Vec<u8>,
     chr_rom: Vec<u8>,
     mapper: Box<dyn Mapper>,
-    cpu_clock: u64,
 }
 
 #[derive(Debug,Clone)]
@@ -98,24 +97,17 @@ impl Cartridge {
             prg_rom: prg_rom,
             chr_rom: chr_rom,
             mapper: mapper,
-            cpu_clock: 0,
         }
     }
     
     pub fn _reset(&mut self){
         self.mapper.reset();
-        self.cpu_clock = 0;
     }
     
     pub fn scanline(&mut self){
         self.mapper.scanline();
     }
-    
-    pub fn step_m2(&mut self) {
-        self.cpu_clock += 1;
-        self.mapper.step_m2(self.cpu_clock);
-    }
-    
+
     pub fn irq(&mut self) -> bool{
         return self.mapper.hasirq();
     }
@@ -148,9 +140,6 @@ impl Cartridge {
             let mapped_addr = mapped_addr % (self.chr_rom.len() as u32);
             *byte = self.chr_rom[mapped_addr as usize];
         }
-        
-        // Update PPU A12 tracking
-        self.mapper.ppu_access(address);
     }
 
     pub fn ppu_write(&mut self, address: u16, byte: u8) {
@@ -159,8 +148,6 @@ impl Cartridge {
         if res {
             self.chr_rom[mapped_address as usize] = byte;
         }
-        self.mapper.ppu_access(address);
-       
     }
     
     pub fn savestate(&mut self){

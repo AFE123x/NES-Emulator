@@ -34,6 +34,7 @@ pub struct Cpu {
     bus: Option<*mut Bus>, // Pointer to the system bus
     opcode: u8,      // Current opcode being executed
     oldpc: u16,      // Previous program counter value
+    irqset: bool,
 }
 
 impl Cpu {
@@ -55,6 +56,7 @@ impl Cpu {
             total_cycles: 0,
             opcode: 0,
             oldpc: 0,
+            irqset: false,
         }
     }
     

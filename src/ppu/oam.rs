@@ -1,12 +1,12 @@
-use crate::ppu::Ppu;
 
+use crate::ppu::Ppu;
+#[derive(Debug)]
 pub struct Oam {
     y_position: u16,
     index_number: u8,
     attribute: u8,
     x_position: u8,
 }
-
 impl Clone for Oam {
     fn clone(&self) -> Self {
         Self {

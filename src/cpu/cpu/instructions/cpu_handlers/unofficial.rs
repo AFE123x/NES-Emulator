@@ -17,6 +17,7 @@ use crate::cpu::{Cpu, Flags};
 
 impl Cpu {
     pub fn sre(&mut self) {
+        //todo!()
         let mut immval = self.cpu_read(self.addrabs, false);
         self.flags.set(Flags::Carry, immval & 0x01 != 0); // Set carry flag to bit 0
         immval >>= 1;
@@ -28,6 +29,7 @@ impl Cpu {
     }
 
     pub fn lax(&mut self) {
+        //todo!()
         let immval = self.cpu_read(self.addrabs, false);
         self.a = immval;
         self.x = immval;
@@ -36,6 +38,7 @@ impl Cpu {
     }
 
     pub fn las(&mut self) {
+        //todo!()
         let immval = self.cpu_read(self.addrabs, false);
         let temp = self.sp & immval;
         self.a = temp;
@@ -53,6 +56,7 @@ impl Cpu {
     }
 
     pub fn rra(&mut self) {
+        //todo!()
         let mask = if self.flags.contains(Flags::Carry) {
             0x80
         } else {
@@ -98,6 +102,7 @@ impl Cpu {
     }
 
     pub fn dcp(&mut self) {
+        //todo!()
         let immval = self.cpu_read(self.addrabs, false);
         let immval = immval.wrapping_sub(1);
         self.flags.set(Flags::Zero, immval == 0);
@@ -112,11 +117,13 @@ impl Cpu {
     }
 
     pub fn sax(&mut self) {
+        //todo!()
         let m = self.a & self.x;
         self.cpu_write(self.addrabs, m);
     }
 
     pub fn rla(&mut self) {
+        //todo!()
         let bit = if self.flags.contains(Flags::Carry) {
             1
         } else {
@@ -135,6 +142,7 @@ impl Cpu {
     }
 
     pub fn slo(&mut self) {
+        //todo!()
         let mut immval = self.cpu_read(self.addrabs, false);
         self.flags.set(Flags::Carry, immval & 0x80 != 0);
         immval <<= 1;
@@ -145,6 +153,7 @@ impl Cpu {
     }
 
     pub fn isc(&mut self) {
+        //todo!()
         let immval = self.cpu_read(self.addrabs, false);
         let immval = immval.wrapping_add(1);
         self.flags.set(Flags::Zero, immval == 0);
@@ -203,6 +212,7 @@ impl Cpu {
     }
 
     pub fn lxa(&mut self) {
+        //todo!()
         // Read the immediate operand
         let oper = self.cpu_read(self.addrabs, false);
 
@@ -231,6 +241,7 @@ impl Cpu {
     }
 
     pub fn sbx(&mut self) {
+        //todo!()
         // Get the immediate operand
         let oper = self.cpu_read(self.addrabs, false);
 

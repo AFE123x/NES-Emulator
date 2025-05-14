@@ -1,3 +1,4 @@
+
 use super::inst_enum::{AddressMode, Instruction};
 use crate::cpu::Cpu;
 use crate::cpu::Flags;
@@ -279,7 +280,6 @@ impl Cpu {
         instruction: Instruction,
         cycles: u8,
     ) {
-        // println!("{:?}({:?})",instruction,addrmode);
         self.handle_addrmode(&addrmode);
         self.handle_instruction(instruction);
         self.cycles_left = self.cycles_left.wrapping_add(cycles as u16);

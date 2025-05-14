@@ -1,26 +1,7 @@
 use crate::cpu::Cpu;
 use crate::cpu::Flags;
 impl Cpu {
-    /*
-        uint8_t olc6502::BRK()
-    {
-        pc++;
 
-        SetFlag(I, 1);
-        write(0x0100 + stkp, (pc >> 8) & 0x00FF);
-        stkp--;
-        write(0x0100 + stkp, pc & 0x00FF);
-        stkp--;
-
-        SetFlag(B, 1);
-        write(0x0100 + stkp, status);
-        stkp--;
-        SetFlag(B, 0);
-
-        pc = (uint16_t)read(0xFFFE) | ((uint16_t)read(0xFFFF) << 8);
-        return 0;
-    }
-         */
     pub fn brk(&mut self) {
         // BRK pushes PC+2, but we need to increment by 1 here since
         // the CPU will have already incremented PC by 1 when fetching this instruction
@@ -60,6 +41,8 @@ impl Cpu {
         let lo_byte = self.pop() as u16;
         let hi_byte = self.pop() as u16;
         self.pc = (hi_byte << 8) | lo_byte;
+
+
     }
 
     ///# `nmi` - Non Maskable Interrupts
@@ -121,7 +104,7 @@ impl Cpu {
         if self.flags.contains(Flags::IDisable) {
             return;
         }
-
+        self.irqset = true;
         // Push the program counter to the stack
         let hi_byte = (self.pc >> 8) as u8;
         let lo_byte = (self.pc & 0xFF) as u8;
@@ -144,5 +127,6 @@ impl Cpu {
         self.pc = (hi_byte << 8) | lo_byte;
         // IRQ takes 7 cycles
         self.cycles_left = 7;
+        
     }
 }
