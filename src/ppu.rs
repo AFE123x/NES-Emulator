@@ -185,23 +185,23 @@ impl Ppu {
         let x_pos = sprite.get_byte(3) as u16;
         let flip_horizontal = (attributes & 0x40) != 0;
         let flip_vertical = (attributes & 0x80) != 0;
-    
+
         if self.ppuctrl.contains(PPUCTRL::sprite_size) {
-            let pattern_table_base: u16 = if tile_index & 0x01 != 0 { 0x1000 } else { 0x0000 };
+            let pattern_table_base: u16 = if tile_index & 0x01 != 0 {
+                0x1000
+            } else {
+                0x0000
+            };
             let tile_number = tile_index & 0xFE;
             for tile_half in 0..2 {
-                let current_tile = if flip_vertical { 
+                let current_tile = if flip_vertical {
                     tile_number + (1 - tile_half)
-                } else { 
+                } else {
                     tile_number + tile_half
                 };
                 let tile_address = pattern_table_base + (current_tile * 16);
                 for row in 0..8 {
-                    let y_in_tile = if flip_vertical {
-                        7 - row
-                    } else {
-                        row
-                    };
+                    let y_in_tile = if flip_vertical { 7 - row } else { row };
                     let low_byte = self.ppu_read(tile_address + y_in_tile);
                     let high_byte = self.ppu_read(tile_address + y_in_tile + 8);
                     for col in 0..8 {
@@ -211,7 +211,7 @@ impl Ppu {
                         let pixel_value = (high_bit << 1) | low_bit;
                         if pixel_value != 0 {
                             let y_offset = (tile_half * 8) as u16 + row as u16;
-                            
+
                             self.sprite0xcoord = x_pos + col as u16;
                             self.sprite0ycoord = y_pos + y_offset;
                             return;
@@ -220,11 +220,12 @@ impl Ppu {
                 }
             }
         } else {
-            let pattern_table_base: u16 = if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {
-                0x1000
-            } else {
-                0x0000
-            };
+            let pattern_table_base: u16 =
+                if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {
+                    0x1000
+                } else {
+                    0x0000
+                };
             let tile_address = pattern_table_base + (tile_index * 16);
             for row in 0..8 {
                 let y_in_tile = if flip_vertical { 7 - row } else { row };
@@ -258,7 +259,7 @@ impl Ppu {
         let safe_index = (color_index & 0x3F) as usize;
         self.system_palette[safe_index]
     }
-    
+
     pub fn get_fgpalette(&mut self, palettenum: u8, paletteindex: u8) -> (u8, u8, u8) {
         let palettenum = palettenum & 0x07;
         let palette_addr = if paletteindex == 0 {
@@ -568,63 +569,63 @@ impl Ppu {
         let flip_vertical = attribute & 0x80 > 0;
         let palette_idx = attribute & 0x3;
         let behind_background = attribute & 0x20 > 0;
-        if index == 0x24{
+        if index == 0x24 {
             // println!("{}",oam_sprite.print_oam());
         }
-        
+
         // For 8x16 sprites, bit 0 of the tile index selects the pattern table
         let pattern_table = if tile_index & 1 == 0 { 0 } else { 0x1000 };
         let tile_number = tile_index & 0xFE; // Remove bit 0 as it's used for pattern table
-    
+
         // Process both tiles (top and bottom)
         for tile in 0..2 {
             let effective_tile = if flip_vertical { 1 - tile } else { tile };
-    
+
             // Calculate base address for this tile
             let tile_base = pattern_table | ((tile_number + effective_tile) << 4);
-    
+
             // Process the 8 rows of this tile
             for row in 0..8 {
                 let effective_row = if flip_vertical { 7 - row } else { row };
                 let pattern_address = tile_base + effective_row;
-    
+
                 let pattern_lo = self.ppu_read(pattern_address);
                 let pattern_hi = self.ppu_read(pattern_address + 8);
-    
+
                 // Process the 8 pixels in this row
                 for col in 0..8 {
                     let effective_col = if flip_horizontal { 7 - col } else { col };
-    
+
                     // Extract pixel data
                     let bit_lo = (pattern_lo >> (7 - effective_col)) & 1;
                     let bit_hi = (pattern_hi >> (7 - effective_col)) & 1;
                     let pixel_value = (bit_hi << 1) | bit_lo;
-    
+
                     // Skip transparent pixels
                     if pixel_value == 0 {
                         continue;
                     }
-    
+
                     // Calculate screen coordinates
                     let screen_x = ((x as u16) + col) as u16;
                     let screen_y = y + row + (tile * 8);
-    
+
                     // Skip if off-screen
                     if screen_x >= 256 || screen_y >= 240 {
                         continue;
                     }
-    
+
                     // Sprite 0 hit detection
                     if index == 0 && self.frame_array[screen_x as usize][screen_y as usize] != 0 {
                         self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
                     }
-    
+
                     // Get color and render
                     let color = self.get_fgpalette(palette_idx, pixel_value);
                     // let color = (255,0,0);
                     // Apply priority rules correctly
                     let bg_pixel = self.frame_array[screen_x as usize][screen_y as usize];
-                    
+
                     if (!behind_background) || (behind_background && bg_pixel == 0) {
                         unsafe {
                             (*self.nametable_frame.unwrap()).drawpixel(
@@ -649,66 +650,66 @@ impl Ppu {
         let flip_vertical = attribute & 0x80 > 0;
         let palette = attribute & 0x3;
         let behind_background = attribute & 0x20 > 0;
-        
+
         if sprite_y >= 238 {
             return;
         }
-        
+
         // Get pattern table address from PPUCTRL
         let pattern_table = if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {
             0x1000
         } else {
             0
         };
-    
+
         // Calculate base address for this tile
         let tile_base = pattern_table | (tile_index << 4);
-    
+
         // Process each row of the sprite
         for row in 0..8 {
             let effective_row = if flip_vertical { 7 - row } else { row };
-    
+
             // Get pattern data for this row
             let pattern_lo = self.ppu_read(tile_base + effective_row);
             let pattern_hi = self.ppu_read(tile_base + effective_row + 8);
-    
+
             // Process each pixel in the row
             for col in 0..8 {
                 let effective_col = if flip_horizontal { 7 - col } else { col };
-    
+
                 // Extract pixel data
                 let pixel_bit_lo = (pattern_lo >> (7 - effective_col)) & 1;
                 let pixel_bit_hi = (pattern_hi >> (7 - effective_col)) & 1;
                 let pixel_value = (pixel_bit_hi << 1) | pixel_bit_lo;
-    
+
                 // Skip transparent pixels
                 if pixel_value == 0 {
                     continue;
                 }
-    
+
                 // Calculate screen position
                 let screen_x = (sprite_x + col) as u16;
                 let screen_y = sprite_y + row;
-    
+
                 // Skip if off-screen
                 if screen_x >= 256 || screen_y >= 240 {
                     continue;
                 }
-    
+
                 // Sprite 0 hit detection
                 if index == 0 && self.frame_array[screen_x as usize][screen_y as usize] != 0 {
                     self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
                 }
-    
+
                 // Get color from palette
                 let color = self.get_fgpalette(palette, pixel_value);
-    
+
                 // Apply correct sprite priority rules:
                 // 1. If the sprite is in front of background (behind_background = false), render it unless another sprite is already there
                 // 2. If the sprite is behind background (behind_background = true), render it only if no background pixel exists
                 if screen_x > 1 && screen_x < 240 {
                     let bg_pixel = self.frame_array[screen_x as usize][screen_y as usize];
-                    
+
                     if (!behind_background) || (behind_background && bg_pixel == 0) {
                         unsafe {
                             (*self.nametable_frame.unwrap()).drawpixel(
@@ -719,18 +720,6 @@ impl Ppu {
                         }
                     }
                 }
-            }
-        }
-    }
-
-    pub fn render_sprites(&mut self) {
-        if self.ppuctrl.contains(PPUCTRL::sprite_size) {
-            for i in 0..64 {
-                self.render_816_sprite(63 - i);
-            }
-        } else {
-            for i in 0..64 {
-                self.render_88_sprite(63 - i);
             }
         }
     }
@@ -847,9 +836,14 @@ impl Ppu {
             self.shift();
             if self.cycle_counter < 256 && self.scanline_counter >= 0 && self.scanline_counter < 240
             {
-                let color = if self.cycle_counter >= 1 {self.get_bgpalette(bgpattern & 3, bgpixel)} else {self.get_bgpalette(0, 0)};
+                let color = if self.cycle_counter >= 1 {
+                    self.get_bgpalette(bgpattern & 3, bgpixel)
+                } else {
+                    self.get_bgpalette(0, 0)
+                };
                 self.frame_array[self.cycle_counter as usize][self.scanline_counter as usize] =
                     bgpixel;
+                // let color = (0,0,0);
                 unsafe {
                     (*self.nametable_frame.unwrap()).drawpixel(
                         self.cycle_counter,
@@ -859,24 +853,60 @@ impl Ppu {
                 }
             }
         }
+        let mut count = 0;
+        if self.cycle_counter == 257 && self.scanline_counter >= 0 && self.scanline_counter < 240 {
+            for i in 0..64 {
+                if self.scanline_counter
+                    == self.oam_table[63 - i].get_y_position().wrapping_add(
+                        if self.ppuctrl.contains(PPUCTRL::sprite_size) {
+                            16
+                        } else {
+                            8
+                        },
+                    ) as i16
+                {
+                    count += 1;
+                    if count == 9 {
+                        break;
+                    }
+                    if self.ppuctrl.contains(PPUCTRL::sprite_size) {
+                        self.render_816_sprite(63 - i);
+                    } else {
+                        self.render_88_sprite(63 - i);
+                    }
+                }
+            }
+        }
+
+        // Sprite 0 hit detection
         if self.scanline_counter.wrapping_sub(1) == self.sprite0ycoord as i16
             && self.cycle_counter == self.sprite0xcoord as u16
         {
             self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
         }
 
-        if self.ppumask.contains(PPUMASK::enable_background_rendering) || self.ppumask.contains(PPUMASK::enable_sprite_rendering){
-            if self.cycle_counter == 260 && self.scanline_counter < 240{
+
+        if self.scanline_counter.wrapping_sub(1) == self.sprite0ycoord as i16
+            && self.cycle_counter == self.sprite0xcoord as u16
+        {
+            self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
+        }
+
+        if self.ppumask.contains(PPUMASK::enable_background_rendering)
+            || self.ppumask.contains(PPUMASK::enable_sprite_rendering)
+        {
+            if self.cycle_counter == 260 && self.scanline_counter < 240 {
                 self.cart.borrow_mut().scanline();
             }
         }
+
         /* Incrementing Logic */
         self.cycle_counter += 1;
         if self.cycle_counter > 340 {
             self.cycle_counter = 0;
             self.scanline_counter += 1;
         }
- 
+
         if self.scanline_counter <= 239 {
         } else if self.scanline_counter == 241 && self.cycle_counter == 1 {
             self.ppustatus.set(PPUSTATUS::vblank_flag, true);

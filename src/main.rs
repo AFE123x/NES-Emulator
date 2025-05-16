@@ -119,7 +119,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         let _cycles_left = cpu.clock();
 
-        // cartridge.borrow_mut().step_m2();
         if cartridge.borrow_mut().irq() {
             cartridge.borrow_mut().irq_clear();
             cpu.irq();
@@ -181,7 +180,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
             cpu.nmi();
 
-            ppu.render_sprites();
+            // ppu.render_sprites();
             frame_count += 1;
             let elapsed = last_time.elapsed();
             if elapsed >= Duration::from_secs(1) {

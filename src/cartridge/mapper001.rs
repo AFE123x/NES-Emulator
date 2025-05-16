@@ -68,11 +68,7 @@ impl Mapper for Mapper001 {
     fn get_mirror_mode(&self) -> MirrorMode {
         self.mirrormode.clone()
     }
-    fn step_m2(&mut self, _cpu_clock: u64) {
-    }
-    fn ppu_access(&mut self, _address: u16){
-        
-    }
+
     fn ppu_read(&mut self, address: u16, mapped_addr: &mut u32, _data: u8) -> bool {
         *mapped_addr = 0;
         if address < 0x2000 {

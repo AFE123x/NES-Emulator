@@ -65,12 +65,7 @@ impl Mapper for Mapper000{
     
     fn reset(&mut self) {
     }
-    fn ppu_access(&mut self, _address: u16){
-        
-    }
-    fn step_m2(&mut self, _cpu_clock: u64) {
-    }
-    
+
     fn irq_clear(&mut self) {
         
     }

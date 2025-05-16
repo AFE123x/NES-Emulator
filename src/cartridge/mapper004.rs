@@ -1,3 +1,5 @@
+use std::{fs::File, io::Read};
+
 use super::{mapper::Mapper, MirrorMode};
 
 pub struct Mapper004 {
@@ -234,30 +236,6 @@ impl Mapper for Mapper004 {
         }
     }
 
-    // Implement A12 detection for IRQ counting
-    fn ppu_access(&mut self, address: u16) {
-        // MMC3 IRQ is triggered by specific pattern on A12 address line
-        if address <= 0x1FFF {
-            let current_a12_state = (address & 0x1000) != 0;
-            
-            // Detect rising edge on A12 (transition from 0 to 1)
-            if !self.last_a12_state && current_a12_state {
-                if self.n_irqcounter == 0 || self.b_irqupdate {
-                    self.n_irqcounter = self.n_irqreload;
-                    self.b_irqupdate = false;
-                } else {
-                    self.n_irqcounter -= 1;
-                }
-
-                if self.n_irqcounter == 0 && self.b_irqenable {
-                    self.b_irqactive = true;
-                }
-            }
-            
-            self.last_a12_state = current_a12_state;
-        }
-    }
-
     fn reset(&mut self) {
         self.n_target_register = 0;
         self.b_prgbank_mode = false;
@@ -283,7 +261,29 @@ impl Mapper for Mapper004 {
         self.p_prgbank[3] = ((self.n_prgbanks as u32) * 2 - 1) * 0x2000;
     }
 
-    fn savestate(&self) {}
-    fn loadstate(&mut self) {}
-    fn step_m2(&mut self, _cpu_clock: u64) {}
+    fn savestate(&self) {
+        use std::fs::File;
+        use std::io::Write;
+        let file = rfd::FileDialog::new()
+        .set_title("Save")
+        .save_file();
+        let file = match file{
+            Some(file) => file,
+            None => 
+            {
+                return;
+            },
+        };
+        let mut file = File::create(file).unwrap();
+
+        file.write_all(&self.ram).unwrap();
+        std::process::exit(0);
+    }
+
+    fn loadstate(&mut self) {
+        let file = rfd::FileDialog::new().set_title("Open save").pick_file().unwrap();
+        if let Ok(mut file) = File::open(file) {
+            let _ = file.read(&mut self.ram);
+        }
+    }
 }

@@ -12,6 +12,4 @@ pub trait Mapper{
     fn hasirq(&mut self) -> bool;
     fn scanline(&mut self);
     fn reset(&mut self);
-    fn step_m2(&mut self, _cpu_clock: u64);
-    fn ppu_access(&mut self, address: u16);
 }
