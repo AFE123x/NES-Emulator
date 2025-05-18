@@ -240,13 +240,19 @@ impl Mapper for Mapper001 {
         let mut file = File::create(file).unwrap();
 
         file.write_all(&self.ram).unwrap();
-        std::process::exit(0);
     }
 
     fn loadstate(&mut self) {
-        let file = rfd::FileDialog::new().set_title("Open save").pick_file().unwrap();
+        let file = rfd::FileDialog::new().set_title("Open save").pick_file();
+        let file = match file{
+            Some(file) => file,
+            None => {return},
+        };
         if let Ok(mut file) = File::open(file) {
             let _ = file.read(&mut self.ram);
+        }
+        else{
+            
         }
     }
     

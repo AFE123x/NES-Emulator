@@ -83,9 +83,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
             ..Default::default()
         }
     };
-
+    // 
     let mut last_time = Instant::now();
     let mut frame_count = 0;
+    let mut ismuted = false;
     let mut window = if debugmode{
         Window::new("NES Emulator - FPS: ", 512, 240, windowoption)
     }
@@ -93,10 +94,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
         Window::new("NES Emulator - FPS: ", 256, 240, windowoption)
     }?;
     window.set_target_fps(59);
+    let mut audiotog = false;
+    let mut savetog = false;
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         if window.is_key_pressed(Key::Semicolon, minifb::KeyRepeat::No) {
-            cartridge.borrow_mut().savestate();
+            if !savetog{
+                cartridge.borrow_mut().savestate();
+                savetog = true;
+            }
+        }
+
+        if window.is_key_released(Key::Semicolon){
+            savetog = false;
         }
         if window.is_key_pressed(Key::P, minifb::KeyRepeat::No) {
             if !opened {
@@ -104,15 +114,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
             opened = true;
         }
+        if window.is_key_released(Key::P){
+            opened = false;
+        }
         turn = !turn;
         if window.is_key_pressed(Key::R, minifb::KeyRepeat::No) {
             ppu.set_bg_palette_num();
         }
         if window.is_key_pressed(Key::Q, minifb::KeyRepeat::No) {
             cpu.reset();
-            // cartridge.borrow_mut().reset();
         }
-
+        if window.is_key_pressed(Key::M, minifb::KeyRepeat::No){
+            if !audiotog{
+                apu.borrow_mut().toggle_sound();
+                audiotog = true;
+                ismuted = !ismuted;
+            }
+        }
+        if window.is_key_released(Key::M){
+            audiotog = false;
+        }
         // Clock components
         for _ in 0..3 {
             ppu.clock();
@@ -180,7 +201,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
             cpu.nmi();
 
-            // ppu.render_sprites();
             frame_count += 1;
             let elapsed = last_time.elapsed();
             if elapsed >= Duration::from_secs(1) {
@@ -188,6 +208,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 window.set_title(&format!("NES Emulator - FPS: {}", fps));
                 frame_count = 0;
                 last_time = Instant::now();
+            }
+            for i in 0..8{
+                for j in 0..8{
+                    if !ismuted{
+                        game_frame.drawpixel(i, j, (255,0,0));
+                    }
+                    else{
+                        game_frame.drawpixel(i, j, (0,0,255));
+                    }
+                }
             }
             if debugmode{
                 ppu.get_pattern_table(&mut game_frame);

@@ -292,7 +292,6 @@ impl Ppu {
                         let x = (coarse_x << 3) + fine_x;
                         let y = (coarse_y << 3) + fine_y;
                         let color = self.get_bgpalette(self.palette_num, pattern_number);
-                        // frame.drawpixel(x + 255, y, color);
                         frame.drawpixel(x + 256, y, color);
                         pattern_lo <<= 1;
                         pattern_hi <<= 1;
@@ -559,170 +558,6 @@ impl Ppu {
         }
     }
 
-    pub fn render_816_sprite(&mut self, index: usize) {
-        let oam_sprite = self.oam_table[index].clone();
-        let x = oam_sprite.get_x_position();
-        let y = oam_sprite.get_y_position() + 1;
-        let tile_index = oam_sprite.get_index_number() as u16;
-        let attribute = oam_sprite.get_attribute();
-        let flip_horizontal = attribute & 0x40 > 0;
-        let flip_vertical = attribute & 0x80 > 0;
-        let palette_idx = attribute & 0x3;
-        let behind_background = attribute & 0x20 > 0;
-        if index == 0x24 {
-            // println!("{}",oam_sprite.print_oam());
-        }
-
-        // For 8x16 sprites, bit 0 of the tile index selects the pattern table
-        let pattern_table = if tile_index & 1 == 0 { 0 } else { 0x1000 };
-        let tile_number = tile_index & 0xFE; // Remove bit 0 as it's used for pattern table
-
-        // Process both tiles (top and bottom)
-        for tile in 0..2 {
-            let effective_tile = if flip_vertical { 1 - tile } else { tile };
-
-            // Calculate base address for this tile
-            let tile_base = pattern_table | ((tile_number + effective_tile) << 4);
-
-            // Process the 8 rows of this tile
-            for row in 0..8 {
-                let effective_row = if flip_vertical { 7 - row } else { row };
-                let pattern_address = tile_base + effective_row;
-
-                let pattern_lo = self.ppu_read(pattern_address);
-                let pattern_hi = self.ppu_read(pattern_address + 8);
-
-                // Process the 8 pixels in this row
-                for col in 0..8 {
-                    let effective_col = if flip_horizontal { 7 - col } else { col };
-
-                    // Extract pixel data
-                    let bit_lo = (pattern_lo >> (7 - effective_col)) & 1;
-                    let bit_hi = (pattern_hi >> (7 - effective_col)) & 1;
-                    let pixel_value = (bit_hi << 1) | bit_lo;
-
-                    // Skip transparent pixels
-                    if pixel_value == 0 {
-                        continue;
-                    }
-
-                    // Calculate screen coordinates
-                    let screen_x = ((x as u16) + col) as u16;
-                    let screen_y = y + row + (tile * 8);
-
-                    // Skip if off-screen
-                    if screen_x >= 256 || screen_y >= 240 {
-                        continue;
-                    }
-
-                    // Sprite 0 hit detection
-                    if index == 0 && self.frame_array[screen_x as usize][screen_y as usize] != 0 {
-                        self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
-                    }
-
-                    // Get color and render
-                    let color = self.get_fgpalette(palette_idx, pixel_value);
-                    // let color = (255,0,0);
-                    // Apply priority rules correctly
-                    let bg_pixel = self.frame_array[screen_x as usize][screen_y as usize];
-
-                    if (!behind_background) || (behind_background && bg_pixel == 0) {
-                        unsafe {
-                            (*self.nametable_frame.unwrap()).drawpixel(
-                                screen_x as u16,
-                                screen_y as u16,
-                                color,
-                            );
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn render_88_sprite(&mut self, index: usize) {
-        let oam_sprite = self.oam_table[index].clone();
-        let sprite_x = oam_sprite.get_x_position() as u16;
-        let sprite_y = oam_sprite.get_y_position() + 1;
-        let tile_index = oam_sprite.get_index_number() as u16;
-        let attribute = oam_sprite.get_attribute();
-        let flip_horizontal = attribute & 0x40 > 0;
-        let flip_vertical = attribute & 0x80 > 0;
-        let palette = attribute & 0x3;
-        let behind_background = attribute & 0x20 > 0;
-
-        if sprite_y >= 238 {
-            return;
-        }
-
-        // Get pattern table address from PPUCTRL
-        let pattern_table = if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {
-            0x1000
-        } else {
-            0
-        };
-
-        // Calculate base address for this tile
-        let tile_base = pattern_table | (tile_index << 4);
-
-        // Process each row of the sprite
-        for row in 0..8 {
-            let effective_row = if flip_vertical { 7 - row } else { row };
-
-            // Get pattern data for this row
-            let pattern_lo = self.ppu_read(tile_base + effective_row);
-            let pattern_hi = self.ppu_read(tile_base + effective_row + 8);
-
-            // Process each pixel in the row
-            for col in 0..8 {
-                let effective_col = if flip_horizontal { 7 - col } else { col };
-
-                // Extract pixel data
-                let pixel_bit_lo = (pattern_lo >> (7 - effective_col)) & 1;
-                let pixel_bit_hi = (pattern_hi >> (7 - effective_col)) & 1;
-                let pixel_value = (pixel_bit_hi << 1) | pixel_bit_lo;
-
-                // Skip transparent pixels
-                if pixel_value == 0 {
-                    continue;
-                }
-
-                // Calculate screen position
-                let screen_x = (sprite_x + col) as u16;
-                let screen_y = sprite_y + row;
-
-                // Skip if off-screen
-                if screen_x >= 256 || screen_y >= 240 {
-                    continue;
-                }
-
-                // Sprite 0 hit detection
-                if index == 0 && self.frame_array[screen_x as usize][screen_y as usize] != 0 {
-                    self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
-                }
-
-                // Get color from palette
-                let color = self.get_fgpalette(palette, pixel_value);
-
-                // Apply correct sprite priority rules:
-                // 1. If the sprite is in front of background (behind_background = false), render it unless another sprite is already there
-                // 2. If the sprite is behind background (behind_background = true), render it only if no background pixel exists
-                if screen_x > 1 && screen_x < 240 {
-                    let bg_pixel = self.frame_array[screen_x as usize][screen_y as usize];
-
-                    if (!behind_background) || (behind_background && bg_pixel == 0) {
-                        unsafe {
-                            (*self.nametable_frame.unwrap()).drawpixel(
-                                screen_x as u16,
-                                screen_y as u16,
-                                color,
-                            );
-                        }
-                    }
-                }
-            }
-        }
-    }
     fn get_pattern_address(&self) -> u16 {
         let toreturn = if self
             .ppuctrl
@@ -736,6 +571,193 @@ impl Ppu {
         let toreturn = toreturn | (self.next_nametable_tile << 4) | finey;
         toreturn
     }
+    // Modified render_816_sprite function with scanline parameter
+    // Modified render_88_sprite function with corrected priority logic
+    pub fn render_88_sprite(&mut self, index: usize, scanline: u16) {
+        let oam_sprite = self.oam_table[index].clone();
+        let sprite_x = oam_sprite.get_x_position() as u16;
+        let sprite_y = oam_sprite.get_y_position() + 1;
+        let tile_index = oam_sprite.get_index_number() as u16;
+        let attribute = oam_sprite.get_attribute();
+        let flip_horizontal = attribute & 0x40 > 0;
+        let flip_vertical = attribute & 0x80 > 0;
+        let palette = attribute & 0x3;
+        let behind_background = attribute & 0x20 > 0;
+
+        // Skip if sprite is not on this scanline
+        if scanline < sprite_y || scanline >= sprite_y + 8 || sprite_y >= 238 {
+            return;
+        }
+
+        // Get pattern table address from PPUCTRL
+        let pattern_table = if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {
+            0x1000
+        } else {
+            0
+        };
+
+        // Calculate base address for this tile
+        let tile_base = pattern_table | (tile_index << 4);
+
+        // Process only the specific row of the sprite that intersects with the scanline
+        let sprite_y_offset = scanline - sprite_y;
+        let row = sprite_y_offset;
+        let effective_row = if flip_vertical { 7 - row } else { row };
+
+        // Get pattern data for this row
+        let pattern_lo = self.ppu_read(tile_base + effective_row);
+        let pattern_hi = self.ppu_read(tile_base + effective_row + 8);
+
+        // Process each pixel in the row
+        for col in 0..8 {
+            let effective_col = if flip_horizontal { 7 - col } else { col };
+
+            // Extract pixel data
+            let pixel_bit_lo = (pattern_lo >> (7 - effective_col)) & 1;
+            let pixel_bit_hi = (pattern_hi >> (7 - effective_col)) & 1;
+            let pixel_value = (pixel_bit_hi << 1) | pixel_bit_lo;
+
+            // Skip transparent pixels
+            if pixel_value == 0 {
+                continue;
+            }
+
+            // Calculate screen position
+            let screen_x = (sprite_x + col) as u16;
+            // We already know screen_y is the scanline
+            let screen_y = scanline;
+
+            // Skip if off-screen
+            if screen_x >= 256 {
+                continue;
+            }
+
+            // Get color from palette
+            let color = self.get_fgpalette(palette, pixel_value);
+
+            // Apply correct sprite priority rules
+            if screen_x < 256 && screen_y < 240 {
+                let bg_pixel = self.frame_array[screen_x as usize][screen_y as usize];
+
+                // Proper NES priority logic:
+                // - If behind_background flag is set and bg_pixel is not transparent (0),
+                //   then background has priority
+                // - Otherwise, sprite has priority
+                let should_draw = if behind_background {
+                    bg_pixel == 0 // Only draw if background is transparent
+                } else {
+                    true // Always draw if not behind background
+                };
+
+                if should_draw {
+                    unsafe {
+                        (*self.nametable_frame.unwrap()).drawpixel(
+                            screen_x as u16,
+                            screen_y as u16,
+                            color,
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    // Modified render_816_sprite function with corrected priority logic
+    pub fn render_816_sprite(&mut self, index: usize, scanline: u16) {
+        let oam_sprite = self.oam_table[index].clone();
+        let x = oam_sprite.get_x_position();
+        let y = oam_sprite.get_y_position() + 1;
+        let tile_index = oam_sprite.get_index_number() as u16;
+        let attribute = oam_sprite.get_attribute();
+        let flip_horizontal = attribute & 0x40 > 0;
+        let flip_vertical = attribute & 0x80 > 0;
+        let palette_idx = attribute & 0x3;
+        let behind_background = attribute & 0x20 > 0;
+
+        // Skip if sprite is not on this scanline
+        if scanline < y || scanline >= y + 16 {
+            return;
+        }
+
+        // For 8x16 sprites, bit 0 of the tile index selects the pattern table
+        let pattern_table = if tile_index & 1 == 0 { 0 } else { 0x1000 };
+        let tile_number = tile_index & 0xFE; // Remove bit 0 as it's used for pattern table
+
+        // Determine which of the two tiles contains the scanline
+        let sprite_y_offset = scanline - y;
+        let tile = (sprite_y_offset / 8) as usize;
+        let row_in_tile = sprite_y_offset % 8;
+
+        // Process the specific tile that contains this scanline
+        let effective_tile = if flip_vertical { 1 - tile } else { tile };
+
+        // Calculate base address for this tile
+        let tile_base = pattern_table | ((tile_number + effective_tile as u16) << 4);
+
+        // Process the specific row in this tile
+        let effective_row = if flip_vertical {
+            7 - row_in_tile
+        } else {
+            row_in_tile
+        };
+        let pattern_address = tile_base + effective_row;
+
+        let pattern_lo = self.ppu_read(pattern_address);
+        let pattern_hi = self.ppu_read(pattern_address + 8);
+
+        // Process the 8 pixels in this row
+        for col in 0..8 {
+            let effective_col = if flip_horizontal { 7 - col } else { col };
+
+            // Extract pixel data
+            let bit_lo = (pattern_lo >> (7 - effective_col)) & 1;
+            let bit_hi = (pattern_hi >> (7 - effective_col)) & 1;
+            let pixel_value = (bit_hi << 1) | bit_lo;
+
+            // Skip transparent pixels
+            if pixel_value == 0 {
+                continue;
+            }
+
+            // Calculate screen coordinates
+            let screen_x = ((x as u16) + col) as u16;
+            // We already know the screen_y is the scanline
+            let screen_y = scanline;
+
+            // Skip if off-screen
+            if screen_x >= 256 || screen_y >= 240 {
+                continue;
+            }
+
+            // Get color and render
+            let color = self.get_fgpalette(palette_idx, pixel_value);
+
+            // Apply priority rules correctly
+            let bg_pixel = self.frame_array[screen_x as usize][screen_y as usize];
+
+            // Proper NES priority logic:
+            // - If behind_background flag is set and bg_pixel is not transparent (0),
+            //   then background has priority
+            // - Otherwise, sprite has priority
+            let should_draw = if behind_background {
+                bg_pixel == 0 // Only draw if background is transparent
+            } else {
+                true // Always draw if not behind background
+            };
+
+            if should_draw {
+                unsafe {
+                    (*self.nametable_frame.unwrap()).drawpixel(
+                        screen_x as u16,
+                        screen_y as u16,
+                        color,
+                    );
+                }
+            }
+        }
+    }
+
+    // Modified clock function for sprite rendering
     pub fn clock(&mut self) {
         /* Background Rendering */
         if self.scanline_counter >= -1 && self.scanline_counter < 240 {
@@ -841,51 +863,64 @@ impl Ppu {
                 } else {
                     self.get_bgpalette(0, 0)
                 };
-                self.frame_array[self.cycle_counter as usize][self.scanline_counter as usize] =
-                    bgpixel;
-                // let color = (0,0,0);
-                unsafe {
-                    (*self.nametable_frame.unwrap()).drawpixel(
-                        self.cycle_counter,
-                        self.scanline_counter as u16,
-                        color,
-                    );
+
+                // Store the background pixel value for sprite priority comparisons
+                if self.cycle_counter > 0 {
+                    let x = self.cycle_counter - 1;
+                    let y = self.scanline_counter;
+                    if x < 256 && y < 240 {
+                        self.frame_array[x as usize][y as usize] = bgpixel;
+
+                        // Only draw the background pixel now - sprites will be drawn later
+                        unsafe {
+                            (*self.nametable_frame.unwrap()).drawpixel(x, y as u16, color);
+                        }
+                    }
                 }
             }
         }
-        let mut count = 0;
+
+        // Modified sprite rendering section - moved to the end of scanline
         if self.cycle_counter == 257 && self.scanline_counter >= 0 && self.scanline_counter < 240 {
+            let current_scanline = self.scanline_counter as u16;
+            let mut sprite_count = 0;
+            let mut visible_sprites = Vec::new();
+
+            // First pass: collect all sprites that are on this scanline
             for i in 0..64 {
-                if self.scanline_counter
-                    == self.oam_table[63 - i].get_y_position().wrapping_add(
-                        if self.ppuctrl.contains(PPUCTRL::sprite_size) {
-                            16
-                        } else {
-                            8
-                        },
-                    ) as i16
+                let sprite_y = self.oam_table[i].get_y_position() + 1;
+                let sprite_height = if self.ppuctrl.contains(PPUCTRL::sprite_size) {
+                    16
+                } else {
+                    8
+                };
+
+                // Check if this sprite is on the current scanline
+                if current_scanline >= sprite_y as u16
+                    && current_scanline < (sprite_y + sprite_height) as u16
                 {
-                    count += 1;
-                    if count == 9 {
+                    visible_sprites.push(i);
+                    sprite_count += 1;
+
+                    if sprite_count > 8 {
+                        // Set overflow flag but keep checking for the rest of the sprites
+                        self.ppustatus.set(PPUSTATUS::sprite_overflow_flag, true);
                         break;
                     }
-                    if self.ppuctrl.contains(PPUCTRL::sprite_size) {
-                        self.render_816_sprite(63 - i);
-                    } else {
-                        self.render_88_sprite(63 - i);
-                    }
+                }
+            }
+
+            // Second pass: render sprites in reverse order (so sprite 0 has highest priority)
+            visible_sprites.reverse();
+            for &sprite_index in &visible_sprites {
+                if self.ppuctrl.contains(PPUCTRL::sprite_size) {
+                    self.render_816_sprite(sprite_index, current_scanline);
+                } else {
+                    self.render_88_sprite(sprite_index, current_scanline);
                 }
             }
         }
-
         // Sprite 0 hit detection
-        if self.scanline_counter.wrapping_sub(1) == self.sprite0ycoord as i16
-            && self.cycle_counter == self.sprite0xcoord as u16
-        {
-            self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
-        }
-
-
         if self.scanline_counter.wrapping_sub(1) == self.sprite0ycoord as i16
             && self.cycle_counter == self.sprite0xcoord as u16
         {
@@ -908,6 +943,7 @@ impl Ppu {
         }
 
         if self.scanline_counter <= 239 {
+            // Visible scanlines
         } else if self.scanline_counter == 241 && self.cycle_counter == 1 {
             self.ppustatus.set(PPUSTATUS::vblank_flag, true);
             if self.ppuctrl.contains(PPUCTRL::vblank_enable) {
@@ -923,6 +959,13 @@ impl Ppu {
             self.ppustatus.set(PPUSTATUS::vblank_flag, false);
             self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, false);
             self.ppustatus.set(PPUSTATUS::sprite_overflow_flag, false);
+
+            // Clear the frame array for the next frame
+            for x in 0..256 {
+                for y in 0..240 {
+                    self.frame_array[x][y] = 0;
+                }
+            }
         }
         self.total_cycles = self.total_cycles.wrapping_add(1);
     }

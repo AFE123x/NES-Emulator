@@ -277,7 +277,6 @@ impl Mapper for Mapper004 {
         let mut file = File::create(file).unwrap();
 
         file.write_all(&self.ram).unwrap();
-        std::process::exit(0);
     }
 
     fn loadstate(&mut self) {

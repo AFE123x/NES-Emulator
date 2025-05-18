@@ -384,6 +384,7 @@ impl Iterator for NoiseSource {
 /// Manages all sound channels and provides register access
 pub struct Apu {
     // Pulse 1 channel registers and state
+    mute: Arc<Mutex<bool>>,
     pulse1_duty: Arc<Mutex<u8>>, // $4000: Duty cycle, envelope, and length counter halt
     pulse1_sweep: Mutex<u8>,     // $4001: Sweep control
     pulse1_timer_low: Mutex<u8>, // $4002: Timer low byte
@@ -476,6 +477,7 @@ impl Apu {
             audio_thread: Mutex::new(None),
             length_counter_table,
             frame_sequencer_thread: Mutex::new(None),
+            mute: Arc::new(Mutex::new(false)),
         };
 
         // Start the audio output thread
@@ -486,7 +488,11 @@ impl Apu {
 
         apu
     }
-
+    pub fn toggle_sound(&mut self) {
+        let mute = Arc::clone(&self.mute);
+        let b = *mute.lock().unwrap();
+        *mute.lock().unwrap() = !b;
+    }
     /// Starts the frame sequencer thread
     /// This periodically decrements length counters to control sound duration
     fn start_frame_sequencer(&self) {
@@ -538,6 +544,7 @@ impl Apu {
         let pulse1_duty = Arc::clone(&self.pulse1_duty);
         let pulse2_duty = Arc::clone(&self.pulse2_duty);
         let noise_mode = Arc::clone(&self.noise_mode);
+        let mute = Arc::clone(&self.mute); // Clone the mute reference for use in thread
 
         // Create a new thread for audio output
         let handle = thread::spawn(move || {
@@ -577,9 +584,17 @@ impl Apu {
             sink.append(final_source);
             sink.play();
 
-            // Keep the thread alive
+            // Keep the thread alive and check mute status periodically
             loop {
                 thread::sleep(Duration::from_millis(100));
+
+                // Check if sound should be muted
+                let is_muted = *mute.lock().unwrap();
+                if is_muted {
+                    sink.pause();
+                } else {
+                    sink.play();
+                }
             }
         });
 
@@ -915,7 +930,6 @@ impl Apu {
 
         self.noise.set_frequency(freq);
     }
-
 }
 
 /// Cleanup when APU is dropped

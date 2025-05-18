@@ -7,12 +7,14 @@ mod mapper001;
 mod mapper002;
 mod mapper003;
 mod mapper004;
+mod mapper066;
 use mapper::Mapper;
 use mapper000::Mapper000;
 use mapper002::Mapper002;
 use mapper001::Mapper001;
 use mapper003::Mapper003;
 use mapper004::Mapper004;
+use mapper066::Mapper066;
 
 use std::fs;
 #[derive(Debug)]
@@ -89,6 +91,7 @@ impl Cartridge {
             1 => Box::new(Mapper001::new(prg_rom_size as u8, chr_rom_size as u8, nametable_arrangement, None)),
             3 => Box::new(Mapper003::new(prg_rom_size as u8, chr_rom_size as u8, nametable_arrangement)),
             4 => Box::new(Mapper004::new(prg_rom_size as u8, chr_rom_size as u8)),
+            66 => Box::new(Mapper066::new(prg_rom_size as u8,chr_rom_size as u8, nametable_arrangement)),
             _ => panic!("mapper {} not supported", mapper),
         };
         println!("{:?}", header);
