@@ -686,18 +686,11 @@ impl Apu {
 
             // Triangle channel registers ($4008-$400B)
             0x4008 => {
-                // Linear counter register
                 *self.triangle_linear.lock().unwrap() = data;
-
-                // Extract length counter halt bit
                 self.triangle.set_length_counter_halt((data & 0x80) != 0);
-
-                // Enable based on status register
                 let status = *self.status.lock().unwrap();
                 self.triangle.set_enabled((status & 0x04) != 0);
-
-                // Triangle has fixed volume
-                self.triangle.set_volume(0.8);
+                self.triangle.set_volume(0.9);
             }
             0x4009 => {} // Unused register
             0x400A => {
@@ -884,6 +877,7 @@ impl Apu {
         let high = *self.pulse1_timer_high.lock().unwrap();
         let low = *self.pulse1_timer_low.lock().unwrap();
         let freq = Self::get_frequency_from_timer(high, low);
+        // println!("{}",freq);
         self.pulse1.set_frequency(freq);
     }
 
@@ -908,7 +902,7 @@ impl Apu {
             // Triangle channel divides by 32 instead of 16
             1_789_773.0 / (32.0 * (timer as f32 + 1.0))
         };
-
+        
         self.triangle.set_frequency(freq);
     }
 
@@ -927,7 +921,7 @@ impl Apu {
 
         // Convert period to frequency
         let freq = 1_789_773.0 / (period as f32 * 2.0);
-
+        println!("{}",freq);
         self.noise.set_frequency(freq);
     }
 }

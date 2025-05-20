@@ -870,7 +870,7 @@ impl Ppu {
                     let y = self.scanline_counter;
                     if x < 256 && y < 240 {
                         self.frame_array[x as usize][y as usize] = bgpixel;
-
+                        // let color = (0,0,0);
                         // Only draw the background pixel now - sprites will be drawn later
                         unsafe {
                             (*self.nametable_frame.unwrap()).drawpixel(x, y as u16, color);
