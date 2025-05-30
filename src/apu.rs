@@ -921,7 +921,7 @@ impl Apu {
 
         // Convert period to frequency
         let freq = 1_789_773.0 / (period as f32 * 2.0);
-        println!("{}",freq);
+        ////println!("{}",freq);
         self.noise.set_frequency(freq);
     }
 }

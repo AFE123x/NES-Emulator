@@ -102,7 +102,9 @@ impl Cartridge {
             mapper: mapper,
         }
     }
-    
+    pub fn write_to_prgram(&mut self){
+        self.mapper.write_to_prgram();
+    }
     pub fn _reset(&mut self){
         self.mapper.reset();
     }

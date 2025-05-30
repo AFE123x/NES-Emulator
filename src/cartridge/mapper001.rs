@@ -1,4 +1,4 @@
-use std::{fs::File, io::Read};
+use std::{fs::File, io::{stdin, Read}};
 
 use super::{mapper::Mapper, MirrorMode};
 
@@ -264,5 +264,24 @@ impl Mapper for Mapper001 {
     }
     
     fn irq_clear(&mut self) {
+    }
+/*
+48
+2088
+2222
+5574
+5575
+*/
+
+    fn write_to_prgram(&mut self) {
+        let mut str = String::new();
+        println!("Where do you want to write the prg_ram contents?");
+        stdin().read_line(&mut str).unwrap();
+        let addr: usize = str.trim().parse().unwrap();
+        println!("at address {:04x}, contains {}. What do you want to replace it with?",addr,self.ram[addr]);
+        let mut str = String::new();
+        stdin().read_line(&mut str).unwrap();
+        let newcontent: u8 = str.trim().parse().unwrap();
+        self.ram[addr] = newcontent;
     }
 }

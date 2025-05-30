@@ -1,3 +1,4 @@
+
 use super::{mapper::Mapper, MirrorMode};
 
 pub struct Mapper066 {
@@ -94,4 +95,6 @@ impl Mapper for Mapper066 {
         self._n_chrbank_select = 0;
         self._n_prgbank_select = 0;
     }
+
+    
 }

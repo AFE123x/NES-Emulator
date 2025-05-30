@@ -38,6 +38,13 @@ impl Bus {
     pub fn link_controller2(&mut self, controller: Rc<RefCell<Controller>>) {
         self.controller2 = Some(controller);
     }
+    pub fn find_memory(&mut self, data: u8){
+        for i in 0..self.memory.len(){
+            if self.memory[i] == data{
+                println!("at {}, we have {}",i,data);
+            }
+        }
+    }
     pub fn cpu_read(&self, address: u16, rdonly: bool) -> u8 {
         let mut data = 0;
         

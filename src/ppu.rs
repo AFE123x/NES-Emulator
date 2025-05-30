@@ -255,6 +255,11 @@ impl Ppu {
         } else {
             0x3F00 + ((palettenum as u16) * 4) + (paletteindex as u16)
         };
+        let palette_addr = if self.ppumask.contains(PPUMASK::greyscale) {
+            0x3F00 + (palette_addr & 0xF)
+        } else {
+            palette_addr
+        };
         let color_index = self.ppu_read(palette_addr);
         let safe_index = (color_index & 0x3F) as usize;
         self.system_palette[safe_index]
@@ -633,8 +638,13 @@ impl Ppu {
             }
 
             // Get color from palette
-            let color = self.get_fgpalette(palette, pixel_value);
-
+            // let color = self.get_fgpalette(palette, pixel_value);
+            let color =
+                if !self.ppumask.contains(PPUMASK::sprites_leftmost) && self.cycle_counter < 8 {
+                    self.get_fgpalette(palette, 0)
+                } else {
+                    self.get_fgpalette(palette, pixel_value)
+                };
             // Apply correct sprite priority rules
             if screen_x < 256 && screen_y < 240 {
                 let bg_pixel = self.frame_array[screen_x as usize][screen_y as usize];
@@ -650,12 +660,15 @@ impl Ppu {
                 };
 
                 if should_draw {
-                    unsafe {
-                        (*self.nametable_frame.unwrap()).drawpixel(
-                            screen_x as u16,
-                            screen_y as u16,
-                            color,
-                        );
+                    if self.ppumask.contains(PPUMASK::enable_sprite_rendering) {
+                        unsafe {
+                            (*self.nametable_frame.unwrap()).drawpixel(
+                                screen_x as u16,
+                                screen_y as u16,
+                                color,
+                            );
+                        }
+                        self.frame_array[screen_x as usize][screen_y as usize] = pixel_value;
                     }
                 }
             }
@@ -730,8 +743,12 @@ impl Ppu {
             }
 
             // Get color and render
-            let color = self.get_fgpalette(palette_idx, pixel_value);
-
+            let color =
+                if !self.ppumask.contains(PPUMASK::sprites_leftmost) && self.cycle_counter < 8 {
+                    self.get_fgpalette(palette_idx, 0)
+                } else {
+                    self.get_fgpalette(palette_idx, pixel_value)
+                };
             // Apply priority rules correctly
             let bg_pixel = self.frame_array[screen_x as usize][screen_y as usize];
 
@@ -747,11 +764,14 @@ impl Ppu {
 
             if should_draw {
                 unsafe {
-                    (*self.nametable_frame.unwrap()).drawpixel(
-                        screen_x as u16,
-                        screen_y as u16,
-                        color,
-                    );
+                    if self.ppumask.contains(PPUMASK::enable_sprite_rendering) {
+                        (*self.nametable_frame.unwrap()).drawpixel(
+                            screen_x as u16,
+                            screen_y as u16,
+                            color,
+                        );
+                        self.frame_array[screen_x as usize][screen_y as usize] = pixel_value;
+                    }
                 }
             }
         }
@@ -858,12 +878,14 @@ impl Ppu {
             self.shift();
             if self.cycle_counter < 256 && self.scanline_counter >= 0 && self.scanline_counter < 240
             {
-                let color = if self.cycle_counter >= 1 {
-                    self.get_bgpalette(bgpattern & 3, bgpixel)
-                } else {
+                let color = if !self.ppumask.contains(PPUMASK::sprites_leftmost)
+                    && self.cycle_counter < 8
+                {
                     self.get_bgpalette(0, 0)
+                } else {
+                    self.get_bgpalette(bgpattern & 3, bgpixel)
                 };
-
+                //TODO: implement PPUMASK color emphasis
                 // Store the background pixel value for sprite priority comparisons
                 if self.cycle_counter > 0 {
                     let x = self.cycle_counter - 1;
@@ -872,8 +894,10 @@ impl Ppu {
                         self.frame_array[x as usize][y as usize] = bgpixel;
                         // let color = (0,0,0);
                         // Only draw the background pixel now - sprites will be drawn later
-                        unsafe {
-                            (*self.nametable_frame.unwrap()).drawpixel(x, y as u16, color);
+                        if self.ppumask.contains(PPUMASK::enable_background_rendering) {
+                            unsafe {
+                                (*self.nametable_frame.unwrap()).drawpixel(x, y as u16, color);
+                            }
                         }
                     }
                 }
@@ -959,13 +983,6 @@ impl Ppu {
             self.ppustatus.set(PPUSTATUS::vblank_flag, false);
             self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, false);
             self.ppustatus.set(PPUSTATUS::sprite_overflow_flag, false);
-
-            // Clear the frame array for the next frame
-            for x in 0..256 {
-                for y in 0..240 {
-                    self.frame_array[x][y] = 0;
-                }
-            }
         }
         self.total_cycles = self.total_cycles.wrapping_add(1);
     }

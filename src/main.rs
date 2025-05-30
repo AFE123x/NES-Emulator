@@ -1,5 +1,6 @@
 
 use std::error::Error;
+use std::io::stdin;
 use std::time::Duration;
 use std::{rc::Rc, time::Instant};
 use std::cell::RefCell;
@@ -78,7 +79,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
     else{
         WindowOptions {
-            resize: false,
+            resize: true,
             scale: Scale::X4,
             ..Default::default()
         }
@@ -117,6 +118,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
         if window.is_key_released(Key::P){
             opened = false;
         }
+
+        if window.is_key_pressed(Key::H, minifb::KeyRepeat::No) {
+            if !opened {
+                // cartridge.borrow_mut().write_to_prgram();
+                print!("Select a memory address");
+                let mut str = String::new();
+                stdin().read_line(&mut str)?;
+                let address: u16 = str.trim().parse().unwrap();
+                print!("Select data to write");
+                let mut str = String::new();
+                stdin().read_line(&mut str)?;
+                let data: u8 = str.trim().parse().unwrap();
+                bus.cpu_write(address, data);
+            }
+            opened = true;
+        }
+        if window.is_key_released(Key::H){
+            opened = false;
+        }
+
         turn = !turn;
         if window.is_key_pressed(Key::R, minifb::KeyRepeat::No) {
             ppu.set_bg_palette_num();
