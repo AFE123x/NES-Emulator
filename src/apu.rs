@@ -67,7 +67,6 @@ impl SoundChannel {
         let mut counter = self.length_counter.lock().unwrap(); // Lock the counter for modification
         let halt = *self.length_counter_halt.lock().unwrap(); // Check if counter is halted
         let enabled = *self.length_counter_enabled.lock().unwrap(); // Check if counter is enabled
-
         // Don't decrement if halted or counter system is disabled
         if halt || !enabled {
             return *counter > 0; // Keep playing if counter is still above 0

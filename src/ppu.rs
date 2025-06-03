@@ -13,7 +13,9 @@ use crate::cartridge::{Cartridge, MirrorMode};
 
 pub mod frame;
 mod registers;
-
+///# PPU 
+/// ## Picture Processing Unit
+/// Handles rendering the 256 x 240 video on the NES
 pub struct Ppu {
     ppuctrl: PPUCTRL,     //ppu control register (mapped at address $2000)
     ppumask: PPUMASK,     //ppu mask register (mapped at address $2001)
@@ -55,6 +57,8 @@ pub struct Ppu {
 }
 
 impl Ppu {
+    ///# `initialize_system_palette()`
+    /// - initializes the system palette
     fn initialize_system_palette() -> Vec<(u8, u8, u8)> {
         let mut toreturn: Vec<(u8, u8, u8)> = vec![(0, 0, 0); 0x40];
         toreturn[10] = (0, 81, 0);
@@ -123,6 +127,9 @@ impl Ppu {
         toreturn
     }
 
+    /// # `get_nmi`
+    /// - checks if the picture processing unit invokes a non-maskable interrupt.
+    /// - utilizes test and set method
     pub fn get_nmi(&mut self) -> bool {
         let data = self.nmi;
         if data {
@@ -130,6 +137,8 @@ impl Ppu {
         }
         data
     }
+    ///# `new(cartridge)`
+    /// Constructor creating new PPU instance
     pub fn new(cartridge: Rc<RefCell<Cartridge>>) -> Self {
         let pal: Vec<u8> = vec![0; 0x20];
         let vram: Vec<u8> = vec![0; 2048];
@@ -169,14 +178,23 @@ impl Ppu {
             sprite0ycoord: 0,
         }
     }
+
+    ///# `set_bg_palette_num()`
+    /// Toggles the pallette table for debugging pattern table
     pub fn set_bg_palette_num(&mut self) {
         self.palette_num = (self.palette_num + 1) & 0xF;
     }
+
+    /// # `oam_dma_write(address, data)`
+    /// Copies byte from cpu memory to object-attribute memory
     pub fn oam_dma_write(&mut self, address: u8, data: u8) {
         let sprite_index = (address / 4) as usize;
         let sprite_offset = address % 4;
         self.oam_table[sprite_index].set_byte(sprite_offset, data);
     }
+    /// # `find_sprite0_coord()`
+    /// - Finds the location of sprite 0 hit flag.
+    /// - Determines which point to enable the sprite_0_hit_flag register.
     pub fn find_sprite0_coord(&mut self) {
         let mut sprite = self.oam_table[0].clone();
         let y_pos = sprite.get_byte(0) as u16;
@@ -247,7 +265,8 @@ impl Ppu {
         self.sprite0xcoord = x_pos;
         self.sprite0ycoord = y_pos;
     }
-
+    ///# `get_bgpalette(palettenum, paletteindex`
+    /// Retrieves the correct bg color to draw in the clock() function
     pub fn get_bgpalette(&mut self, palettenum: u8, paletteindex: u8) -> (u8, u8, u8) {
         let palettenum = palettenum & 0x07;
         let palette_addr = if paletteindex == 0 {
@@ -264,7 +283,8 @@ impl Ppu {
         let safe_index = (color_index & 0x3F) as usize;
         self.system_palette[safe_index]
     }
-
+    ///# `get_fgpalette(palettenum, paletteindex`
+    /// Retrieves the correct fg color to draw in the draw_scanline function
     pub fn get_fgpalette(&mut self, palettenum: u8, paletteindex: u8) -> (u8, u8, u8) {
         let palettenum = palettenum & 0x07;
         let palette_addr = if paletteindex == 0 {
@@ -276,11 +296,13 @@ impl Ppu {
         let safe_index = (color_index & 0x3F) as usize;
         self.system_palette[safe_index]
     }
-
+    ///# `linkpattern(frame)`
+    /// links the frame to ppu for rendering
     pub fn linkpattern(&mut self, frame: &mut Frame) {
         self.nametable_frame = Some(frame);
     }
-
+    ///# `get_pattern_table(frame)`
+    /// - draws the pattern table to frame
     pub fn get_pattern_table(&mut self, frame: &mut Frame) {
         for coarse_y in 0..0x10 {
             for coarse_x in 0..0x20 {
@@ -305,7 +327,8 @@ impl Ppu {
             }
         }
     }
-
+    ///# `ppu_read(address)`
+    /// - handle ppu reads.
     fn ppu_read(&self, address: u16) -> u8 {
         let mut byte = 0;
 
@@ -370,7 +393,8 @@ impl Ppu {
 
         byte
     }
-
+    ///# `ppu_write()`
+    /// - Handle PPU Writes
     fn ppu_write(&mut self, address: u16, data: u8) {
         if address <= 0x1FFF {
             // unsafe { (*self.cart).ppu_write(address, data) }; // writes to cartridge space
@@ -576,106 +600,94 @@ impl Ppu {
         let toreturn = toreturn | (self.next_nametable_tile << 4) | finey;
         toreturn
     }
-    // Modified render_816_sprite function with scanline parameter
-    // Modified render_88_sprite function with corrected priority logic
-    pub fn render_88_sprite(&mut self, index: usize, scanline: u16) {
-        let oam_sprite = self.oam_table[index].clone();
-        let sprite_x = oam_sprite.get_x_position() as u16;
-        let sprite_y = oam_sprite.get_y_position() + 1;
-        let tile_index = oam_sprite.get_index_number() as u16;
-        let attribute = oam_sprite.get_attribute();
-        let flip_horizontal = attribute & 0x40 > 0;
-        let flip_vertical = attribute & 0x80 > 0;
-        let palette = attribute & 0x3;
-        let behind_background = attribute & 0x20 > 0;
 
-        // Skip if sprite is not on this scanline
-        if scanline < sprite_y || scanline >= sprite_y + 8 || sprite_y >= 238 {
-            return;
+/// # `render_88_sprite(&mut self, index: usize, scanline: u16)`
+/// Renders an 8x8 sprite on the given scanline.
+/// 
+/// This function processes the sprite from OAM at the given index, 
+/// and draws it on the `scanline` if it intersects with it.
+/// It considers sprite flipping, priority, transparency, and pattern table selection.
+/// 
+/// # Arguments
+/// * `index` - Index of the sprite in the OAM table (0–63)
+/// * `scanline` - The current scanline being rendered
+pub fn render_88_sprite(&mut self, index: usize, scanline: u16) {
+    let oam_sprite = self.oam_table[index].clone();
+    let sprite_x = oam_sprite.get_x_position() as u16;
+    let sprite_y = oam_sprite.get_y_position() + 1; // Sprites are offset by one scanline
+    let tile_index = oam_sprite.get_index_number() as u16;
+    let attribute = oam_sprite.get_attribute();
+    let flip_horizontal = attribute & 0x40 > 0;
+    let flip_vertical = attribute & 0x80 > 0;
+    let palette = attribute & 0x3;
+    let behind_background = attribute & 0x20 > 0;
+    if scanline < sprite_y || scanline >= sprite_y + 8 || sprite_y >= 238 {
+        return;
+    }
+    let pattern_table = if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {
+        0x1000
+    } else {
+        0
+    };
+    let tile_base = pattern_table | (tile_index << 4);
+    let sprite_y_offset = scanline - sprite_y;
+    let row = sprite_y_offset;
+    let effective_row = if flip_vertical { 7 - row } else { row };
+    let pattern_lo = self.ppu_read(tile_base + effective_row);
+    let pattern_hi = self.ppu_read(tile_base + effective_row + 8);
+    for col in 0..8 {
+        let effective_col = if flip_horizontal { 7 - col } else { col };
+        let pixel_bit_lo = (pattern_lo >> (7 - effective_col)) & 1;
+        let pixel_bit_hi = (pattern_hi >> (7 - effective_col)) & 1;
+        let pixel_value = (pixel_bit_hi << 1) | pixel_bit_lo;
+        if pixel_value == 0 {
+            continue;
         }
+        let screen_x = (sprite_x + col) as u16;
+        let screen_y = scanline;
+        if screen_x >= 256 {
+            continue;
+        }
+        let color =
+            if !self.ppumask.contains(PPUMASK::sprites_leftmost) && self.cycle_counter < 8 {
+                self.get_fgpalette(palette, 0)
+            } else {
+                self.get_fgpalette(palette, pixel_value)
+            };
+        if screen_x < 256 && screen_y < 240 {
+            let bg_pixel = self.frame_array[screen_x as usize][screen_y as usize];
+            let should_draw = if behind_background {
+                bg_pixel == 0
+            } else {
+                true
+            };
 
-        // Get pattern table address from PPUCTRL
-        let pattern_table = if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {
-            0x1000
-        } else {
-            0
-        };
-
-        // Calculate base address for this tile
-        let tile_base = pattern_table | (tile_index << 4);
-
-        // Process only the specific row of the sprite that intersects with the scanline
-        let sprite_y_offset = scanline - sprite_y;
-        let row = sprite_y_offset;
-        let effective_row = if flip_vertical { 7 - row } else { row };
-
-        // Get pattern data for this row
-        let pattern_lo = self.ppu_read(tile_base + effective_row);
-        let pattern_hi = self.ppu_read(tile_base + effective_row + 8);
-
-        // Process each pixel in the row
-        for col in 0..8 {
-            let effective_col = if flip_horizontal { 7 - col } else { col };
-
-            // Extract pixel data
-            let pixel_bit_lo = (pattern_lo >> (7 - effective_col)) & 1;
-            let pixel_bit_hi = (pattern_hi >> (7 - effective_col)) & 1;
-            let pixel_value = (pixel_bit_hi << 1) | pixel_bit_lo;
-
-            // Skip transparent pixels
-            if pixel_value == 0 {
-                continue;
-            }
-
-            // Calculate screen position
-            let screen_x = (sprite_x + col) as u16;
-            // We already know screen_y is the scanline
-            let screen_y = scanline;
-
-            // Skip if off-screen
-            if screen_x >= 256 {
-                continue;
-            }
-
-            // Get color from palette
-            // let color = self.get_fgpalette(palette, pixel_value);
-            let color =
-                if !self.ppumask.contains(PPUMASK::sprites_leftmost) && self.cycle_counter < 8 {
-                    self.get_fgpalette(palette, 0)
-                } else {
-                    self.get_fgpalette(palette, pixel_value)
-                };
-            // Apply correct sprite priority rules
-            if screen_x < 256 && screen_y < 240 {
-                let bg_pixel = self.frame_array[screen_x as usize][screen_y as usize];
-
-                // Proper NES priority logic:
-                // - If behind_background flag is set and bg_pixel is not transparent (0),
-                //   then background has priority
-                // - Otherwise, sprite has priority
-                let should_draw = if behind_background {
-                    bg_pixel == 0 // Only draw if background is transparent
-                } else {
-                    true // Always draw if not behind background
-                };
-
-                if should_draw {
-                    if self.ppumask.contains(PPUMASK::enable_sprite_rendering) {
-                        unsafe {
-                            (*self.nametable_frame.unwrap()).drawpixel(
-                                screen_x as u16,
-                                screen_y as u16,
-                                color,
-                            );
-                        }
-                        self.frame_array[screen_x as usize][screen_y as usize] = pixel_value;
+            if should_draw {
+                if self.ppumask.contains(PPUMASK::enable_sprite_rendering) {
+                    unsafe {
+                        (*self.nametable_frame.unwrap()).drawpixel(
+                            screen_x as u16,
+                            screen_y as u16,
+                            color,
+                        );
                     }
+                    self.frame_array[screen_x as usize][screen_y as usize] = pixel_value;
                 }
             }
         }
     }
+}
 
-    // Modified render_816_sprite function with corrected priority logic
+    /// # `render_816_sprite(&mut self, index: usize, scanline: u16)`
+    /// Renders a single 8x16 sprite onto the current scanline.
+    /// 
+    /// This function checks if the given sprite index should appear on the current scanline.
+    /// It extracts pattern data based on sprite attributes (including flipping and priority),
+    /// calculates the correct pattern address for the tile row, and renders non-transparent pixels
+    /// to the frame buffer with proper background priority handling.
+    ///
+    /// - `index`: Index into the OAM table (0–63)
+    /// - `scanline`: Current scanline being rendered (0–239)   
     pub fn render_816_sprite(&mut self, index: usize, scanline: u16) {
         let oam_sprite = self.oam_table[index].clone();
         let x = oam_sprite.get_x_position();
@@ -776,8 +788,21 @@ impl Ppu {
             }
         }
     }
-
-    // Modified clock function for sprite rendering
+    ///# `clock(&mut self)`
+    /// Executes one PPU cycle, handling background and sprite rendering, scroll updates, and VBlank events.
+    ///
+    /// This function simulates a single clock cycle of the NES PPU. It performs:
+    /// - Background tile fetching and shift register updates (visible and pre-render scanlines).
+    /// - Scanline-based rendering of background pixels to the frame buffer.
+    /// - Sprite evaluation at the end of each visible scanline (cycle 257), determining up to 8 sprites.
+    /// - 8x8 or 8x16 sprite rendering based on `PPUCTRL` sprite size flag.
+    /// - Sprite 0 hit detection logic (for gameplay effects like "start flashing").
+    /// - VBlank handling and NMI signaling at the start of scanline 241.
+    /// - Internal VRAM address transfers and vertical/horizontal scrolling logic.
+    ///
+    /// The function should be called once per PPU clock cycle (~89342 times per frame at NTSC).
+    ///
+    /// It also tracks `total_cycles`, `scanline_counter`, and `cycle_counter` internally.
     pub fn clock(&mut self) {
         /* Background Rendering */
         if self.scanline_counter >= -1 && self.scanline_counter < 240 {
@@ -885,6 +910,7 @@ impl Ppu {
                 } else {
                     self.get_bgpalette(bgpattern & 3, bgpixel)
                 };
+                // let color = if bgpixel & 3 == 0 {(255,0,0)} else if bgpixel & 3 == 1 {(0,255,0)} else {(0,0,255)};
                 //TODO: implement PPUMASK color emphasis
                 // Store the background pixel value for sprite priority comparisons
                 if self.cycle_counter > 0 {

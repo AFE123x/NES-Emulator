@@ -1,7 +1,12 @@
-use std::{fs::File, io::{stdin, Read}};
+use std::{fs::File, io::Read};
 
 use super::{mapper::Mapper, MirrorMode};
 
+/// Mapper001 (MMC1) implementation for NES emulator.
+///
+/// Supports CHR-ROM/CHR-RAM, SRAM, and PRG bank switching.
+/// Includes serial register loading (5-bit shift register),
+/// mirroring control, and SRAM save/load functionality.
 pub struct Mapper001 {
     n_load_register: u8,
     n_load_register_count: u8,
@@ -19,6 +24,18 @@ pub struct Mapper001 {
 }
 
 impl Mapper001 {
+    /// Constructs a new `Mapper001` instance.
+    ///
+    /// Initializes internal registers and memory based on
+    /// PRG and CHR ROM sizes, and loads battery-backed SRAM
+    /// from a file if provided.
+    ///
+    /// # Arguments
+    ///
+    /// * `prg_rom_size` - Number of 16KB PRG banks.
+    /// * `chr_rom_size` - Number of 8KB CHR banks.
+    /// * `_nametable_arrangement` - Reserved for mirroring setup (unused).
+    /// * `save` - Optional path to a saved SRAM file.
     pub fn new(
         prg_rom_size: u8,
         chr_rom_size: u8,
@@ -31,6 +48,7 @@ impl Mapper001 {
             n_control_register: 0,
             n_chrbank_select4_lo: 0,
             n_chrbank_select4_hi: 0,
+            n_chrbank_select8: 0,
             n_prgbank_select16_lo: 0,
             n_prgbank_select16_hi: 0,
             n_prgbank_select32: 0,
@@ -38,7 +56,6 @@ impl Mapper001 {
             ram: vec![0; 8192],
             n_prgbanks: prg_rom_size,
             n_chrbanks: chr_rom_size,
-            n_chrbank_select8: 0,
         };
         toreturn.reset();
         if let Some(path) = save {
@@ -48,11 +65,10 @@ impl Mapper001 {
         }
         toreturn
     }
-
-
 }
 
 impl Mapper for Mapper001 {
+    /// Resets all mapper registers to default power-on state.
     fn reset(&mut self) {
         self.n_control_register = 0x1C;
         self.n_load_register = 0x00;
@@ -60,48 +76,49 @@ impl Mapper for Mapper001 {
         self.n_chrbank_select4_lo = 0;
         self.n_chrbank_select4_hi = 0;
         self.n_chrbank_select8 = 0;
-
         self.n_prgbank_select32 = 0;
         self.n_prgbank_select16_lo = 0;
         self.n_prgbank_select16_hi = self.n_prgbanks - 1;
     }
+
+    /// Returns the current nametable mirroring mode.
     fn get_mirror_mode(&self) -> MirrorMode {
         self.mirrormode.clone()
     }
 
+    /// Handles PPU reads from CHR-ROM/CHR-RAM.
+    ///
+    /// Computes the mapped address based on the CHR bank mode and address.
     fn ppu_read(&mut self, address: u16, mapped_addr: &mut u32, _data: u8) -> bool {
         *mapped_addr = 0;
         if address < 0x2000 {
             if self.n_chrbanks == 0 {
-                // CHR-RAM mode
                 *mapped_addr = address as u32;
                 return true;
             } else {
-                // CHR-ROM mode
                 if self.n_control_register & 0b10000 != 0 {
-                    // 4K CHR Bank Mode
                     if address <= 0x0FFF {
                         *mapped_addr = (self.n_chrbank_select4_lo as u32 * 0x1000) + (address as u32 & 0x0FFF);
                         return true;
                     }
-    
                     if address >= 0x1000 && address <= 0x1FFF {
                         *mapped_addr = (self.n_chrbank_select4_hi as u32 * 0x1000) + (address as u32 & 0x0FFF);
                         return true;
                     }
                 } else {
-                    // 8K CHR Bank Mode - IMPORTANT: Using the Go implementation's approach
                     *mapped_addr = (self.n_chrbank_select8 as u32 * 0x1000) + (address as u32 & 0x1FFF);
                     return true;
                 }
             }
         }
-        return false;
+        false
     }
 
+    /// Handles PPU writes to CHR-RAM.
+    ///
+    /// Writes are only allowed if CHR is in RAM mode.
     fn ppu_write(&mut self, address: u16, mapped_addr: &mut u32, _data: u8) -> bool {
         *mapped_addr = 0;
-        // Only allow writes to CHR-RAM
         if address < 0x2000 && self.n_chrbanks == 0 {
             *mapped_addr = address as u32;
             return true;
@@ -109,30 +126,28 @@ impl Mapper for Mapper001 {
         false
     }
 
+    /// Handles CPU reads from PRG-ROM and SRAM regions.
+    ///
+    /// Returns mapped address or data from internal RAM for battery saves.
     fn cpu_read(&self, address: u16, mapped_addr: &mut u32, data: &mut u8) -> bool {
         *mapped_addr = 0;
-        // Handle reading from SRAM (0x6000-0x7FFF)
         if address >= 0x6000 && address <= 0x7FFF {
-            *mapped_addr = 0xFFFFFFFF; // Signal to use internal RAM
+            *mapped_addr = 0xFFFFFFFF;
             *data = self.ram[(address & 0x1FFF) as usize];
             return true;
         }
-        // Handle PRG ROM banking (0x8000-0xFFFF)
         if address >= 0x8000 {
             if self.n_control_register & 0b01000 != 0 {
-                // 16KB mode
                 if address < 0xC000 {
                     *mapped_addr =
                         (self.n_prgbank_select16_lo as u32 * 0x4000) + (address & 0x3FFF) as u32;
                     return true;
                 } else {
-                    // address >= 0xC000
                     *mapped_addr =
                         (self.n_prgbank_select16_hi as u32 * 0x4000) + (address & 0x3FFF) as u32;
                     return true;
                 }
             } else {
-                // 32KB mode
                 *mapped_addr =
                     (self.n_prgbank_select32 as u32 * 0x8000) + (address as u32 & 0x7FFF);
                 return true;
@@ -141,81 +156,74 @@ impl Mapper for Mapper001 {
         false
     }
 
+    /// Handles CPU writes to SRAM and control registers (0x8000–0xFFFF).
+    ///
+    /// Implements the 5-bit serial register logic for MMC1.
     fn cpu_write(&mut self, address: u16, mapped_addr: &mut u32, data: u8) -> bool {
         *mapped_addr = 0;
-        // Handle writing to SRAM (0x6000-0x7FFF)
         if address >= 0x6000 && address <= 0x7FFF {
-            *mapped_addr = 0xFFFFFFFF; // Signal to use internal RAM
+            *mapped_addr = 0xFFFFFFFF;
             self.ram[address as usize & 0x1FFF] = data;
             return true;
         }
-        // Handle MMC1 register writes (0x8000-0xFFFF)
+
         if address >= 0x8000 {
             if data & 0x80 != 0 {
-                // Reset loading if bit 7 is set
                 self.n_load_register = 0;
                 self.n_load_register_count = 0;
-                self.n_control_register = self.n_control_register | 0x0C;
+                self.n_control_register |= 0x0C;
             } else {
-                // Serial loading of register data
                 self.n_load_register >>= 1;
                 self.n_load_register &= !(1 << 4);
                 self.n_load_register |= (data & 0x01) << 4;
                 self.n_load_register_count = self.n_load_register_count.wrapping_add(1);
 
                 if self.n_load_register_count == 5 {
-                    // Process the loaded register based on the address
                     let ntargetregister = ((address >> 13) & 0x3) as u8;
 
-                    if ntargetregister == 0 {
-                        // 0x8000-0x9FFF
-                        // Control register
-                        self.n_control_register = self.n_load_register & 0x1F;
-                        self.mirrormode = match self.n_control_register & 0x03 {
-                            0 => MirrorMode::OneScreenLo,
-                            1 => MirrorMode::OneScreenHi,
-                            2 => MirrorMode::Vertical,
-                            3 => MirrorMode::Horizontal,
-                            _ => unreachable!(),
-                        };
-                    } else if ntargetregister == 1 {
-                        // 0xA000-0xBFFF
-                        // CHR bank 0
-                        if self.n_control_register & 0b10000 != 0 {
-                            // 4KB CHR Bank at PPU 0x0000
-                            self.n_chrbank_select4_lo = self.n_load_register & 0x1F;
-                        } else {
-                            // 8KB CHR Bank at PPU 0x0000
-                            self.n_chrbank_select8 = self.n_load_register & 0x1E;
+                    match ntargetregister {
+                        0 => {
+                            self.n_control_register = self.n_load_register & 0x1F;
+                            self.mirrormode = match self.n_control_register & 0x03 {
+                                0 => MirrorMode::OneScreenLo,
+                                1 => MirrorMode::OneScreenHi,
+                                2 => MirrorMode::Vertical,
+                                3 => MirrorMode::Horizontal,
+                                _ => unreachable!(),
+                            };
                         }
-                    } else if ntargetregister == 2 {
-                        // 0xC000-0xDFFF
-                        // CHR bank 1
-                        if self.n_control_register & 0b10000 != 0 {
-                            // 4KB CHR Bank at PPU 0x1000
-                            self.n_chrbank_select4_hi = self.n_load_register & 0x1F;
+                        1 => {
+                            if self.n_control_register & 0b10000 != 0 {
+                                self.n_chrbank_select4_lo = self.n_load_register & 0x1F;
+                            } else {
+                                self.n_chrbank_select8 = self.n_load_register & 0x1E;
+                            }
                         }
-                        // In 8KB mode, this register is ignored
-                    } else if ntargetregister == 3 {
-                        // 0xE000-0xFFFF
-                        // PRG bank
-                        let n_prgmode = (self.n_control_register >> 2) & 0x3;
-
-                        if n_prgmode == 0 || n_prgmode == 1 {
-                            // 32KB mode
-                            self.n_prgbank_select32 = (self.n_load_register & 0x0E) >> 1;
-                        } else if n_prgmode == 2 {
-                            // 16KB mode with fixed first bank
-                            self.n_prgbank_select16_lo = 0;
-                            self.n_prgbank_select16_hi = self.n_load_register & 0x0F;
-                        } else if n_prgmode == 3 {
-                            // 16KB mode with fixed last bank
-                            self.n_prgbank_select16_lo = self.n_load_register & 0x0F;
-                            self.n_prgbank_select16_hi = self.n_prgbanks - 1;
+                        2 => {
+                            if self.n_control_register & 0b10000 != 0 {
+                                self.n_chrbank_select4_hi = self.n_load_register & 0x1F;
+                            }
                         }
+                        3 => {
+                            let n_prgmode = (self.n_control_register >> 2) & 0x3;
+                            match n_prgmode {
+                                0 | 1 => {
+                                    self.n_prgbank_select32 = (self.n_load_register & 0x0E) >> 1;
+                                }
+                                2 => {
+                                    self.n_prgbank_select16_lo = 0;
+                                    self.n_prgbank_select16_hi = self.n_load_register & 0x0F;
+                                }
+                                3 => {
+                                    self.n_prgbank_select16_lo = self.n_load_register & 0x0F;
+                                    self.n_prgbank_select16_hi = self.n_prgbanks - 1;
+                                }
+                                _ => {}
+                            }
+                        }
+                        _ => {}
                     }
 
-                    // Reset for next 5-bit sequence
                     self.n_load_register = 0;
                     self.n_load_register_count = 0;
                 }
@@ -224,64 +232,45 @@ impl Mapper for Mapper001 {
         false
     }
 
+    /// Saves the internal 8KB SRAM to a file chosen by the user.
+    ///
+    /// Uses a GUI file picker to choose the save file path.
     fn savestate(&self) {
         use std::fs::File;
         use std::io::Write;
         let file = rfd::FileDialog::new()
-        .set_title("Save")
-        .save_file();
-        let file = match file{
+            .set_title("Save")
+            .save_file();
+        let file = match file {
             Some(file) => file,
-            None => 
-            {
-                return;
-            },
+            None => return,
         };
         let mut file = File::create(file).unwrap();
-
         file.write_all(&self.ram).unwrap();
     }
 
+    /// Loads the 8KB SRAM contents from a file chosen by the user.
+    ///
+    /// Uses a GUI file picker to load a previous save file.
     fn loadstate(&mut self) {
         let file = rfd::FileDialog::new().set_title("Open save").pick_file();
-        let file = match file{
+        let file = match file {
             Some(file) => file,
-            None => {return},
+            None => return,
         };
         if let Ok(mut file) = File::open(file) {
             let _ = file.read(&mut self.ram);
         }
-        else{
-            
-        }
     }
-    
-    fn hasirq(&mut self) -> bool {
-        return false;
-    }
-    
-    fn scanline(&mut self) {
-    }
-    
-    fn irq_clear(&mut self) {
-    }
-/*
-48
-2088
-2222
-5574
-5575
-*/
 
-    fn write_to_prgram(&mut self) {
-        let mut str = String::new();
-        println!("Where do you want to write the prg_ram contents?");
-        stdin().read_line(&mut str).unwrap();
-        let addr: usize = str.trim().parse().unwrap();
-        println!("at address {:04x}, contains {}. What do you want to replace it with?",addr,self.ram[addr]);
-        let mut str = String::new();
-        stdin().read_line(&mut str).unwrap();
-        let newcontent: u8 = str.trim().parse().unwrap();
-        self.ram[addr] = newcontent;
+    /// Returns false; MMC1 does not support IRQs.
+    fn hasirq(&mut self) -> bool {
+        false
     }
+
+    /// Placeholder for scanline IRQ logic (not used in MMC1).
+    fn scanline(&mut self) {}
+
+    /// Placeholder to clear IRQ flags (not used in MMC1).
+    fn irq_clear(&mut self) {}
 }

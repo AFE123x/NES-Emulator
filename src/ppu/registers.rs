@@ -11,7 +11,7 @@ bitflags! {
     ///     - If the bit is 0, we increment the address by 1.
     /// - bit 3 defines which pattern table to use for sprites
     ///     - If the bit is 0, we use the table at ppu address $0000
-    ///     - If the bit is 1, we use the tabel at ppu address $1000
+    ///     - If the bit is 1, we use the table at ppu address $1000
     /// - bit 4 defines which pattern table to use for the background
     /// - bit 5 decides the sprite size, (lowkey don't know what that means)
     /// - bit 6 doesn't really matter, but it's the master slave select

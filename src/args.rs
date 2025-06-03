@@ -1,6 +1,6 @@
 use clap::{ArgAction, Parser};
 
-/// NES Emulator Written in Rust
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {

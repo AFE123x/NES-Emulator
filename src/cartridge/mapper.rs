@@ -12,5 +12,5 @@ pub trait Mapper{
     fn hasirq(&mut self) -> bool;
     fn scanline(&mut self);
     fn reset(&mut self);
-    fn write_to_prgram(&mut self){}
+    // fn write_to_prgram(&mut self){}
 }
