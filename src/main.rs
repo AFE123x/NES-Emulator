@@ -11,9 +11,6 @@ use cartridge::Cartridge;
 use clap::Parser;
 use controller::Buttons;
 use cpu::Cpu;
-use iroh::protocol::Router;
-use iroh::Endpoint;
-use iroh_gossip::net::Gossip;
 use minifb::{Key, Window, WindowOptions};
 use ppu::{frame::Frame, Ppu};
 use minifb::Scale;
@@ -27,20 +24,12 @@ mod ppu;
 mod args;
 
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+
+fn main() -> Result<(), Box<dyn Error>> {
     let vec = Args::parse();
     // println!("hello {}",vec.rom);
     // println!("id is {}",vec.id);
     let debugmode = !vec.debug;
-
-    let endpoint = Endpoint::builder().discovery_n0().bind().await?;
-    // println!("> our id is {}",endpoint.node_id());
-    let gossip = Gossip::builder().spawn(endpoint.clone()).await?;
-
-
-    let router = Router::builder(endpoint.clone()).accept(iroh_gossip::ALPN, gossip.clone()).spawn().await?;
-
     
     /* Initialize peripherals */
     let cartridge = Rc::new(RefCell::new(Cartridge::new(&vec.rom)));
@@ -253,6 +242,5 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 
     }
-    router.shutdown().await?;
     Ok(())
 }
