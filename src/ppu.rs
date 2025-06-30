@@ -36,7 +36,6 @@ pub struct Ppu {
     scanline_counter: i16,
 
     total_cycles: usize,
-    nametable_frame: Option<*mut Frame>,
     frame_array: Vec<Vec<u8>>,
     oam_table: Vec<Oam>,
     /* Shift registers */
@@ -161,7 +160,6 @@ impl Ppu {
             cycle_counter: 0,
             scanline_counter: 0,
             total_cycles: 0,
-            nametable_frame: None,
             oam_table: vec![Oam::new(); 64],
             pattern_lo_shift_register: 0,
             pattern_hi_shift_register: 0,
@@ -296,11 +294,6 @@ impl Ppu {
         let safe_index = (color_index & 0x3F) as usize;
         self.system_palette[safe_index]
     }
-    ///# `linkpattern(frame)`
-    /// links the frame to ppu for rendering
-    pub fn linkpattern(&mut self, frame: &mut Frame) {
-        self.nametable_frame = Some(frame);
-    }
     ///# `get_pattern_table(frame)`
     /// - draws the pattern table to frame
     pub fn get_pattern_table(&mut self, frame: &mut Frame) {
@@ -334,9 +327,8 @@ impl Ppu {
 
         if address <= 0x1FFF {
             self.cart.borrow_mut().ppu_read(address, &mut byte);
-            // unsafe { (*self.cart).ppu_read(address, &mut byte) }; // Reads from cartridge space
         } else if address >= 0x2000 && address <= 0x2FFF {
-            // let nametable: Nametable = unsafe { (*self.cart).get_nametable() };
+
             let nametable = self.cart.borrow_mut().get_nametable();
             byte = match nametable {
                 MirrorMode::Vertical => {
@@ -397,11 +389,9 @@ impl Ppu {
     /// - Handle PPU Writes
     fn ppu_write(&mut self, address: u16, data: u8) {
         if address <= 0x1FFF {
-            // unsafe { (*self.cart).ppu_write(address, data) }; // writes to cartridge space
             self.cart.borrow_mut().ppu_write(address, data);
         } else if address >= 0x2000 && address <= 0x2FFF {
             /* nametable writes */
-            // let nametable: Nametable = unsafe { (*self.cart).get_nametable() };
             let nametable = self.cart.borrow_mut().get_nametable();
             match nametable {
                 MirrorMode::Vertical => {
@@ -611,7 +601,7 @@ impl Ppu {
 /// # Arguments
 /// * `index` - Index of the sprite in the OAM table (0–63)
 /// * `scanline` - The current scanline being rendered
-pub fn render_88_sprite(&mut self, index: usize, scanline: u16) {
+pub fn render_88_sprite(&mut self, index: usize, scanline: u16, nametable_frame: &mut Frame) {
     let oam_sprite = self.oam_table[index].clone();
     let sprite_x = oam_sprite.get_x_position() as u16;
     let sprite_y = oam_sprite.get_y_position() + 1; // Sprites are offset by one scanline
@@ -664,13 +654,11 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16) {
 
             if should_draw {
                 if self.ppumask.contains(PPUMASK::enable_sprite_rendering) {
-                    unsafe {
-                        (*self.nametable_frame.unwrap()).drawpixel(
+                    nametable_frame.drawpixel(
                             screen_x as u16,
                             screen_y as u16,
                             color,
                         );
-                    }
                     self.frame_array[screen_x as usize][screen_y as usize] = pixel_value;
                 }
             }
@@ -688,7 +676,7 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16) {
     ///
     /// - `index`: Index into the OAM table (0–63)
     /// - `scanline`: Current scanline being rendered (0–239)   
-    pub fn render_816_sprite(&mut self, index: usize, scanline: u16) {
+    pub fn render_816_sprite(&mut self, index: usize, scanline: u16, nametable_frame: &mut Frame) {
         let oam_sprite = self.oam_table[index].clone();
         let x = oam_sprite.get_x_position();
         let y = oam_sprite.get_y_position() + 1;
@@ -775,16 +763,14 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16) {
             };
 
             if should_draw {
-                unsafe {
                     if self.ppumask.contains(PPUMASK::enable_sprite_rendering) {
-                        (*self.nametable_frame.unwrap()).drawpixel(
+                        nametable_frame.drawpixel(
                             screen_x as u16,
                             screen_y as u16,
                             color,
                         );
                         self.frame_array[screen_x as usize][screen_y as usize] = pixel_value;
                     }
-                }
             }
         }
     }
@@ -803,7 +789,7 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16) {
     /// The function should be called once per PPU clock cycle (~89342 times per frame at NTSC).
     ///
     /// It also tracks `total_cycles`, `scanline_counter`, and `cycle_counter` internally.
-    pub fn clock(&mut self) {
+    pub fn clock(&mut self, frame: &mut Frame) {
         /* Background Rendering */
         if self.scanline_counter >= -1 && self.scanline_counter < 240 {
             /* Pre Render and Visible Scanlines */
@@ -921,9 +907,7 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16) {
                         // let color = (0,0,0);
                         // Only draw the background pixel now - sprites will be drawn later
                         if self.ppumask.contains(PPUMASK::enable_background_rendering) {
-                            unsafe {
-                                (*self.nametable_frame.unwrap()).drawpixel(x, y as u16, color);
-                            }
+                            frame.drawpixel(x.wrapping_add(1), y as u16, color);
                         }
                     }
                 }
@@ -955,7 +939,7 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16) {
                     if sprite_count > 8 {
                         // Set overflow flag but keep checking for the rest of the sprites
                         self.ppustatus.set(PPUSTATUS::sprite_overflow_flag, true);
-                        break;
+                        // break;
                     }
                 }
             }
@@ -964,9 +948,9 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16) {
             visible_sprites.reverse();
             for &sprite_index in &visible_sprites {
                 if self.ppuctrl.contains(PPUCTRL::sprite_size) {
-                    self.render_816_sprite(sprite_index, current_scanline);
+                    self.render_816_sprite(sprite_index, current_scanline,frame);
                 } else {
-                    self.render_88_sprite(sprite_index, current_scanline);
+                    self.render_88_sprite(sprite_index, current_scanline, frame);
                 }
             }
         }

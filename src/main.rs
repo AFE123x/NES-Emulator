@@ -40,15 +40,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     else{
         Frame::new(256, 240)
     };
-    let mut ppu = Ppu::new(Rc::clone(&cartridge));
-    let mut bus = Bus::new();
+    let ppu = Rc::new(RefCell::new( Ppu::new(Rc::clone(&cartridge))));
+    let mut bus = Bus::new(Rc::clone(&ppu));
     let controller = Rc::new(RefCell::new(controller::Controller::new()));
     let controller2 = Rc::new(RefCell::new(controller::Controller::new()));
     let mut turn = true;
     let apu: Rc<RefCell<Apu>> = Rc::new(RefCell::new(Apu::new()));
-    ppu.linkpattern(&mut game_frame);
     bus.link_cartridge(Rc::clone(&cartridge));
-    bus.link_ppu(&mut ppu);
     bus.link_apu(Rc::clone(&apu));
     bus.link_controller1(Rc::clone(&controller));
     bus.link_controller2(Rc::clone(&controller2));
@@ -129,7 +127,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         turn = !turn;
         if window.is_key_pressed(Key::R, minifb::KeyRepeat::No) {
-            ppu.set_bg_palette_num();
+            ppu.borrow_mut().set_bg_palette_num();
         }
         if window.is_key_pressed(Key::Q, minifb::KeyRepeat::No) {
             cpu.reset();
@@ -146,7 +144,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         // Clock components
         for _ in 0..3 {
-            ppu.clock();
+            ppu.borrow_mut().clock(&mut game_frame);
         }
         let _cycles_left = cpu.clock();
 
@@ -154,7 +152,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             cartridge.borrow_mut().irq_clear();
             cpu.irq();
         }
-        if ppu.get_nmi() {
+        if ppu.borrow_mut().get_nmi() {
 
             let up = window.is_key_down(Key::Up);
             let down = window.is_key_down(Key::Down);
@@ -230,7 +228,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
             if debugmode{
-                ppu.get_pattern_table(&mut game_frame);
+                ppu.borrow_mut().get_pattern_table(&mut game_frame);
                 window.update_with_buffer(game_frame.get_buf().as_slice(), 512, 240)?;
             }
             else{

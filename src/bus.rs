@@ -13,7 +13,7 @@ pub struct Bus {
     cartridge: Option<Rc<RefCell<Cartridge>>>,
 
     /// Pointer to the PPU (Picture Processing Unit), used for accessing registers and DMA.
-    ppu: Option<*mut Ppu>,
+    ppu: Rc<RefCell<Ppu>>,
 
     /// First controller, typically for player 1.
     controller1: Option<Rc<RefCell<Controller>>>,
@@ -27,13 +27,13 @@ pub struct Bus {
 
 impl Bus {
     /// Constructs a new `Bus` with all components unlinked and RAM initialized to zero.
-    pub fn new() -> Self {
+    pub fn new(ppu: Rc<RefCell<Ppu>>) -> Self {
         Self {
             memory: vec![0; 2048],
             cartridge: None,
             controller1: None,
             controller2: None,
-            ppu: None,
+            ppu: ppu,
             apu: None,
         }
     }
@@ -41,11 +41,6 @@ impl Bus {
     /// Links a cartridge to the bus, allowing CPU access to PRG-ROM and other mapper-controlled behavior.
     pub fn link_cartridge(&mut self, cart: Rc<RefCell<Cartridge>>){
         self.cartridge = Some(cart);
-    }
-
-    /// Links the PPU to the bus, enabling register and DMA interaction.
-    pub fn link_ppu(&mut self, ppu: &mut Ppu){
-        self.ppu = Some(ppu);
     }
 
     /// Links the APU to the bus for handling audio register access.
@@ -79,7 +74,7 @@ impl Bus {
         if address <= 0x1FFF {
             data = self.memory[(address & 0x7FF) as usize];
         } else if address <= 0x3FFF {
-            data = unsafe { (*self.ppu.unwrap()).cpu_read(address, rdonly) };
+            data = self.ppu.borrow_mut().cpu_read(address, rdonly);
         } else if address <= 0x4017 {
             match address {
                 0x4000..=0x4013 | 0x4015 => {
@@ -127,9 +122,7 @@ impl Bus {
         if address <= 0x1FFF {
             self.memory[(address & 0x7FF) as usize] = byte;
         } else if address <= 0x3FFF {
-            unsafe {
-                (*self.ppu.unwrap()).cpu_write(address, byte);
-            }
+            self.ppu.borrow_mut().cpu_write(address, byte);
         } else if address <= 0x4017 {
             match address {
                 0x4000..=0x4013 | 0x4015 | 0x4017 => {
@@ -144,15 +137,8 @@ impl Bus {
                     let base = (byte as usize) << 8;
                     for i in 0..=0xFF {
                         let data = self.memory[(base + i) % 2048];
-                        unsafe {
-                            if let Some(ppu_ptr) = self.ppu {
-                                (*ppu_ptr).oam_dma_write(i as u8, data);
-                            } else {
-                                panic!("PPU pointer is null during DMA transfer");
-                            }
-                        }
+                        self.ppu.borrow_mut().oam_dma_write(i as u8, data);
                     }
-                    // TODO: Add CPU stall logic (~513-514 cycles)
                 },
                 0x4016 => {
                     if let Some(controller) = &self.controller1 {
