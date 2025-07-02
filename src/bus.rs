@@ -17,7 +17,8 @@ pub struct Bus {
 
     /// First controller, typically for player 1.
     controller1: Option<Rc<RefCell<Controller>>>,
-
+    /// First controller changed state
+    controller1state: bool,
     /// Second controller, typically for player 2.
     controller2: Option<Rc<RefCell<Controller>>>,
 
@@ -35,6 +36,7 @@ impl Bus {
             controller2: None,
             ppu: ppu,
             apu: None,
+            controller1state: false,
         }
     }
 
@@ -47,7 +49,11 @@ impl Bus {
     pub fn link_apu(&mut self, apu: Rc<RefCell<Apu>>){
         self.apu = Some(apu);
     }
-
+    pub fn get_controller1_state(&mut self) -> bool{
+        let result = self.controller1state;
+        self.controller1state = false;
+        result
+    }
     /// Links controller 1 to the bus.
     pub fn link_controller1(&mut self, controller: Rc<RefCell<Controller>>) {
         self.controller1 = Some(controller);
@@ -68,7 +74,7 @@ impl Bus {
     ///
     /// # Returns
     /// * `u8` - The byte read from the given address.
-    pub fn cpu_read(&self, address: u16, rdonly: bool) -> u8 {
+    pub fn cpu_read(&mut self, address: u16, rdonly: bool) -> u8 {
         let mut data = 0;
 
         if address <= 0x1FFF {
@@ -87,6 +93,10 @@ impl Bus {
                 0x4016 => {
                     if let Some(controller) = &self.controller1 {
                         data = controller.borrow_mut().cpu_read();
+                        // self.get_controller1_state();
+                        if controller.borrow_mut().readfullregister(){
+                            self.controller1state = true;
+                        }
                     } else {
                         panic!("ERROR - Controller 1 not initialized");
                     }

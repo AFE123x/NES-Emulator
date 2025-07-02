@@ -19,6 +19,7 @@ pub struct Controller {
     button: Buttons, // Holds the current button press states
     strobe: bool,    // Strobe signal for reading input
     index: u8,       // Current bit index for reading button states
+    dataread: bool,
 }
 
 impl Controller {
@@ -28,6 +29,7 @@ impl Controller {
             button: Buttons::empty(),
             index: 0,
             strobe: false,
+            dataread: false,
         }
     }
     // Handles writes from the CPU, controlling the strobe signal
@@ -37,9 +39,16 @@ impl Controller {
             self.index = 0; // Reset index when strobe is set
         }
     }
+
+    pub fn readfullregister(&mut self) -> bool{
+        let result = self.dataread;
+        self.dataread = false;
+        result
+    }
     // Reads button state in a serial fashion, one bit at a time
     pub fn cpu_read(&mut self) -> u8 {
         if self.index > 7 {
+            self.dataread = true;
             return 1;
         } 
         let response = (self.button.bits() & (1 << self.index)) >> self.index;

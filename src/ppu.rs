@@ -896,7 +896,7 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16, nametable_frame:
                 } else {
                     self.get_bgpalette(bgpattern & 3, bgpixel)
                 };
-                // let color = if bgpixel & 3 == 0 {(255,0,0)} else if bgpixel & 3 == 1 {(0,255,0)} else {(0,0,255)};
+
                 //TODO: implement PPUMASK color emphasis
                 // Store the background pixel value for sprite priority comparisons
                 if self.cycle_counter > 0 {
@@ -904,10 +904,8 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16, nametable_frame:
                     let y = self.scanline_counter;
                     if x < 256 && y < 240 {
                         self.frame_array[x as usize][y as usize] = bgpixel;
-                        // let color = (0,0,0);
-                        // Only draw the background pixel now - sprites will be drawn later
                         if self.ppumask.contains(PPUMASK::enable_background_rendering) {
-                            frame.drawpixel(x.wrapping_add(1), y as u16, color);
+                            frame.drawpixel(x, y as u16, color);
                         }
                     }
                 }
@@ -939,7 +937,7 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16, nametable_frame:
                     if sprite_count > 8 {
                         // Set overflow flag but keep checking for the rest of the sprites
                         self.ppustatus.set(PPUSTATUS::sprite_overflow_flag, true);
-                        // break;
+                        break;
                     }
                 }
             }
