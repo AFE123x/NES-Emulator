@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let vec = Args::parse();
     // println!("hello {}",vec.rom);
     // println!("id is {}",vec.id);
-    let debugmode = !vec.debug;
+    let debugmode = false; //vec.debug;
     let byte = Arc::new(Mutex::new(0u8));
     /* Initialize peripherals */
     let cartridge = Rc::new(RefCell::new(Cartridge::new(&vec.rom)));

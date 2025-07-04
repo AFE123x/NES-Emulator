@@ -53,6 +53,7 @@ pub struct Ppu {
     next_attribute_tile: u16,
     sprite0xcoord: u16,
     sprite0ycoord: u16,
+    sprite0poss: bool,
 }
 
 impl Ppu {
@@ -174,6 +175,7 @@ impl Ppu {
             next_attribute_tile: 0,
             sprite0xcoord: 0,
             sprite0ycoord: 0,
+            sprite0poss: false,
         }
     }
 
@@ -202,7 +204,8 @@ impl Ppu {
         let flip_horizontal = (attributes & 0x40) != 0;
         let flip_vertical = (attributes & 0x80) != 0;
 
-        if self.ppuctrl.contains(PPUCTRL::sprite_size) {
+        if self.ppuctrl.contains(PPUCTRL::sprite_size) { //8 x 16
+            //println!("8 x 16 rendering");
             let pattern_table_base: u16 = if tile_index & 0x01 != 0 {
                 0x1000
             } else {
@@ -230,6 +233,7 @@ impl Ppu {
 
                             self.sprite0xcoord = x_pos + col as u16;
                             self.sprite0ycoord = y_pos + y_offset;
+                            self.sprite0poss = true;
                             return;
                         }
                     }
@@ -255,6 +259,7 @@ impl Ppu {
                     if pixel_value != 0 {
                         self.sprite0xcoord = x_pos + col as u16;
                         self.sprite0ycoord = y_pos + row as u16;
+                        self.sprite0poss = true;
                         return;
                     }
                 }
@@ -262,6 +267,7 @@ impl Ppu {
         }
         self.sprite0xcoord = x_pos;
         self.sprite0ycoord = y_pos;
+        self.sprite0poss = false;
     }
     ///# `get_bgpalette(palettenum, paletteindex`
     /// Retrieves the correct bg color to draw in the clock() function
@@ -954,7 +960,7 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16, nametable_frame:
         }
         // Sprite 0 hit detection
         if self.scanline_counter.wrapping_sub(1) == self.sprite0ycoord as i16
-            && self.cycle_counter == self.sprite0xcoord as u16
+            && self.cycle_counter == self.sprite0xcoord as u16 && self.sprite0poss
         {
             self.ppustatus.set(PPUSTATUS::sprite_0_hit_flag, true);
         }
@@ -977,6 +983,11 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16, nametable_frame:
         if self.scanline_counter <= 239 {
             // Visible scanlines
         } else if self.scanline_counter == 241 && self.cycle_counter == 1 {
+            // for i in 0..8{
+            //     for j in 0..8{
+            //         frame.drawpixel(self.sprite0xcoord.wrapping_add(i), self.sprite0ycoord.wrapping_add(j), (255,0,0));
+            //     }
+            // }
             self.ppustatus.set(PPUSTATUS::vblank_flag, true);
             if self.ppuctrl.contains(PPUCTRL::vblank_enable) {
                 self.nmi = true;
