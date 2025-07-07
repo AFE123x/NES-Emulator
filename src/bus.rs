@@ -49,11 +49,7 @@ impl Bus {
     pub fn link_apu(&mut self, apu: Rc<RefCell<Apu>>){
         self.apu = Some(apu);
     }
-    pub fn get_controller1_state(&mut self) -> bool{
-        let result = self.controller1state;
-        self.controller1state = false;
-        result
-    }
+
     /// Links controller 1 to the bus.
     pub fn link_controller1(&mut self, controller: Rc<RefCell<Controller>>) {
         self.controller1 = Some(controller);

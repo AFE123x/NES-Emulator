@@ -16,7 +16,6 @@ use std::thread;
 use std::time::Duration;
 use std::{rc::Rc, time::Instant};
 
-use crate::controller::Buttons;
 
 mod apu;
 mod args;
@@ -29,8 +28,6 @@ mod ppu;
 fn main() -> Result<(), Box<dyn Error>> {
     let gamecont: Arc<Mutex<bool>> = Arc::new(Mutex::new(true));
     let vec = Args::parse();
-    // println!("hello {}",vec.rom);
-    // println!("id is {}",vec.id);
     let debugmode = false; //vec.debug;
     let byte = Arc::new(Mutex::new(0u8));
     /* Initialize peripherals */
@@ -64,7 +61,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     } else {
         WindowOptions {
-            resize: true,
+            resize: false,
             scale: Scale::X4,
             ..Default::default()
         }
@@ -82,7 +79,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let button_state = Arc::clone(&byte);
     let game_running = Arc::clone(&gamecont);
     let clonesave = saverom.clone();
-
+    let loadgame = Arc::new(Mutex::new(false));
     let restart = Arc::new(Mutex::new(false));
     let restartclone = restart.clone();
     let mute = Arc::new(Mutex::new(false));
@@ -91,13 +88,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     let turboaclone = turboa.clone();
 
     let turbob = Arc::new(Mutex::new(false));
+
+    let loadgameclone = loadgame.clone();
     let turbobclone = turbob.clone();
     let thread = thread::spawn(move || {
         let device_state = DeviceState::new();
         while *game_running.lock().unwrap() {
             let keys = device_state.get_keys();
             let mut output = 0u8;
-
+            
             if keys.contains(&Keycode::A) {
                 output |= 0b0000_0001;
             } // A
@@ -122,6 +121,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             if keys.contains(&Keycode::Right) {
                 output |= 0b1000_0000;
             }
+            *loadgameclone.lock().unwrap() = keys.contains(&Keycode::P);
             *turboaclone.lock().unwrap() = keys.contains(&Keycode::Z);
             *turbobclone.lock().unwrap() = keys.contains(&Keycode::X);
             *muteclone.lock().unwrap() = keys.contains(&Keycode::M);
@@ -143,11 +143,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         if *mute.lock().unwrap() {
             apu.borrow_mut().toggle_sound();
         }
+        if *loadgame.lock().unwrap(){
+            cartridge.borrow_mut().load();
+        }
         // Clock components
         for _ in 0..3 {
             ppu.borrow_mut().clock(&mut game_frame);
         }
         let _cycles_left = cpu.clock();
+        //bus.cpu_write(0xAA, 0x13);
+        //bus.cpu_write(0x32, 0xff);
         controller
             .borrow_mut()
             ._set_reg_value(*byte.lock().unwrap());
@@ -155,12 +160,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             cartridge.borrow_mut().irq_clear();
             cpu.irq();
         }
-        if *turboa.lock().unwrap(){
-
-        }
-        if *turbob.lock().unwrap(){
-                controller.borrow_mut().set_button(Buttons::B, bus.get_controller1_state());
-        }
+        if *turboa.lock().unwrap() {}
 
         if ppu.borrow_mut().get_nmi() {
             cpu.nmi();

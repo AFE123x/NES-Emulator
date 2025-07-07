@@ -600,7 +600,9 @@ impl Apu {
         // Store the thread handle
         *self.audio_thread.lock().unwrap() = Some(handle);
     }
+/*
 
+*/
     /// Handles CPU writes to APU registers
     /// This is how the emulated CPU controls sound
     pub fn cpu_write(&mut self, address: u16, data: u8) {

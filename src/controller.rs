@@ -66,8 +66,4 @@ impl Controller {
     pub fn _get_reg_value(&self) -> u8{
         self.button.bits()
     }
-    // Sets or clears a button state based on input
-    pub fn set_button(&mut self, button: Buttons, pressed: bool) {
-        self.button.set(button, pressed);
-    }
 }

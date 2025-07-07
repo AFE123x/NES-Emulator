@@ -43,6 +43,7 @@ pub enum MirrorMode {
 
 /// Represents an NES cartridge, encapsulating PRG/CHR ROM and a memory mapper.
 /// Handles read/write operations from the CPU and PPU, mirroring, and mapper-specific IRQ behavior.
+
 pub struct Cartridge {
     _header: Header,
     prg_rom: Vec<u8>,
@@ -81,7 +82,7 @@ impl Cartridge {
         for i in 0..prg_rom_len {
             prg_rom[i] = buf[16 + training_data + i]
         }
-
+        
         let chr_rom: Vec<u8> = if chr_rom_size > 0 {
             let mut vec = vec![0; chr_rom_len];
             for i in 0..chr_rom_len {
@@ -107,7 +108,6 @@ impl Cartridge {
             _mapper: mapper,
             _four_screen: four_screen,
         };
-
         let mapper: Box<dyn Mapper> = match mapper {
             0 => Box::new(Mapper000 {
                 n_chr: chr_rom_size as u8,
