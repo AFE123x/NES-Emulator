@@ -280,7 +280,11 @@ impl Mapper for Mapper004 {
     }
 
     fn loadstate(&mut self) {
-        let file = rfd::FileDialog::new().set_title("Open save").pick_file().unwrap();
+        let file = rfd::FileDialog::new().set_title("Open save").pick_file();
+        let file = match file{
+            Some(t) => {t},
+            None => {return;}
+        };
         if let Ok(mut file) = File::open(file) {
             let _ = file.read(&mut self.ram);
         }

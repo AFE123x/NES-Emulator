@@ -198,14 +198,12 @@ impl Ppu {
         let x_pos = sprite.get_byte(3) as u16;
         let flip_horizontal = (attributes & 0x40) != 0;
         let flip_vertical = (attributes & 0x80) != 0;
-
-        if self.ppuctrl.contains(PPUCTRL::sprite_size) { //8 x 16
-            //println!("8 x 16 rendering");
-            let pattern_table_base: u16 = if tile_index & 0x01 != 0 {
+        let pattern_table_base: u16 = if tile_index & 0x01 != 0 {
                 0x1000
             } else {
                 0x0000
             };
+        if self.ppuctrl.contains(PPUCTRL::sprite_size) { //8 x 16
             let tile_number = tile_index & 0xFE;
             for tile_half in 0..2 {
                 let current_tile = if flip_vertical {
@@ -235,12 +233,6 @@ impl Ppu {
                 }
             }
         } else {
-            let pattern_table_base: u16 =
-                if self.ppuctrl.contains(PPUCTRL::sprite_pattern_table_address) {
-                    0x1000
-                } else {
-                    0x0000
-                };
             let tile_address = pattern_table_base + (tile_index * 16);
             for row in 0..8 {
                 let y_in_tile = if flip_vertical { 7 - row } else { row };
@@ -913,7 +905,6 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16, nametable_frame:
             }
         }
 
-        // Modified sprite rendering section - moved to the end of scanline
         if self.cycle_counter == 257 && self.scanline_counter >= 0 && self.scanline_counter < 240 {
             let current_scanline = self.scanline_counter as u16;
             let mut sprite_count = 0;
@@ -938,7 +929,7 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16, nametable_frame:
                     if sprite_count > 8 {
                         // Set overflow flag but keep checking for the rest of the sprites
                         self.ppustatus.set(PPUSTATUS::sprite_overflow_flag, true);
-                        break;
+                        // break;
                     }
                 }
             }
@@ -984,9 +975,9 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16, nametable_frame:
             //     }
             // }
             self.ppustatus.set(PPUSTATUS::vblank_flag, true);
-            if self.ppuctrl.contains(PPUCTRL::vblank_enable) {
+            //if self.ppuctrl.contains(PPUCTRL::vblank_enable) {
                 self.nmi = true;
-            }
+            //}
         }
         if self.scanline_counter == -1 && self.cycle_counter == 1 {
             self.scanline_counter = 0;

@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use bitflags::bitflags;
 
 // Define button mappings using bitflags
@@ -20,6 +22,7 @@ pub struct Controller {
     strobe: bool,    // Strobe signal for reading input
     index: u8,       // Current bit index for reading button states
     dataread: bool,
+
 }
 
 impl Controller {
@@ -51,6 +54,9 @@ impl Controller {
             self.dataread = true;
             return 1;
         } 
+        if self.index == 0{
+            self.button.set(Buttons::B,!self.button.contains(Buttons::B));
+        }
         let response = (self.button.bits() & (1 << self.index)) >> self.index;
         
         if !self.strobe && self.index <= 7 {

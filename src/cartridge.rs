@@ -101,6 +101,7 @@ impl Cartridge {
             1 => MirrorMode::Vertical,
             _ => unreachable!(),
         };
+        println!("{:?}",nametable_arrangement);
 
         let header = Header {
             _prg_rom_size: prg_rom_size as u8,

@@ -29,8 +29,12 @@ pub struct Bus {
 impl Bus {
     /// Constructs a new `Bus` with all components unlinked and RAM initialized to zero.
     pub fn new(ppu: Rc<RefCell<Ppu>>) -> Self {
+        let mut memory = vec![0; 2048];
+        for i in &mut memory{
+            *i = rand::random_range(0..=255);
+        }
         Self {
-            memory: vec![0; 2048],
+            memory,
             cartridge: None,
             controller1: None,
             controller2: None,
