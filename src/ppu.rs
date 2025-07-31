@@ -975,9 +975,9 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16, nametable_frame:
             //     }
             // }
             self.ppustatus.set(PPUSTATUS::vblank_flag, true);
-            //if self.ppuctrl.contains(PPUCTRL::vblank_enable) {
+            if self.ppuctrl.contains(PPUCTRL::vblank_enable) {
                 self.nmi = true;
-            //}
+           }
         }
         if self.scanline_counter == -1 && self.cycle_counter == 1 {
             self.scanline_counter = 0;

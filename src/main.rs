@@ -140,7 +140,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let _cycles_left = cpu.clock();
         // Call dmc_clock for every CPU cycle
         apu.borrow_mut().dmc_clock();
-        bus.cpu_write(0xAA, 0x13);
+        //bus.cpu_write(0xAA, 0x13);
         //bus.cpu_write(0x32, 0xff);
         controller
             .borrow_mut()
