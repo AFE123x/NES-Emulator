@@ -31,7 +31,6 @@ pub struct Ppu {
     cart: Rc<RefCell<Cartridge>>,
     palette_memory: Vec<u8>,
     system_palette: Vec<(u8, u8, u8)>,
-    palette_num: u8,
     cycle_counter: u16,
     scanline_counter: i16,
 
@@ -157,7 +156,6 @@ impl Ppu {
             cart: cartridge,
             palette_memory: pal,
             system_palette: Ppu::initialize_system_palette(),
-            palette_num: 0,
             cycle_counter: 0,
             scanline_counter: 0,
             total_cycles: 0,
@@ -286,32 +284,6 @@ impl Ppu {
         let color_index = self.ppu_read(palette_addr);
         let safe_index = (color_index & 0x3F) as usize;
         self.system_palette[safe_index]
-    }
-    ///# `get_pattern_table(frame)`
-    /// - draws the pattern table to frame
-    pub fn get_pattern_table(&mut self, frame: &mut Frame) {
-        for coarse_y in 0..0x10 {
-            for coarse_x in 0..0x20 {
-                let pattern_address = if coarse_x >= 0x10 { 0x1000 } else { 0 };
-                let nametable_location = coarse_y << 4 | (coarse_x & 0xF);
-                for fine_y in 0..8 {
-                    let address = pattern_address | (nametable_location << 4) | fine_y;
-                    let mut pattern_lo = self.ppu_read(address);
-                    let mut pattern_hi = self.ppu_read(address + 8);
-                    for fine_x in 0..8 {
-                        let bitlo = if pattern_lo & 0x80 > 0 { 1 } else { 0 };
-                        let bithi = if pattern_hi & 0x80 > 0 { 1 } else { 0 };
-                        let pattern_number = (bitlo << 1) | bithi;
-                        let x = (coarse_x << 3) + fine_x;
-                        let y = (coarse_y << 3) + fine_y;
-                        let color = self.get_bgpalette(self.palette_num, pattern_number);
-                        frame.drawpixel(x + 256, y, color);
-                        pattern_lo <<= 1;
-                        pattern_hi <<= 1;
-                    }
-                }
-            }
-        }
     }
     ///# `ppu_read(address)`
     /// - handle ppu reads.

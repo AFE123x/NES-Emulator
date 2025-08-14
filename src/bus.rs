@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{apu::Apu, cartridge::Cartridge, controller::Controller, ppu::Ppu};
+use crate::{cartridge::Cartridge, controller::Controller, ppu::Ppu};
 
 /// The `Bus` struct acts as the central communication layer connecting the CPU
 /// to the various subsystems in the NES emulator, including RAM, the cartridge,
@@ -21,9 +21,6 @@ pub struct Bus {
     controller1state: bool,
     /// Second controller, typically for player 2.
     controller2: Option<Rc<RefCell<Controller>>>,
-
-    /// The APU (Audio Processing Unit), handles sound and related I/O registers.
-    apu: Option<Rc<RefCell<Apu>>>,
 }
 
 impl Bus {
@@ -39,7 +36,6 @@ impl Bus {
             controller1: None,
             controller2: None,
             ppu: ppu,
-            apu: None,
             controller1state: false,
         }
     }
@@ -47,11 +43,6 @@ impl Bus {
     /// Links a cartridge to the bus, allowing CPU access to PRG-ROM and other mapper-controlled behavior.
     pub fn link_cartridge(&mut self, cart: Rc<RefCell<Cartridge>>){
         self.cartridge = Some(cart);
-    }
-
-    /// Links the APU to the bus for handling audio register access.
-    pub fn link_apu(&mut self, apu: Rc<RefCell<Apu>>){
-        self.apu = Some(apu);
     }
 
     /// Links controller 1 to the bus.
@@ -84,11 +75,6 @@ impl Bus {
         } else if address <= 0x4017 {
             match address {
                 0x4000..=0x4013 | 0x4015 => {
-                    if let Some(apu) = &self.apu {
-                        data = apu.borrow_mut().cpu_read(address);
-                    } else {
-                        panic!("APU Error");
-                    }
                 },
                 0x4016 => {
                     if let Some(controller) = &self.controller1 {
@@ -136,11 +122,7 @@ impl Bus {
         } else if address <= 0x4017 {
             match address {
                 0x4000..=0x4013 | 0x4015 | 0x4017 => {
-                    if let Some(apu) = &self.apu {
-                        apu.borrow_mut().cpu_write(address, byte);
-                    } else {
-                        panic!("APU Error");
-                    }
+                    
                 },
                 0x4014 => {
                     // Perform OAM DMA transfer from page in memory to PPU OAM

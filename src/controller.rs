@@ -1,5 +1,3 @@
-use std::sync::{Arc, Mutex};
-
 use bitflags::bitflags;
 
 // Define button mappings using bitflags
