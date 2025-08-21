@@ -11,7 +11,7 @@ use minifb::{Window, WindowOptions};
 use ppu::{frame::Frame, Ppu};
 use std::cell::RefCell;
 use std::error::Error;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::Duration;
 use std::{rc::Rc, time::Instant};
@@ -45,7 +45,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut bus = Bus::new(Rc::clone(&ppu));
     let controller = Rc::new(RefCell::new(controller::Controller::new()));
     let controller2 = Rc::new(RefCell::new(controller::Controller::new()));
-    let apu: Rc<RefCell<Apu>> = Rc::new(RefCell::new(Apu::new()));
+    let activate = Arc::new((Mutex::new(false), Condvar::new()));
+    let apu: Rc<RefCell<Apu>> = Rc::new(RefCell::new(Apu::new(activate.clone())));
     bus.link_cartridge(Rc::clone(&cartridge));
     bus.link_apu(Rc::clone(&apu));
     bus.link_controller1(Rc::clone(&controller));
@@ -64,7 +65,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     } else {
         WindowOptions {
-            resize: true,
+            resize: false,
             scale: Scale::X4,
             ..Default::default()
         }
@@ -78,7 +79,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     } else {
         Window::new("NES Emulator - FPS: ", 255, 240, windowoption)
     }?;
-    window.set_target_fps(59);
+    // window.set_target_fps(59);
     let button_state = Arc::clone(&byte);
     let game_running = Arc::clone(&gamecont);
     let clonesave = saverom.clone();
@@ -173,7 +174,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 frame_count = 0;
                 last_time = Instant::now();
             }
-
+            let (lock, cvar) = &*activate;
+            let mut go = lock.lock().unwrap();
+            while !*go{
+                go = cvar.wait(go).unwrap();
+            }
+            *go = false;
             if debugmode {
                 ppu.borrow_mut().get_pattern_table(&mut game_frame);
                 window.update_with_buffer(game_frame.get_buf().as_slice(), 512, 240)?;
