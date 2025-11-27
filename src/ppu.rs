@@ -7,6 +7,7 @@ use std::rc::Rc;
 
 use crate::ppu::oam::Oam;
 use frame::Frame;
+use log::info;
 use registers::{VtReg, PPUCTRL, PPUMASK, PPUSTATUS};
 
 use crate::cartridge::{Cartridge, MirrorMode};
@@ -809,6 +810,7 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16, nametable_frame:
                 match (self.cycle_counter - 1) % 8 {
                     0 => {
                         self.loadregisters();
+                        info!("attribute hi: {:08b}, lo: {:08b}, pattern hi: {:08b}, lo: {:08b} cycle {} scanline {}", self.attribute_hi_shift_register, self.attribute_lo_shift_register, self.pattern_hi_shift_register, self.pattern_lo_shift_register, self.cycle_counter, self.scanline_counter);
                         self.next_nametable_tile =
                             self.ppu_read(self.v.get_nametable_address()) as u16;
                     }
@@ -828,6 +830,7 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16, nametable_frame:
                             self.next_attribute_tile >>= 2;
                         }
                         self.next_attribute_tile &= 3;
+                        info!("Next Attribute Tile: {:02X} cycle {} scanline {}", self.next_attribute_tile, self.cycle_counter, self.scanline_counter);
                     }
                     3 => {}
                     4 => {
@@ -839,6 +842,7 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16, nametable_frame:
                         } else {
                             0x00
                         };
+                        info!("Next Attribute Lo: {:02X} cycle {} scanline {}", self.next_attribute_lo, self.cycle_counter, self.scanline_counter);
                     }
                     5 => {}
                     6 => {
@@ -850,6 +854,7 @@ pub fn render_88_sprite(&mut self, index: usize, scanline: u16, nametable_frame:
                         } else {
                             0x00
                         };
+                        info!("Next Attribute Hi: {:02X} cycle {} scanline {}", self.next_attribute_hi, self.cycle_counter, self.scanline_counter);
                     }
                     7 => {
                         self.increment_x();

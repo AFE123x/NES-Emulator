@@ -3,7 +3,6 @@
 pub struct Frame {
     buffer: Vec<u32>, // Stores pixel data in row-major order (0xRRGGBB format).
     width: u16,       // Width of the frame in pixels.
-    height: u16,      // Height is currently unused, but could be stored if needed.
 }
 
 impl Frame {
@@ -13,11 +12,7 @@ impl Frame {
         Self {
             buffer: vec![0; width as usize * height as usize],
             width,
-            height,
         }
-    }
-    pub fn getdim(&self) -> (u16, u16) {
-        (self.width, self.height)
     }
 
     /// Draws a single pixel at coordinates (x, y) with the given RGB color.

@@ -6,6 +6,7 @@ use clap::Parser;
 use cpu::Cpu;
 use device_query::Keycode;
 use device_query::{DeviceQuery, DeviceState};
+use flexi_logger::{Logger, WriteMode};
 use minifb::Scale;
 use minifb::{Window, WindowOptions};
 use ppu::{frame::Frame, Ppu};
@@ -27,11 +28,14 @@ mod cpu;
 mod ppu;
 
 fn main() -> Result<(), Box<dyn Error>> {
+    Logger::try_with_env()
+        .unwrap()
+        .write_mode(WriteMode::BufferAndFlush) // <- background thread
+        .start()
+        .unwrap();
     let gamecont: Arc<Mutex<bool>> = Arc::new(Mutex::new(true));
     let vec = Args::parse();
-    // println!("hello {}",vec.rom);
-    // println!("id is {}",vec.id);
-    let debugmode = false; //vec.debug;
+    let debugmode = !vec.debug;
     let byte = Arc::new(Mutex::new(0u8));
     /* Initialize peripherals */
     let cartridge = Rc::new(RefCell::new(Cartridge::new(&vec.rom)));
