@@ -1,13 +1,3 @@
 target/
 .DS_Store
 .vscode/
-helper/
-.roms/
-zelda.save
-zeldabackup.nes
-output.txt
-dissas/
-reference_code/notes.md
-nestest.nes
-nes6502/
-zelda2.save
