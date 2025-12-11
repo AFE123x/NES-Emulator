@@ -225,9 +225,4 @@ impl Cartridge {
     pub fn savestate(&mut self) {
         self.mapper.savestate();
     }
-
-    /// Loads the internal state of the mapper (useful for restoring emulator save states).
-    pub fn load(&mut self) {
-        self.mapper.loadstate();
-    }
 }

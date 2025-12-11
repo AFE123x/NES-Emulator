@@ -1,4 +1,3 @@
-use crate::bus::Bus;
 use rodio::{OutputStream, Sink, Source};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
@@ -158,7 +157,6 @@ struct PulseWaveSource {
     pulse2_sweep_unit: Option<Arc<Mutex<SweepUnit>>>,
     pulse1_timer: Option<Arc<Mutex<u16>>>,
     pulse2_timer: Option<Arc<Mutex<u16>>>,
-    channel_id: u8,
     length_counters: Option<(
         Arc<SoundChannel>,
         Arc<SoundChannel>,
@@ -192,7 +190,6 @@ impl PulseWaveSource {
             pulse2_sweep_unit: Some(pulse2_sweep_unit),
             pulse1_timer: Some(pulse1_timer),
             pulse2_timer: Some(pulse2_timer),
-            channel_id: 1,
             length_counters: Some(length_counters),
         }
     }
@@ -208,7 +205,6 @@ impl PulseWaveSource {
             pulse2_sweep_unit: None,
             pulse1_timer: None,
             pulse2_timer: None,
-            channel_id: 2,
             length_counters: None,
         }
     }
@@ -608,7 +604,6 @@ impl Apu {
         let pulse1_duty = Arc::clone(&self.pulse1_duty);
         let pulse2_duty = Arc::clone(&self.pulse2_duty);
         let noise_mode = Arc::clone(&self.noise_mode);
-        let mute = Arc::clone(&self.mute);
 
         let pulse1_sweep_unit = Arc::clone(&self.pulse1_sweep_unit);
         let pulse2_sweep_unit = Arc::clone(&self.pulse2_sweep_unit);

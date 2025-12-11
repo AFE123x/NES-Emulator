@@ -180,12 +180,6 @@ impl Ppu {
         }
     }
 
-    ///# `set_bg_palette_num()`
-    /// Toggles the pallette table for debugging pattern table
-    pub fn set_bg_palette_num(&mut self) {
-        self.palette_num = (self.palette_num + 1) & 0xF;
-    }
-
     /// # `oam_dma_write(address, data)`
     /// Copies byte from cpu memory to object-attribute memory
     pub fn oam_dma_write(&mut self, address: u8, data: u8) {

@@ -1,5 +1,3 @@
-use std::{fs::File, io::Read};
-
 use super::{mapper::Mapper, MirrorMode};
 
 pub struct Mapper004 {
@@ -277,12 +275,5 @@ impl Mapper for Mapper004 {
         let mut file = File::create(file).unwrap();
 
         file.write_all(&self.ram).unwrap();
-    }
-
-    fn loadstate(&mut self) {
-        let file = rfd::FileDialog::new().set_title("Open save").pick_file().unwrap();
-        if let Ok(mut file) = File::open(file) {
-            let _ = file.read(&mut self.ram);
-        }
     }
 }

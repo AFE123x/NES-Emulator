@@ -249,20 +249,6 @@ impl Mapper for Mapper001 {
         file.write_all(&self.ram).unwrap();
     }
 
-    /// Loads the 8KB SRAM contents from a file chosen by the user.
-    ///
-    /// Uses a GUI file picker to load a previous save file.
-    fn loadstate(&mut self) {
-        let file = rfd::FileDialog::new().set_title("Open save").pick_file();
-        let file = match file {
-            Some(file) => file,
-            None => return,
-        };
-        if let Ok(mut file) = File::open(file) {
-            let _ = file.read(&mut self.ram);
-        }
-    }
-
     /// Returns false; MMC1 does not support IRQs.
     fn hasirq(&mut self) -> bool {
         false

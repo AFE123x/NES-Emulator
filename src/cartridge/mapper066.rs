@@ -79,10 +79,6 @@ impl Mapper for Mapper066 {
         // Implementation depends on your savestate system
     }
 
-    fn loadstate(&mut self) {
-        // Implementation depends on your savestate system  
-    }
-
     fn hasirq(&mut self) -> bool {
         false
     }

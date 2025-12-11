@@ -50,10 +50,6 @@ impl Mapper for Mapper003{
         panic!("save not available on mapper 3");
     }
 
-    fn loadstate(&mut self) {
-        panic!("load not available for mapper 3")
-    }
-    
     fn hasirq(&mut self) -> bool {
         return false;
     }

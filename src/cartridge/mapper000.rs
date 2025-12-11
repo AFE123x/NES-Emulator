@@ -51,10 +51,7 @@ impl Mapper for Mapper000{
         panic!("mapper 000 doesn't have prg-ram");
     }
     
-    fn loadstate(&mut self) {
-        panic!("mapper 001 doesn't have prg-ram");
-    }
-    
+
     fn hasirq(&mut self) -> bool {
         return false;
     }
