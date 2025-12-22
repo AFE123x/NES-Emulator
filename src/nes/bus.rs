@@ -9,11 +9,13 @@ impl Bus {
         }
     }
 
-    pub fn read(&self, addr: usize) -> u8 {
-        self.ram[addr]
+    pub fn cpu_read(&self, addr: u16) -> Option<u8> {
+        let val = self.ram[addr as usize];
+        Some(val)
     }
 
-    pub fn write(&mut self, addr: usize, data: u8) {
-        self.ram[addr] = data;
+    pub fn cpu_write(&mut self, addr: u16, data: u8) -> bool {
+        self.ram[addr as usize] = data;
+        true
     }
 }
