@@ -1,3 +1,7 @@
+# note: this project is deprecated
+
+I wrote this emulator almost two years ago, and of all the projects I’ve worked on, it’s my pride and joy. I learned Rust through this project, and it was definitely valuable to have on my résumé. I like to think of myself as having a “pre-internship” and “post-internship” phase. The Pre-internship me built this without much consideration for standard software engineering practices—clean commit history, robust logging, or effective debugging infrastructure. I later tried to add logging to the project, but by then it wasn’t practical; it felt like trying to put out a forest fire with a glass of water. For that reason, I’m officially declaring this project **deprecated**. The emulator still works, but it lacks DMC channel support, and there’s a known PPU bug where the leftmost eight columns render incorrectly. If you’d like, feel free to fork and build on this codebase—but be warned, it won’t be easy.
+
 <h1 align="center">NES Emulator</h1>
 
 
